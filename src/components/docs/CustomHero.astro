@@ -1,0 +1,372 @@
+---
+---
+<div class="custom-hero">
+  <div class="canvas-container">
+    <canvas id="c"></canvas>
+  </div>
+  
+  <p class="hero-tagline">PHP 8.5+ micro-framework — minimal core, zero magic, snake_case everything. Docs that work as well for your AI agent as they do for you.</p>
+  
+  <div class="hero-actions">
+    <a href="/api/" class="btn-primary">API Reference</a>
+    <a href="https://github.com/skim-framework/skim" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+      GitHub
+      <svg class="external-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M10 6V8H5V19H14V14H16V19C16 20.1 15.1 21 14 21H5C3.9 21 3 20.1 3 19V8C3 6.9 3.9 6 5 6H10ZM21 3V11H19V6.41L11.71 14.21L10.29 12.79L17.59 5H13V3H21Z" />
+      </svg>
+    </a>
+  </div>
+</div>
+
+<style>
+  .custom-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 1.5rem;
+    margin-top: -2rem;
+    width: 100%;
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .canvas-container {
+    width: 100%;
+    max-width: 1000px;
+    height: 320px;
+    position: relative;
+    margin-bottom: 2.5rem;
+    overflow: hidden;
+  }
+
+  #c {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+
+  .hero-title {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--sl-color-white);
+    margin-bottom: 1.5rem;
+    font-family: var(--sl-font-heading);
+  }
+
+  .hero-tagline {
+    font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+    line-height: 1.5;
+    color: var(--sl-color-gray-2);
+    max-width: 48rem;
+    margin-bottom: 2.5rem;
+    font-weight: 400;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 1.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 999px;
+    background: var(--sl-color-accent-high);
+    color: #ffffff !important;
+    text-decoration: none !important;
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+
+  :global([data-theme="light"]) .btn-primary {
+    background: var(--sl-color-accent) !important;
+    color: #ffffff !important;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.15);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 999px;
+    background: var(--sl-color-gray-6);
+    color: #ffffff !important;
+    border: 1px solid var(--sl-color-gray-5);
+    text-decoration: none !important;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  :global([data-theme="light"]) .btn-secondary {
+    background: var(--sl-color-gray-6) !important;
+    color: var(--sl-color-gray-1) !important;
+    border: 1px solid var(--sl-color-gray-4) !important;
+  }
+
+  .btn-secondary:hover {
+    transform: translateY(-2px);
+    background: var(--sl-color-gray-5);
+  }
+
+  :global([data-theme="light"]) .btn-secondary:hover {
+    background: var(--sl-color-gray-5) !important;
+  }
+
+  .external-icon {
+    opacity: 0.75;
+  }
+</style>
+
+<script>
+const ASCII = `                                      v    v v     v v  v vv    vvvv  v v    v v v    v   vv  v
+                                    v  v                       vv        v         v        v     v
+                               v          vv  v vv v  vvv vvvvvv vvvv  vv vv    vvvv v          v  v    v
+                       v v vvv v vv v  vv v  vvvv vvvvvvvv vv rvvvvvvvr vv vvvrv v  v  v v vrvvv v  v    v
+                 v  v  vv         vvvvvvvvvrvvvvvvrrrvr  v  vvrvrvvvvvv  vvvrv vv vvrrvvrvvvvv vvvvv vv v   v
+               v   v    v vv vvvvv   vvvv        vrvv iNIEIIId vrmrr v0IIINd vrrrmrvv         vv vv  v            v
+            vr vv rvvvvrvrvvvvvvrrmrmrvv0IIIEEEII1vvWIE      EI6 mvmWIA    EIWmmrmrrdIIIIEEIIRrvvvvmvrrrvvrrvvvvr v     v
+      v v vvv rv v             vvrmrrrvRI        EINE          ImrmIA        Idmmm NE        1II6vrrvrvrrvv       vvv vv
+         vvv     dIIIIEEEEEEIIEId rrrrNA          EA           E0rWE         AIvmWIA            IRvrrmrv  iIIIIII0   vvv
+    vv  vv v dIIIA              INimrmI           E            A60E           ErvI               ANirrrRIIE      IEI1  v r v   v
+     v vvv dIE                   ERmdIA          AE            AdrE           EiIA                ARWIIA            AIvvvvv v
+   vvvvvv WE                      EmmI           E             EimE           EiI                  EE                ANvvvvv v v
+ v vvvvvr1E                       EmmE           E             Ii1A           EIA                   E                 Evrvvv
+   vvvvvrI                        EmiE           A            ENvNA           EI                    E                 Emvrvr v
+  vv vvrrE           AEEEEEEEEEEAAIirI                       ANidI            EE                    E                 Errr vvv
+   vvvvvvI                        EIRI                       INvmE            E                     E                 Im m vvv
+v  vvvrrrIR                         EIA                       EImE            E                     E                 Errrvv  v
+   vvrvvriI                          AE                        ANI            E              A                        Ivrvvrv   v
+  v vvvmv WE                          A             AA          AE            A             1E                       A1vvvr  vv
+v   vvv mrv1IE                                       E           E                          AA          NA           Ivrvr vvv  v
+    vvvvmvrv dIEEEANrREAEEA            I            dE           A           A              I           AW          AIvvrvvv
+ v  vvvvvvmrvNA                        A            AA                       E             AA           I           Emvrvrv vv
+      vvrvrrrE                         E            I            AA          E             E           AE           Ivvm rv
+     v vvvvvmA                        AIE          AIIA          II         EIE           E            E           Edrrrv  v
+       v vrrvE                       ANiNE        AImrNIE      EEIRIA      EIiNE        AIA           E           EWvrrvvr v v
+      vv rvrvNA                    NIN vr6IEEAAEEI1vvrrv0IIIIII6vv r6IIEIEI0vvrWIIEEEEEIW I         EI           AWvvvvv  v
+     v v vvvv 6I                dEIImvmmmrv      vrrrrrrrvvv vvvvrrrv  v vvrmrvrv      vrr1IIA   AEIWRA         EW vvvvv
+      v  vvvv  dRIEEAANRAAEEEEIINm vrrmrrrrrrrrvvrvrvvvvrvvrrvrrvrvrvvrvvvvvrrrvrrrrrrrrrvrv iNINm vvvRIA     EI6 vvvvv
+           v v v     m00mv    vvrvvrrrvvrvv  vvvvv  v vvv v vv vvv vvvv r vvvvvvv v  vvvvvvrrv vvrvrrrv 0IIIII0  vvr
+              vvvrvvvv vvvvvrvvvvvvvvvv vvvvvv v r rvv  vvv v        v  vvv vv vvvvvrv r rv  rvvvvvrrvv v      v  v  v  v
+                  v  vvv vv   vvv vvv  vv    v                vvv  v  v         v v   v    vv vv vv vvvvrvvv   v
+                      v v  vvv   vv         v    vvvvvvv         v     v vv vvv         v       v   v        v
+          v                         v     v                                        vvv
+                                  v v                                                         v    v`;
+
+const canvas = document.getElementById('c') as HTMLCanvasElement;
+if (canvas) {
+  const ctx = canvas.getContext('2d')!;
+  const FONT = 7.5;
+  const LHEIGHT = 9.2;
+  const CW = FONT * 0.6;
+
+  const POOL_SUBTLE = 'rvmidIEANW01'.split('');
+  const POOL_MID    = 'rvmidIEANW0163|/\\!?$%#@*'.split('');
+  const POOL_WILD   = '░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀▄■□▪▫'.split('').concat(POOL_MID);
+
+  let W, H, particles: any[] = [], frame = 0, mouse = {x:-9999,y:-9999};
+  let chaosLevel = 0.10;
+  const startTime = performance.now();
+
+  function charColor(ch: string, isLight: boolean) {
+    if (isLight) {
+      if ('IEWANM0dmi16'.includes(ch)) return [10, 45, 140, 1.0];    // Premium dark navy blue for main characters
+      if ('Rr'.includes(ch))           return [50, 90, 180, 0.85];   // Royal blue
+      if ('m'.includes(ch))            return [70, 120, 240, 0.75];  // Classic blue
+      if ('v'.includes(ch))            return [100, 150, 255, 0.55]; // Medium blue
+      return [180, 200, 255, 0.35];                                  // Soft blue tint
+    } else {
+      if ('IEWANM0dmi16'.includes(ch)) return [255, 255, 255, 1.0];
+      if ('Rr'.includes(ch))           return [180, 220, 255, 0.85];
+      if ('m'.includes(ch))            return [140, 190, 255, 0.75];
+      if ('v'.includes(ch))            return [70,  130, 255, 0.55];
+      return [50, 90, 200, 0.35];
+    }
+  }
+
+  function buildParticles() {
+    particles = [];
+    const lines = ASCII.split('\n');
+    const totalW = Math.max(...lines.map(l => l.length)) * CW;
+    const totalH = lines.length * LHEIGHT;
+    const ox = (W - totalW) / 2;
+    const oy = (H - totalH) / 2;
+    lines.forEach((line, row) => {
+      for (let col = 0; col < line.length; col++) {
+        const ch = line[col];
+        if (ch === ' ') continue;
+        const tx = ox + col * CW;
+        const ty = oy + row * LHEIGHT;
+        const cDark = charColor(ch, false);
+        const cLight = charColor(ch, true);
+        particles.push({
+          ch,
+          disp: ch,
+          tx, ty,
+          x: tx, y: ty,
+          cDark,
+          cLight,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.5 + Math.random() * 2,
+          morphTimer: Math.random() * 200,
+          morphing: false,
+          morphChar: ch,
+          flashAlpha: 0,
+          noiseOff: Math.random() * 1000,
+        });
+      }
+    });
+  }
+
+  function resize() {
+    const container = canvas.parentElement!;
+    W = container.offsetWidth;
+    H = 320;
+    canvas.width = W;
+    canvas.height = H;
+    buildParticles();
+  }
+
+  window.addEventListener('resize', resize);
+  canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left;
+    mouse.y = e.clientY - r.top;
+  });
+  canvas.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
+
+  function smoothNoise(idx: number, t: number, freq: number) {
+    return Math.sin(idx * 0.31 + t * freq) * Math.cos(idx * 0.17 + t * freq * 0.7);
+  }
+
+  function pickMorphChar(chaos: number) {
+    if (chaos < 0.25) return POOL_SUBTLE[Math.floor(Math.random() * POOL_SUBTLE.length)];
+    if (chaos < 0.6)  return POOL_MID[Math.floor(Math.random() * POOL_MID.length)];
+    return POOL_WILD[Math.floor(Math.random() * POOL_WILD.length)];
+  }
+
+  function draw() {
+    requestAnimationFrame(draw);
+    ctx.clearRect(0, 0, W, H);
+    frame++;
+
+    const t = frame * 0.016;
+    const t_sec = (performance.now() - startTime) / 1000;
+
+    // Start at 10% (0.10) slowly increasing to 50% (0.50) and back in 60s (30s up, 30s down)
+    chaosLevel = 0.30 - 0.20 * Math.cos(t_sec * (2 * Math.PI / 60));
+
+    const avgInterval = Math.max(2, 300 * Math.pow(1 - chaosLevel, 2.5));
+
+    particles.forEach((p, i) => {
+      // Straight positioning with a tiny organic mouse nudge
+      const dx = mouse.x - p.tx;
+      const dy = mouse.y - p.ty;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      let ox = 0, oy = 0;
+      let particleChaos = chaosLevel;
+      if (dist < 80) {
+        const f = (80 - dist) / 80;
+        ox = -dx * f * 0.12;
+        oy = -dy * f * 0.12;
+        // Peak at 96% local chaos inside the mouse circle
+        particleChaos = Math.max(chaosLevel, 0.96 * f);
+      }
+      p.x = p.tx + ox;
+      p.y = p.ty + oy;
+
+      // Accelerate morphing transition frequencies by 3x inside the mouse circle
+      let localInterval = Math.max(2, 300 * Math.pow(1 - particleChaos, 2.5));
+      if (dist < 80) {
+        localInterval = Math.max(2, localInterval / 3);
+      }
+
+      // Morphing logic
+      p.morphTimer--;
+      if (p.morphTimer <= 0) {
+        const localChaos = Math.min(1, particleChaos + smoothNoise(i, t, 0.3) * 0.25 * particleChaos);
+        if (Math.random() < localChaos * 0.85) {
+          p.morphing = true;
+          p.morphChar = pickMorphChar(localChaos);
+          p.flashAlpha = 1.0;
+          const chainChance = particleChaos > 0.6 ? (particleChaos - 0.6) * 1.5 : 0;
+          if (Math.random() < chainChance) {
+            p.morphTimer = 3 + Math.random() * 8;
+          } else {
+            p.morphTimer = localInterval * (0.5 + Math.random());
+          }
+        } else {
+          p.morphing = false;
+          p.disp = p.ch;
+          p.morphTimer = localInterval * (0.3 + Math.random() * 0.7);
+        }
+      }
+
+      if (p.morphing) {
+        p.flashAlpha *= 0.88;
+        p.disp = p.morphChar;
+        if (p.flashAlpha < 0.05) {
+          if (particleChaos < 0.4 || Math.random() > particleChaos * 0.5) {
+            p.disp = p.ch;
+            p.morphing = false;
+          }
+        }
+      } else {
+        p.disp = p.ch;
+      }
+
+      const wavePulse = 0.85 + 0.15 * Math.sin(t * 1.4 + p.phase + p.tx * 0.009);
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      const [r, g, b, a] = isLight ? p.cLight : p.cDark;
+
+      if (p.morphing && p.flashAlpha > 0.05) {
+        const fi = p.flashAlpha;
+        let fr, fg, fb;
+        if (isLight) {
+          // Flash toward a dark vibrant blue/purple in light mode
+          fr = Math.round(r + (120 - r) * fi);
+          fg = Math.round(g + (30 - g) * fi);
+          fb = Math.round(b + (220 - b) * fi);
+        } else {
+          // Dark mode: Flash toward bright white/cyan
+          fr = Math.round(r + (255 - r) * fi * 0.7);
+          fg = Math.round(g + (255 - g) * fi * 0.9);
+          fb = Math.round(b + (255 - b) * fi * 0.6);
+        }
+        ctx.globalAlpha = Math.min(1, a * wavePulse + fi * 0.5);
+        ctx.font = `${FONT}px monospace`;
+        ctx.fillStyle = `rgb(${fr},${fg},${fb})`;
+        ctx.fillText(p.disp, p.x, p.y);
+      } else {
+        ctx.globalAlpha = a * wavePulse;
+        ctx.font = `${FONT}px monospace`;
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillText(p.disp, p.x, p.y);
+      }
+    });
+
+    ctx.globalAlpha = 1;
+  }
+
+  resize();
+  draw();
+}
+</script>

@@ -1,0 +1,37 @@
+---
+title: DI Container & Scopes
+description: Direct Dependency Injection and State Scopes in SKIM.
+---
+
+SKIM includes a lightweight and highly optimized dependency injection (DI) container supporting both explicit bindings and reflection-based auto-wiring.
+
+### Auto-Wiring & Singletons
+
+By default, objects resolved through the container are treated as singletons. When you request a class, SKIM automatically inspects its constructor, recursively resolves its dependencies, instantiates it, and caches the instance for subsequent resolutions.
+
+```php
+// Resolving an instance explicitly
+$mailer = App::make(Mailer::class);
+```
+
+### State Scopes
+
+To keep the framework memory-leak free and easy to test, variables and bindings are separated into three distinct scopes:
+
+| Scope Prefix | Name | Description |
+| :--- | :--- | :--- |
+| `sys.*` | System Scope | Bootstrapped framework-level classes (e.g., Router, DB). Locked once booted. |
+| `app.*` | Application Scope | Immutable configuration options loaded during boot. |
+| `user.*` or bare | Request/User Scope | Per-request mutable state and services. Safely cleared between request loops. |
+
+### Reading and Writing Scopes
+
+```php
+// Bind a value to the request/user scope
+App::set('user.current_tenant', $tenantId);
+
+// Resolve scoped values
+$tenantId = App::get('user.current_tenant');
+```
+
+Use `user.*` prefixes or bare keys for anything that changes per request. This guarantees that your background workers and long-running processes (like Octane/RoadRunner/Swoole or CLI queue listeners) do not pollute state across executions.

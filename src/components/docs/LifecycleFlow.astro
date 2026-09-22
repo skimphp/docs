@@ -1,0 +1,30 @@
+---
+---
+<div class="lifecycle-flow not-content">
+  <slot />
+</div>
+
+<style>
+  .lifecycle-flow {
+    background: var(--docs-bg-surface);
+    border: 0.5px solid var(--docs-border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin: 1rem 0 1.75rem;
+    font-family: var(--sl-font-mono);
+    font-size: 12px;
+    line-height: 2.15;
+    overflow-x: auto;
+  }
+  .lifecycle-flow :global(pre) {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .lifecycle-flow :global(.line) { color: var(--docs-lc-comment); }
+  .lifecycle-flow :global(.line .n),
+  .lifecycle-flow :global(.line .nf) { color: var(--docs-lc-fn); }
+  .lifecycle-flow :global(.line .o) { color: var(--docs-lc-arrow); }
+  .lifecycle-flow :global(.line .nv) { color: var(--docs-lc-method); }
+</style>

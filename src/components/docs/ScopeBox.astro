@@ -1,0 +1,94 @@
+---
+interface Props {
+  name: string;
+  mutable?: boolean;
+  immutable?: boolean;
+}
+
+const { name, mutable, immutable } = Astro.props;
+
+const iconMap: Record<string, string> = {
+  array:    'ti-database',
+  file:     'ti-file',
+  redis:    'ti-server',
+  queue:    'ti-stack',
+  memcache: 'ti-cpu',
+  sqlite:   'ti-database-cog',
+};
+const icon = iconMap[name] ?? 'ti-box';
+---
+<div class={`scope-box scope-box--${name} not-content`}>
+  <div class="scope-box__header">
+    <span class="scope-box__name">
+      <i class={`ti ${icon} scope-box__icon scope-box__icon--${name}`} aria-hidden="true"></i>
+      {name}
+    </span>
+    {immutable !== undefined && <span class="scope-box__mutable scope-box__mutable--immutable">immutable</span>}
+    {immutable === undefined && mutable !== undefined && <span class="scope-box__mutable">mutable</span>}
+  </div>
+  <div class="scope-box__body"><slot /></div>
+</div>
+
+<style>
+  .scope-box {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch !important;
+    background: var(--docs-bg-surface);
+    border: 0.5px solid var(--docs-border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin: 0 !important;
+    transition: border-color 0.15s;
+  }
+  .scope-box:hover { border-color: var(--docs-border-strong); }
+
+  .scope-box__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .scope-box__name {
+    font-family: var(--sl-font-mono);
+    font-size: 12.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--docs-text-primary);
+  }
+  .scope-box__icon { font-size: 15px; }
+  .scope-box__icon--array  { color: var(--docs-icon-array); }
+  .scope-box__icon--file   { color: var(--docs-icon-file); }
+  .scope-box__icon--redis  { color: var(--docs-icon-redis); }
+
+  .scope-box__mutable {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--docs-mutable-bg);
+    color: var(--docs-mutable-fg);
+    border: 0.5px solid var(--docs-mutable-bd);
+  }
+  .scope-box__mutable--immutable {
+    background: var(--docs-tag-required-bg);
+    color: var(--docs-tag-required-fg);
+    border-color: var(--docs-tag-required-bd);
+  }
+  .scope-box__body {
+    flex: 1;
+    font-size: 12px;
+    color: var(--docs-text-secondary);
+    line-height: 1.55;
+  }
+  .scope-box__body :global(code) {
+    font-family: var(--sl-font-mono);
+    font-size: 11px;
+    background: var(--docs-bg-elevated);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--docs-syn-keyword);
+  }
+</style>

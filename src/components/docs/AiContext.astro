@@ -1,0 +1,119 @@
+---
+const { open } = Astro.props;
+---
+<details class="ai-ctx not-content" {...open !== undefined ? { open: true } : {}}>
+  <summary class="ai-ctx__summary">
+    <span class="ai-ctx__label">
+      <i class="ti ti-robot" aria-hidden="true"></i>
+      AI context
+    </span>
+    <i class="ti ti-chevron-down ai-ctx__chevron" aria-hidden="true"></i>
+  </summary>
+
+  <div class="ai-ctx__wrap">
+    <div class="ai-ctx__inner">
+      <div class="ai-ctx__body">
+        <slot />
+      </div>
+    </div>
+  </div>
+</details>
+
+<style>
+  /* ── container ───────────────────────────────────────── */
+  .ai-ctx {
+    background: var(--docs-bg-surface);
+    border: 0.5px solid var(--docs-border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 2rem 0 1rem;
+  }
+
+  /* ── header / summary ────────────────────────────────── */
+  .ai-ctx__summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.875rem;
+    cursor: pointer;
+    background: var(--docs-bg-elevated);
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  /* suppress native disclosure triangle in all browsers */
+  .ai-ctx__summary::-webkit-details-marker { display: none; }
+  .ai-ctx__summary::marker                 { display: none; }
+
+  .ai-ctx__summary:hover {
+    background: var(--docs-bg-deep);
+  }
+
+  /* ── label ───────────────────────────────────────────── */
+  .ai-ctx__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--docs-text-muted);
+  }
+  .ai-ctx__label i {
+    font-size: 13px;
+    color: var(--docs-text-muted);
+  }
+
+  /* ── chevron ─────────────────────────────────────────── */
+  .ai-ctx__chevron {
+    font-size: 13px;
+    color: var(--docs-text-muted);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  .ai-ctx[open] .ai-ctx__chevron {
+    transform: rotate(180deg);
+  }
+
+  /* ── smooth expand via grid trick ────────────────────── */
+  /*    max-height transitions break on auto; grid-template-rows does not */
+  .ai-ctx__wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.22s ease;
+  }
+  .ai-ctx[open] .ai-ctx__wrap {
+    grid-template-rows: 1fr;
+  }
+  .ai-ctx__inner {
+    overflow: hidden;
+  }
+
+  /* ── content ─────────────────────────────────────────── */
+  .ai-ctx__body {
+    border-top: 0.5px solid var(--docs-border);
+    padding: 0.75rem 0.875rem;
+    font-family: var(--sl-font-mono);
+    font-size: 9.8px;
+    line-height: 1.9;
+    color: var(--docs-text-muted);
+  }
+
+  /* Starlight wraps slot content in <pre><code> for ```txt blocks.
+     Strip the extra padding/bg so it inherits our styles cleanly. */
+  .ai-ctx__body :global(pre) {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
+    color: inherit !important;
+  }
+  .ai-ctx__body :global(code) {
+    font-size: inherit;
+    color: inherit;
+    background: transparent;
+  }
+</style>

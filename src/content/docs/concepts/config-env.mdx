@@ -1,0 +1,62 @@
+---
+title: Config & Env
+description: Managing application settings and environment variables in SKIM.
+---
+
+Application configuration in SKIM resides inside the `config/` directory as plain, static PHP files returning arrays. This structure ensures zero parsing overhead, IDE autocompletion, and compatibility with opcache.
+
+### Accessing Config
+
+You can read configuration values using dot-notation via the helper `config()`:
+
+```php
+// Reads 'default' key from config/db.php
+$db_host = config('db.default.host');
+```
+
+Config is **lazy-loaded** on the first `Config::get()` call. The framework does not scan the `config/` directory until a config value is actually requested, keeping the initial boot footprint minimal.
+
+### Environment Variables
+
+Environment variables are read from your `.env` file at the root of the project on demand.
+
+```env
+DB_HOST=127.0.0.1
+DB_PORT=3306
+```
+
+Inside configuration files, read environment values using the `env()` helper:
+
+```php
+// config/db.php
+return [
+    'default' => [
+        'host' => env('DB_HOST', '127.0.0.1'),
+        'port' => env('DB_PORT', 3306),
+    ],
+];
+```
+
+Env is **lazy-loaded** on the first `Env::get()` call. The `.env` file is not parsed until an environment variable is actually requested.
+
+### Environment Loading Priority
+
+To ensure seamless containerization and CI/CD security:
+
+1.  **OS Environment Variables** (`$_SERVER`, `$_ENV`): Pre-existing environment variables on the system/Docker/Kubernetes level take highest precedence.
+2.  **Internal Cache** (`.env` file values): Values parsed from `.env` act as local development fallbacks and are used only when no OS variable is set.
+
+### Compiled Cache (Production)
+
+For production deployments, SKIM supports pre-compiled config and env caches that eliminate all file-parsing overhead on every request:
+
+```bash
+php skim cache:build
+```
+
+This generates three files in `storage/cache/`:
+- `env.php` — compiled `.env` values as a pure PHP array
+- `config.php` — compiled `config/*.php` values as a pure PHP array
+- `extensions.php` — extension manifest
+
+These files are served directly from OPcache shared memory with zero parse overhead. In development mode (`APP_DEBUG=true`), the framework automatically falls back to raw parsing if the source files are newer than the cache.

@@ -1,0 +1,526 @@
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+#c{display:block;width:100%}
+#ui{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
+#modes{position:absolute;top:12px;left:12px;display:flex;gap:5px;flex-wrap:wrap;max-width:200px}
+#fxpanel{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+#bottom{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;pointer-events:all}
+.btn{background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.13);color:rgba(255,255,255,0.4);font-size:10px;padding:4px 9px;cursor:pointer;border-radius:3px;font-family:monospace;transition:all .18s;pointer-events:all;user-select:none}
+.btn:hover{background:rgba(255,255,255,0.09);color:#ddd}
+.btn.on{background:rgba(255,255,255,0.11);color:#fff;border-color:rgba(255,255,255,0.3)}
+.fxrow{display:flex;align-items:center;gap:7px;pointer-events:all}
+.fxlabel{color:rgba(255,255,255,0.25);font-size:10px;font-family:monospace;min-width:70px;text-align:right}
+input[type=range]{width:80px;accent-color:rgba(255,255,255,0.4);cursor:pointer;pointer-events:all}
+.fxval{color:rgba(255,255,255,0.4);font-size:10px;font-family:monospace;min-width:26px}
+label{color:rgba(255,255,255,0.3);font-size:10px;font-family:monospace}
+</style>
+
+<div style="position:relative;background:#000;min-height:540px">
+<canvas id="c" style="cursor:crosshair"></canvas>
+<div id="ui">
+  <div id="modes">
+    <button class="btn on" id="b-wave">wave</button>
+    <button class="btn" id="b-rain">matrix</button>
+    <button class="btn" id="b-assemble">assemble</button>
+    <button class="btn" id="b-explode">explode</button>
+    <button class="btn" id="b-vortex">vortex</button>
+    <button class="btn" id="b-fold">fold</button>
+  </div>
+
+  <div id="fxpanel">
+    <div class="fxrow">
+      <span class="fxlabel">morph</span>
+      <input type="range" id="sl-morph" min="0" max="100" value="10">
+      <span class="fxval" id="vl-morph">10</span>
+    </div>
+    <div class="fxrow">
+      <span class="fxlabel">glitch</span>
+      <input type="range" id="sl-glitch" min="0" max="100" value="0">
+      <span class="fxval" id="vl-glitch">0</span>
+    </div>
+    <div class="fxrow">
+      <span class="fxlabel">color</span>
+      <input type="range" id="sl-color" min="0" max="100" value="0">
+      <span class="fxval" id="vl-color">0</span>
+    </div>
+    <div class="fxrow">
+      <span class="fxlabel">scanline</span>
+      <button class="btn on" id="fx-scan">on</button>
+    </div>
+    <div class="fxrow">
+      <span class="fxlabel">shockwave</span>
+      <button class="btn on" id="fx-shock">click canvas</button>
+    </div>
+  </div>
+
+  <div id="bottom">
+  </div>
+</div>
+</div>
+
+<script>
+const ASCII=`                                      v    v v     v v  v vv    vvvv  v v    v v v    v   vv  v
+                                    v  v                       vv        v         v        v     v
+                               v          vv  v vv v  vvv vvvvvv vvvv  vv vv    vvvv v          v  v    v
+                       v v vvv v vv v  vv v  vvvv vvvvvvvv vv rvvvvvvvr vv vvvrv v  v  v v vrvvv v  v    v
+                 v  v  vv         vvvvvvvvvrvvvvvvrrrvr  v  vvrvrvvvvvv  vvvrv vv vvrrvvrvvvvv vvvvv vv v   v
+               v   v    v vv vvvvv   vvvv        vrvv iNIEIIId vrmrr v0IIINd vrrrmrvv         vv vv  v            v
+            vr vv rvvvvrvrvvvvvvrrmrmrvv0IIIEEEII1vvWIE      EI6 mvmWIA    EIWmmrmrrdIIIIEEIIRrvvvvmvrrrvvrrvvvvr v     v
+      v v vvv rv v             vvrmrrrvRI        EINE          ImrmIA        Idmmm NE        1II6vrrvrvrrvv       vvv vv
+         vvv     dIIIIEEEEEEIIEId rrrrNA          EA           E0rWE         AIvmWIA            IRvrrmrv  iIIIIII0   vvv
+    vv  vv v dIIIA              INimrmI           E            A60E           ErvI               ANirrrRIIE      IEI1  v r v   v
+     v vvv dIE                   ERmdIA          AE            AdrE           EiIA                ARWIIA            AIvvvvv v
+   vvvvvv WE                      EmmI           E             EimE           EiI                  EE                ANvvvvv v v
+ v vvvvvr1E                       EmmE           E             Ii1A           EIA                   E                 Evrvvv
+   vvvvvrI                        EmiE           A            ENvNA           EI                    E                 Emvrvr v
+  vv vvrrE           AEEEEEEEEEEAAIirI                       ANidI            EE                    E                 Errr vvv
+   vvvvvvI                        EIRI                       INvmE            E                     E                 Im m vvv
+v  vvvrrrIR                         EIA                       EImE            E                     E                 Errrvv  v
+   vvrvvriI                          AE                        ANI            E              A                        Ivrvvrv   v
+  v vvvmv WE                          A             AA          AE            A             1E                       A1vvvr  vv
+v   vvv mrv1IE                                       E           E                          AA          NA           Ivrvr vvv  v
+    vvvvmvrv dIEEEANrREAEEA            I            dE           A           A              I           AW          AIvvrvvv
+ v  vvvvvvmrvNA                        A            AA                       E             AA           I           Emvrvrv vv
+      vvrvrrrE                         E            I            AA          E             E           AE           Ivvm rv
+     v vvvvvmA                        AIE          AIIA          II         EIE           E            E           Edrrrv  v
+       v vrrvE                       ANiNE        AImrNIE      EEIRIA      EIiNE        AIA           E           EWvrrvvr v v
+      vv rvrvNA                    NIN vr6IEEAAEEI1vvrrv0IIIIII6vv r6IIEIEI0vvrWIIEEEEEIW I         EI           AWvvvvv  v
+     v v vvvv 6I                dEIImvmmmrv      vrrrrrrrvvv vvvvrrrv  v vvrmrvrv      vrr1IIA   AEIWRA         EW vvvvv
+      v  vvvv  dRIEEAANRAAEEEEIINm vrrmrrrrrrrrvvrvrvvvvrvvrrvrrvrvrvvrvvvvvrrrvrrrrrrrrrvrv iNINm vvvRIA     EI6 vvvvv
+           v v v     m00mv    vvrvvrrrvvrvv  vvvvv  v vvv v vv vvv vvvv r vvvvvvv v  vvvvvvrrv vvrvrrrv 0IIIII0  vvr
+              vvvrvvvv vvvvvrvvvvvvvvvv vvvvvv v r rvv  vvv v        v  vvv vv vvvvvrv r rv  rvvvvvrrvv v      v  v  v  v
+                  v  vvv vv   vvv vvv  vw    v                vvv  v  v         v v   v    vv vv vv vvvvrvvv   v
+                      v v  vvv   vv         v    vvvvvvv         v     v vv vvv         v       v   v        v
+          v                         v     v                                        vvv
+                                  v v                                                         v    v`;
+
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const FS=9,LH=11,CW=FS*0.62;
+
+// Morph pools by tier
+const POOL=[
+  'rvmidIEANW01'.split(''),
+  'rvmidIEANW0163|/\\!?#@*+=-~^'.split(''),
+  '░▒▓│┤╠═╬▄▌▀■╗╚╔╝┼╪▪◆◇○●'.split('')
+];
+
+let W,H,particles=[],mode='wave',frame=0,mx=-9e4,my=-9e4;
+let morphAmt=0.1,glitchAmt=0,colorAmt=0;
+let fxScan=true,fxShock=true;
+let shocks=[],scanlines=[];
+let lastAutoShock=0;
+
+// Glitch state — active bands
+let glitchBands=[];
+let glitchBandTimer=0;
+
+// Color state — multiple traveling "aurora" waves
+// Each wave: {hue, x (normalized 0-1), width, speed, brightness}
+let auroraWaves=[];
+for(let i=0;i<5;i++) auroraWaves.push({
+  hue:Math.random()*360,
+  x:Math.random(),
+  width:0.08+Math.random()*0.18,
+  speed:(0.0008+Math.random()*0.001)*(Math.random()<0.5?1:-1),
+  brightness:0.4+Math.random()*0.4
+});
+
+function charBase(ch){
+  if('IEWANM0dmi16'.includes(ch)) return [255,255,255,1.0];
+  if('Rr'.includes(ch))           return [180,220,255,0.85];
+  if('m'.includes(ch))            return [140,190,255,0.75];
+  if('v'.includes(ch))            return [70,130,255,0.55];
+  return [50,90,200,0.35];
+}
+
+function buildParticles(){
+  particles=[];
+  const lines=ASCII.split('\n');
+  const tw=Math.max(...lines.map(l=>l.length))*CW;
+  const th=lines.length*LH;
+  const ox=(W-tw)/2,oy=(H-th)/2;
+  lines.forEach((line,row)=>{
+    for(let col=0;col<line.length;col++){
+      const ch=line[col];
+      if(ch===' ') continue;
+      const tx=ox+col*CW,ty=oy+row*LH;
+      particles.push({
+        ch,disp:ch,tx,ty,x:tx,y:ty,vx:0,vy:0,
+        c:charBase(ch),
+        phase:Math.random()*Math.PI*2,
+        speed:0.5+Math.random()*2,
+        // morph
+        morphTimer:10+Math.random()*120,
+        morphing:false,morphChar:ch,flashAlpha:0,
+        // glitch — per-particle row shift accumulator
+        glitchShiftX:0,glitchShiftY:0,
+        glitchAlpha:1,
+        // color — unique phase so aurora hits each char at slightly diff time
+        colorPhase:Math.random()*Math.PI*2,
+        // vortex
+        angle:Math.atan2(ty-H/2,tx-W/2),
+        radius:Math.sqrt((tx-W/2)**2+(ty-H/2)**2),
+      });
+    }
+  });
+}
+
+function initScanlines(){
+  scanlines=[];
+  for(let i=0;i<3;i++) scanlines.push({
+    y:H*Math.random(),
+    speed:(0.35+Math.random()*0.45)*(Math.random()<0.5?1:-1),
+    halfW:3+Math.random()*3,
+    alpha:0.07+Math.random()*0.05
+  });
+}
+
+function resize(){
+  const cont=cv.parentElement;
+  W=cont.offsetWidth; H=Math.max(540,W*0.52);
+  cv.width=W; cv.height=H;
+  cont.style.minHeight=H+'px';
+  buildParticles(); initScanlines();
+}
+window.addEventListener('resize',resize);
+cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top;});
+cv.addEventListener('mouseleave',()=>{mx=-9e4;my=-9e4;});
+cv.addEventListener('click',e=>{
+  if(!fxShock) return;
+  const r=cv.getBoundingClientRect();
+  shocks.push({x:e.clientX-r.left,y:e.clientY-r.top,radius:0,alpha:1,speed:7+Math.random()*4});
+});
+
+function setMode(m){
+  mode=m; frame=0;
+  document.querySelectorAll('#modes .btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('b-'+m).classList.add('on');
+  if(m==='assemble') particles.forEach(p=>{p.x=p.tx+(Math.random()-0.5)*W;p.y=-60-Math.random()*H*0.5;p.vx=0;p.vy=0;});
+  if(m==='explode')  particles.forEach(p=>{p.vx=(Math.random()-0.5)*20;p.vy=(Math.random()-0.5)*20-4;});
+  if(m==='rain')     particles.forEach(p=>{p.x=p.tx;p.y=-30-Math.random()*H*1.3;p.vx=0;p.vy=p.speed*3;});
+  if(m==='vortex')   particles.forEach(p=>{p.angle=Math.atan2(p.ty-H/2,p.tx-W/2);p.radius=Math.sqrt((p.tx-W/2)**2+(p.ty-H/2)**2);});
+}
+['wave','rain','assemble','explode','vortex','fold'].forEach(m=>
+  document.getElementById('b-'+m).addEventListener('click',()=>setMode(m))
+);
+
+function slider(id,vlId,cb){
+  const el=document.getElementById(id),vl=document.getElementById(vlId);
+  el.addEventListener('input',()=>{cb(parseInt(el.value)/100);vl.textContent=el.value;});
+}
+slider('sl-morph','vl-morph',v=>morphAmt=v);
+slider('sl-glitch','vl-glitch',v=>glitchAmt=v);
+slider('sl-color','vl-color',v=>colorAmt=v);
+
+document.getElementById('fx-scan').addEventListener('click',function(){fxScan=!fxScan;this.textContent=fxScan?'on':'off';this.classList.toggle('on',fxScan);});
+document.getElementById('fx-shock').addEventListener('click',function(){fxShock=!fxShock;this.classList.toggle('on',fxShock);});
+
+function hsl2rgb(h,s,l){
+  s/=100;l/=100;
+  const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l);
+  const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));
+  return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
+}
+
+// ─── GLITCH ENGINE ────────────────────────────────────────────────
+// Glitch works as a collection of "bands" — horizontal slices of the logo
+// that get shifted, colored, and scrambled independently.
+// New bands spawn based on glitchAmt. Each has a lifetime.
+function spawnGlitchBands(){
+  const count=1+Math.floor(glitchAmt*5);
+  for(let i=0;i<count;i++){
+    const y=Math.random()*H;
+    const height=4+Math.random()*LH*3;
+    glitchBands.push({
+      y1:y, y2:y+height,
+      shiftX:(Math.random()-0.5)*40*glitchAmt,
+      shiftY:(Math.random()-0.5)*4,
+      life:4+Math.random()*20,
+      maxLife:0,
+      // RGB channel split
+      chromaR:(Math.random()-0.5)*14*glitchAmt,
+      chromaB:(Math.random()-0.5)*14*glitchAmt,
+      // brightness spike
+      brightness:0.3+Math.random()*0.7,
+      // scramble chars
+      scramble:Math.random()<glitchAmt*0.7,
+    });
+    glitchBands[glitchBands.length-1].maxLife=glitchBands[glitchBands.length-1].life;
+  }
+}
+
+// ─── MORPH ENGINE ─────────────────────────────────────────────────
+// Morph travels as a spatial wave front, not random per-particle.
+// A "morph wave" sweeps L→R (or R→L) across the logo.
+let morphWaves=[];
+let morphWaveTimer=0;
+
+function spawnMorphWave(){
+  const dir=Math.random()<0.5?1:-1;
+  morphWaves.push({
+    x: dir>0?-50:W+50,
+    dir,
+    speed:1.5+morphAmt*4,
+    width:30+morphAmt*80,
+    tier:morphAmt<0.35?0:morphAmt<0.7?1:2,
+    alpha:1,
+    life:Math.round((W+200)/Math.max(1,1.5+morphAmt*4))+30,
+  });
+}
+
+function draw(){
+  requestAnimationFrame(draw);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,W,H);
+  frame++;
+  const t=frame*0.016;
+
+  // ── update aurora waves ──
+  auroraWaves.forEach(w=>{
+    w.x+=w.speed;
+    if(w.x>1.3) w.x=-0.3;
+    if(w.x<-0.3) w.x=1.3;
+    // slowly rotate hue
+    w.hue=(w.hue+0.12)%360;
+  });
+
+  // ── morph wave spawning ──
+  if(morphAmt>0){
+    morphWaveTimer--;
+    if(morphWaveTimer<=0){
+      spawnMorphWave();
+      // interval: at low morph=rare, high morph=frequent
+      morphWaveTimer=Math.round(180*Math.pow(1-morphAmt,1.8))+10;
+    }
+  }
+  morphWaves=morphWaves.filter(w=>w.life-->0);
+  morphWaves.forEach(w=>{ w.x+=w.dir*w.speed; });
+
+  // ── glitch band spawning ──
+  if(glitchAmt>0){
+    glitchBandTimer-=1+glitchAmt*2;
+    if(glitchBandTimer<=0){
+      spawnGlitchBands();
+      glitchBandTimer=Math.max(2,40*(1-glitchAmt)+Math.random()*30);
+    }
+  }
+  glitchBands=glitchBands.filter(b=>b.life-->0);
+
+  // ── shockwaves ──
+  if(fxShock && frame-lastAutoShock>500){
+    lastAutoShock=frame;
+    shocks.push({x:W/2+(Math.random()-0.5)*W*0.5,y:H/2+(Math.random()-0.5)*H*0.4,radius:0,alpha:1,speed:7+Math.random()*4});
+  }
+  shocks=shocks.filter(s=>{s.radius+=s.speed*(1+s.radius/180);s.alpha*=0.962;return s.radius<Math.max(W,H)*0.8&&s.alpha>0.01;});
+
+  // ── scanlines ──
+  scanlines.forEach(sl=>{
+    sl.y+=sl.speed;
+    if(sl.y>H+8)sl.y=-8;
+    if(sl.y<-8)sl.y=H+8;
+  });
+
+  // ── draw particles ──
+  particles.forEach((p,i)=>{
+    // POSITION
+    if(mode==='wave'){
+      const wx=Math.sin(t*1.05+p.tx*0.013+p.phase*0.4)*4.5;
+      const wy=Math.cos(t*0.72+p.ty*0.019+p.phase*0.3)*2.2;
+      p.x+=(p.tx-p.x)*0.08; p.y+=(p.ty+wx+wy-p.y)*0.08;
+      const dx=mx-p.x,dy=my-p.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<100){const f=(100-d)/100;p.x-=dx*f*0.13;p.y-=dy*f*0.13;}
+    }
+    if(mode==='assemble'){p.vx+=(p.tx-p.x)*0.044;p.vy+=(p.ty-p.y)*0.044;p.vx*=0.73;p.vy*=0.73;p.x+=p.vx;p.y+=p.vy;}
+    if(mode==='explode'){p.vy+=0.2;p.vx*=0.99;p.x+=p.vx;p.y+=p.vy;}
+    if(mode==='rain'){
+      p.vy+=0.07;p.x+=p.vx;p.y+=p.vy;
+      if(p.y>=p.ty-2&&Math.abs(p.x-p.tx)<5){p.vy*=-0.25;p.vx*=0.5;if(Math.abs(p.vy)<0.5){p.vy=0;p.x=p.tx;p.y=p.ty;}}
+      if(p.y>H+20){p.y=-10-Math.random()*60;p.vy=p.speed*2.8;}
+    }
+    if(mode==='vortex'){
+      p.angle+=0.018*(1+p.radius/300);
+      const tx2=W/2+Math.cos(p.angle)*p.radius,ty2=H/2+Math.sin(p.angle)*p.radius;
+      p.x+=(tx2-p.x)*0.12;p.y+=(ty2-p.y)*0.12;
+    }
+    if(mode==='fold'){
+      const foldX=W/2+Math.sin(t*0.5)*W*0.35;
+      const dx2=p.tx-foldX;
+      p.x=foldX+dx2*(Math.cos(dx2*0.012+t*0.3)*0.5+0.5);
+      p.y=p.ty+Math.sin(dx2*0.015+t*0.4)*8;
+    }
+
+    // ── MORPH: wave front logic ──
+    let morphActive=false,morphFlash=0,morphChar=p.ch;
+    if(morphAmt>0){
+      morphWaves.forEach(w=>{
+        const dist=Math.abs(p.x-w.x);
+        if(dist<w.width){
+          const fade=1-dist/w.width;
+          morphFlash=Math.max(morphFlash,fade);
+          if(fade>0.15 && Math.random()<fade*0.7){
+            morphChar=POOL[w.tier][Math.floor(Math.random()*POOL[w.tier].length)];
+            morphActive=true;
+          }
+        }
+      });
+    }
+    const disp=morphActive?morphChar:p.ch;
+
+    // ── GLITCH: band logic ──
+    let gShiftX=0,gShiftY=0,gChromaR=0,gChromaB=0,gBright=0,gScramble=false;
+    glitchBands.forEach(b=>{
+      if(p.y>=b.y1&&p.y<=b.y2){
+        const fade=b.life/b.maxLife;
+        gShiftX+=b.shiftX*fade;
+        gShiftY+=b.shiftY*fade;
+        gChromaR+=b.chromaR*fade;
+        gChromaB+=b.chromaB*fade;
+        gBright=Math.max(gBright,b.brightness*fade);
+        gScramble=gScramble||b.scramble;
+      }
+    });
+
+    // ── COLOR AURORA ──
+    let auroraR=0,auroraG=0,auroraB=0,auroraStrength=0;
+    if(colorAmt>0){
+      auroraWaves.forEach(w=>{
+        // aurora position in canvas space
+        const wx=w.x*W;
+        const dist=Math.abs(p.x-wx)/W;
+        const inRange=dist<w.width;
+        if(inRange){
+          const fade=(1-dist/w.width)*w.brightness*colorAmt;
+          const[ar,ag,ab]=hsl2rgb(w.hue,80,55);
+          auroraR+=ar*fade; auroraG+=ag*fade; auroraB+=ab*fade;
+          auroraStrength+=fade;
+        }
+      });
+    }
+
+    // ── SHOCKWAVE ──
+    let shockBright=0,shockDX=0,shockDY=0;
+    shocks.forEach(s=>{
+      const dx=p.x-s.x,dy=p.y-s.y,d=Math.sqrt(dx*dx+dy*dy);
+      const ring=Math.abs(d-s.radius);
+      if(ring<20){
+        const f=(20-ring)/20*s.alpha;
+        const ang=Math.atan2(dy,dx);
+        shockDX+=Math.cos(ang)*f*16;
+        shockDY+=Math.sin(ang)*f*16;
+        shockBright=Math.max(shockBright,f);
+      }
+    });
+
+    // ── SCANLINE ──
+    let scanBoost=0;
+    if(fxScan) scanlines.forEach(sl=>{
+      const dy=Math.abs(p.y-sl.y);
+      if(dy<sl.halfW*2) scanBoost+=sl.alpha*(1-dy/(sl.halfW*2));
+    });
+
+    // ── COMPOSE COLOR ──
+    let[r,g,b,a]=p.c;
+
+    // aurora blend
+    if(auroraStrength>0){
+      const s2=Math.min(1,auroraStrength);
+      r=Math.round(r*(1-s2)+auroraR/(auroraStrength)*s2);
+      g=Math.round(g*(1-s2)+auroraG/(auroraStrength)*s2);
+      b=Math.round(b*(1-s2)+auroraB/(auroraStrength)*s2);
+      a=Math.min(1,a+s2*0.3);
+    }
+
+    // morph flash (cyan-white wave front)
+    if(morphFlash>0){
+      r=Math.round(r+(200-r)*morphFlash*0.8);
+      g=Math.round(g+(240-g)*morphFlash*0.95);
+      b=Math.round(b+(255-b)*morphFlash*0.7);
+      a=Math.min(1,a+morphFlash*0.5);
+    }
+
+    // glitch brightness
+    if(gBright>0){
+      r=Math.round(Math.min(255,r+gBright*120));
+      g=Math.round(Math.min(255,g+gBright*80));
+      b=Math.round(Math.min(255,b+gBright*180));
+      a=Math.min(1,a+gBright*0.4);
+    }
+
+    // shock
+    if(shockBright>0){
+      r=Math.round(Math.min(255,r+(255-r)*shockBright*0.9));
+      g=Math.round(Math.min(255,g+(255-g)*shockBright*0.95));
+      b=Math.round(Math.min(255,b+(255-b)*shockBright*0.8));
+      a=Math.min(1,a+shockBright*0.5);
+    }
+
+    a=Math.min(1,a+scanBoost*0.8);
+
+    const pulse=mode==='wave'?0.55+0.45*Math.sin(t*1.3+p.phase+p.tx*0.009):1;
+    const finalAlpha=Math.max(0,Math.min(1,a*pulse));
+
+    const px=p.x+gShiftX+shockDX;
+    const py=p.y+gShiftY+shockDY;
+    const finalChar=gScramble&&Math.random()<0.6?POOL[2][Math.floor(Math.random()*POOL[2].length)]:disp;
+
+    // ── DRAW: RGB channel split for glitch ──
+    if(Math.abs(gChromaR)>0.5||Math.abs(gChromaB)>0.5){
+      ctx.font=`${FS}px monospace`;
+      // Red channel shifted right
+      ctx.globalAlpha=finalAlpha*0.7;
+      ctx.fillStyle=`rgb(255,60,60)`;
+      ctx.fillText(finalChar,px+gChromaR,py);
+      // Blue channel shifted left
+      ctx.fillStyle=`rgb(60,180,255)`;
+      ctx.fillText(finalChar,px+gChromaB,py);
+      // White center
+      ctx.globalAlpha=finalAlpha;
+      ctx.fillStyle=`rgb(${r},${g},${b})`;
+      ctx.fillText(finalChar,px,py);
+    } else {
+      ctx.globalAlpha=finalAlpha;
+      ctx.font=`${FS}px monospace`;
+      ctx.fillStyle=`rgb(${r},${g},${b})`;
+      ctx.fillText(finalChar,px,py);
+    }
+
+    // morph glow halo
+    if(morphFlash>0.5){
+      ctx.globalAlpha=morphFlash*0.1;
+      ctx.font=`${FS+2}px monospace`;
+      ctx.fillStyle='rgb(150,230,255)';
+      ctx.fillText(finalChar,px-0.5,py-0.5);
+    }
+  });
+
+  // ── DRAW SCANLINE OVERLAY ──
+  if(fxScan) scanlines.forEach(sl=>{
+    const g2=ctx.createLinearGradient(0,sl.y-sl.halfW*3,0,sl.y+sl.halfW*3);
+    g2.addColorStop(0,'rgba(180,220,255,0)');
+    g2.addColorStop(0.5,`rgba(180,220,255,${sl.alpha*2})`);
+    g2.addColorStop(1,'rgba(180,220,255,0)');
+    ctx.globalAlpha=1; ctx.fillStyle=g2;
+    ctx.fillRect(0,sl.y-sl.halfW*3,W,sl.halfW*6);
+  });
+
+  // ── DRAW SHOCKWAVE RINGS ──
+  shocks.forEach(s=>{
+    ctx.globalAlpha=s.alpha*0.3;
+    ctx.strokeStyle='rgba(180,230,255,1)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.radius,0,Math.PI*2); ctx.stroke();
+    if(s.radius>20){
+      ctx.globalAlpha=s.alpha*0.12;
+      ctx.lineWidth=5;
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.radius*0.9,0,Math.PI*2); ctx.stroke();
+    }
+  });
+
+  ctx.globalAlpha=1;
+}
+
+resize();
+draw();
+</script>

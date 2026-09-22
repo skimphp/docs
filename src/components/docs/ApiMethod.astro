@@ -1,0 +1,64 @@
+---
+interface Props {
+  name: string;
+}
+
+const { name } = Astro.props;
+---
+<div class="api-method not-content" id={name}>
+  <div class="api-method__header">
+    <a href={`#${name}`} class="api-method__name">{name}</a>
+    <span class="api-method__badge">static</span>
+  </div>
+  <div class="api-method__body">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .api-method {
+    background: var(--docs-bg-surface);
+    border: 0.5px solid var(--docs-border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    scroll-margin-top: 4rem;
+  }
+  .api-method__header {
+    background: var(--docs-bg-elevated);
+    border-bottom: 0.5px solid var(--docs-border);
+    padding: 0.7rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .api-method__name {
+    font-family: var(--sl-font-mono);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--docs-text-heading);
+    text-decoration: none;
+  }
+  .api-method__name:hover {
+    color: var(--docs-syn-keyword);
+  }
+  .api-method__badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--docs-badge-static-bg);
+    color: var(--docs-badge-static-fg);
+    border: 0.5px solid var(--docs-badge-static-bd);
+    font-weight: 500;
+    font-family: var(--sl-font-mono);
+  }
+  .api-method__body {
+    padding: 1.1rem 1.25rem;
+  }
+  .api-method__body > :global(p:first-child) {
+    font-size: 13px;
+    color: var(--docs-text-secondary);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+</style>

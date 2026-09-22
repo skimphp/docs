@@ -1,0 +1,130 @@
+---
+title: SKIM Framework
+description: PHP 8.5+ micro-framework — zero magic, full control.
+template: splash
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CustomHero />
+
+# SKIM Framework
+
+SKIM is a PHP 8.5+ micro-framework built around a single principle: ship only what every project actually needs, and make every decision explicit. The core has exactly two external dependencies — `nikic/fast-route` for routing and `pestphp/pest` for testing. Everything else is a deliberate choice you make. No template engine, no YAML config, no autoloaded magic — just PHP arrays, raw templates, static facades that are fully testable, and `strict_types=1` on every file.
+
+## Two dependencies. By design.
+
+<CardGrid>
+  <Card title="Minimal Footprint" icon="rocket">
+    Zero bloated libraries. We vendor or implement only what is absolutely necessary. No unnecessary overhead.
+  </Card>
+  <Card title="Explicit Over Magic" icon="setting">
+    Everything is explicit. No autoloaded magic, no complex container binding resolutions, just clean raw PHP.
+  </Card>
+</CardGrid>
+
+## Design Decisions
+
+A few things SKIM deliberately does not do:
+
+*   **No Blade or Twig**: Raw PHP with opcache is faster, and you get real stack traces.
+*   **No YAML or INI config**: PHP arrays give you IDE autocomplete and zero parse overhead.
+*   **No lazy facade magic**: Static calls like `Db::` and `Cache::` are testable via `setDriver()` / `reset()`.
+*   **Lazy connections**: Connections to Redis and the database are lazy — nothing opens until first use.
+*   **Graceful fallback**: Cache and Redis failures fall back gracefully instead of crashing your app.
+
+## Official Extensions
+
+The core stays minimal. Capabilities you actually want live as official extensions that follow the same conventions.
+
+*   **Mailer**: Wraps Symfony Mailer with 50+ SaaS transports out of the box — catch test emails locally via Ethereal without touching your real provider.
+*   **Auth**: Handles the full authentication surface: registration, email verification, password reset, and social login via Google, GitHub, and Facebook.
+*   More extensions are in progress.
+
+## AI-Native Docs
+
+SKIM's documentation pipeline is designed for both humans and machines. Each PHP file ends with a block of `#ai*` comments — placed after the class code so they never interrupt developer reading flow. These comments describe parameters, lifecycle, types, and inter-class contracts in a structured format any LLM can parse, including lightweight local models like Gemma 4 26B.
+
+Run `php skim docs:extract` to scan `#ai*` blocks and produce a structured `llm.json` covering the entire API surface. From there, `docs:llm` flattens it to a single `llm.md` you can paste into any LLM — and `docs:site` regenerates this site from the same source.
+
+The same pipeline works for your own application. Add `#ai*` skill comments to your project files and SKIM can run as a local MCP server — serving both framework context and your project's own architecture to any agent that asks. Your agent stops hallucinating your API because it reads the actual contracts.
+
+## Quick Start
+
+```bash
+composer create-project skim/framework my-app
+cd my-app
+cp .env.example .env
+docker compose up -d
+php skim migrate
+```
+
+## Architecture at a Glance
+
+<div class="ascii-terminal">
+
+```
+        .---.         .---.         .---.         .---.
+       / S K \       / K I \       / I M \       / M _ \
+      '-----'       '-----'       '-----'       '-----'
+         |             |             |             |
+    8.5+ PHP ── strict_types ── snake_case ── zero_deps
+         |             |             |             |
+         '-------------+-------------+-------------'
+                         |
+                         ▼
+    ╔═══════════════════════════════════════════════════╗
+    ║                   HTTP  /  CLI                      ║
+    ╚═════════════════════════╤═════════════════════════╝
+                              │
+         ┌────────────────────┼────────────────────┐
+         ▼                    ▼                    ▼
+    ┌──────────┐       ┌──────────┐         ┌──────────┐
+    │  router  │◄─────►│    DI    │◄───────►│ pipeline │
+    │ dispatch │       │ container│         │  onion   │
+    └────┬─────┘       └────┬─────┘         └────┬─────┘
+         │                  │                    │
+         ▼                  ▼                    ▼
+    ┌──────────┐       ┌──────────┐         ┌──────────┐
+    │  Db::    │       │ Cache::  │         │Session:: │
+    │ query()  │       │remember()│         │ flash() │
+    │ ORM      │       │ tags()   │         │regen()  │
+    └────┬─────┘       └────┬─────┘         └────┬─────┘
+         │                  │                    │
+         └──────────────────┼────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────┐
+              │   Response::send()  │
+              │   view()  json()    │
+              └─────────────────────┘
+```
+
+</div>
+
+<style>{`
+  .ascii-terminal {
+    background: var(--sl-color-gray-6);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+  .ascii-terminal pre {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: var(--sl-color-accent-high);
+    background: transparent;
+  }
+`}</style>
+
+## Generate Docs
+
+```bash
+php skim docs:extract   # scan #ai* annotations → llm.json
+php skim docs:llm       # llm.json → llm.md (paste into any LLM)
+php skim docs:site      # llm.json → this site (MDX files)
+```
+

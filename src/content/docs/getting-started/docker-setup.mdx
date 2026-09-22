@@ -1,0 +1,38 @@
+---
+title: Docker Setup
+description: Learn how SKIM's pre-configured Docker environment works.
+---
+
+SKIM comes with a zero-configuration Docker Compose environment designed specifically for high-performance PHP 8.5+ applications.
+
+### Containers Included
+
+*   `web`: Nginx serving as the front-facing web server.
+*   `app`: PHP 8.5-FPM configured with OPCache, JIT, and relevant extensions enabled.
+*   `db`: MySQL or PostgreSQL database pre-configured.
+*   `redis`: Redis cache & session backend.
+
+### Commands
+
+Managing your Docker environment is straightforward:
+
+```bash
+# Start all services in the background
+docker compose up -d
+
+# Stop services
+docker compose down
+
+# View logs for all services
+docker compose logs -f
+
+# Run a CLI command inside the app container
+docker compose exec app php skim <command>
+```
+
+### Production Optimizations
+
+The `docker/Dockerfile` is optimized for production workloads:
+*   Pre-warmed OPCache with strict file validation turned off.
+*   Production-ready `php.ini` configuration.
+*   Optimized composer autoloading (`composer install --no-dev --optimize-autoloader`).

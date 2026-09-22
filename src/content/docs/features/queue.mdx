@@ -1,0 +1,160 @@
+---
+title: Queue
+description: Redis-backed job queue with BRPOP polling, delayed jobs, retries, and graceful shutdown.
+---
+
+SKIM ships with a lightweight Redis-backed queue. Jobs are serialized and pushed to Redis lists. A long-lived **worker** polls with `BRPOP`, executes jobs, and handles retries with exponential back-off.
+
+## Job Class
+
+Implement the `job` interface or extend `BaseJob` for defaults (3 retries, no delay, error_log on failure).
+
+```php
+use skim\queue\base_job;
+
+class SendEmailJob extends BaseJob {
+    public function __construct(private readonly int $user_id) {}
+
+    public function handle(): void {
+        $user = User::find($this->user_id);
+        Mailer::send($user->email, 'welcome');
+    }
+}
+```
+
+**Rules:**
+- All properties must be serializable — no closures or resources.
+- `handle()` runs in the worker process, not the request.
+- Override `tries()`, `delay()`, and `failed()` when needed.
+
+## Dispatch
+
+Push from controllers, models, or other jobs:
+
+```php
+use skim\queue\queue;
+
+// single job
+Queue::push(new SendEmailJob($user_id));
+
+// named queue
+Queue::push(new GenerateReportJob($id), queue: 'reports');
+
+// batch (atomic via Redis pipeline)
+Queue::pushMany([$job1, $job2], 'default');
+```
+
+## Worker
+
+The worker is a blocking CLI process that polls Redis and executes jobs. **It is required** — without it, jobs sit in Redis forever.
+
+```bash
+php skim queue:work              # default queue
+php skim queue:work reports      # named queue
+php skim queue:work --sleep=5    # BRPOP timeout
+php skim queue:work --max-jobs=1000
+```
+
+**Loop per iteration:**
+1. Promotes due delayed jobs from sorted set to queue.
+2. Checks restart signal.
+3. `BRPOP` blocks up to `$sleep` seconds.
+4. Unserializes and runs `handle()`.
+5. On exception — retries with exponential back-off (`attempts * 5s`) or calls `failed()` on exhaustion.
+
+**Graceful shutdown:**
+- `SIGTERM` / `SIGINT` — stops after current job.
+- `php skim queue:restart` — writes a Redis timestamp; workers stop after their current job.
+
+## Delayed Jobs
+
+Override `delay()` to defer execution:
+
+```php
+class ScheduledNotificationJob extends BaseJob {
+    public function delay(): int { return 3600; } // 1 hour
+
+    public function handle(): void {
+        // runs later
+    }
+}
+```
+
+Delayed jobs are stored in a Redis sorted set (`skim:queue:delayed`) keyed by `executeAt`. The worker promotes them on each loop iteration.
+
+## Retries & Failure
+
+Override `tries()` and `failed()` for custom behavior:
+
+```php
+class ApiSyncJob extends BaseJob {
+    public function tries(): int { return 5; }
+
+    public function failed(\Throwable $e): void {
+        slack::alert('API sync failed: ' . $e->getMessage());
+    }
+}
+```
+
+Retry back-off is automatic: 5s, 10s, 15s, etc. If `failed()` itself throws, the error is logged but does not crash the worker.
+
+## Running in Production
+
+Use any process manager. The worker only needs PHP CLI + Redis.
+
+### systemd
+
+```ini
+# /etc/systemd/system/skim-worker.service
+[Unit]
+Description=SKIM Queue Worker
+
+[Service]
+ExecStart=/usr/bin/php /app/skim queue:work default
+WorkingDirectory=/app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Docker / Kubernetes
+
+```dockerfile
+CMD ["php", "skim", "queue:work", "default", "--sleep=3"]
+```
+
+Set `restart: always` in Docker Compose or a `Deployment` with restart policy in Kubernetes.
+
+### Supervisor (optional)
+
+```ini
+[program:skim-worker]
+command=php /app/skim queue:work default --sleep=3
+directory=/app
+autostart=true
+autorestart=true
+```
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `php skim queue:work [queue]` | Start worker (blocks) |
+| `php skim queue:status` | Show pending job count |
+| `php skim queue:flush [queue]` | Remove all pending jobs |
+| `php skim queue:restart` | Signal workers to stop gracefully |
+
+## Testing
+
+Inject a mock Redis instance to bypass the real connection:
+
+```php
+Queue::setRedis($mock_redis);
+Queue::push(new SendEmailJob(1));
+// assertions...
+Queue::setRedis(null); // reset
+```
+
+Use `Queue::flush()` to clear queues between tests.

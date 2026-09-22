@@ -1,0 +1,519 @@
+---
+
+title: Performance & Optimization
+description: Benchmark results, production tuning, OPcache preloading, Composer optimization, cache compilation, and deployment best practices for SKIM Framework.
+
+---
+
+SKIM prioritizes developer experience by default. For production workloads, a small set of optimization steps unlocks its full performance potential.
+
+This page explains benchmark results, the sources of framework overhead, recommended production settings, and deployment best practices.
+
+## Benchmark Results
+
+<Tabs>
+<TabItem label="Hello World">
+
+### Hello World (plain text)
+
+| Concurrency | Framework| RPS | p50 (ms) | p90 (ms) | p99 (ms) |
+|-------------|-----------|-----|----------|----------|----------|
+| 1 | Fat Free Framework| **318** | 3.12 | 3.41 | 3.90 |
+| 1 | Slim | 237 | 4.12 | 4.56 | 6.76 |
+| 1 | **SKIM Alpha** | **233** | 4.24 | 4.62 | 5.31 |
+| 1 | CodeIgniter 4 | 21 | 46.82 | 50.16 | 60.69 |
+| 10 | Fat Free Framework| 152 | 5.63 | 13.09 | 25.71 |
+| 10 | Slim | 1155 | 7.81 | 16.38 | 27.87 |
+| 10 | **SKIM Alpha** | **1109** | 7.93 | 17.74 | 31.12 |
+| 10 | CodeIgniter 4 | 90 | 108.19 | 129.02 | 163.07 |
+
+> **Environment:** Docker (nginx + PHP-FPM), wrk2, 2 threads, 30 s duration. Apple Silicon (M-series) with Docker Desktop.  
+> **Run date:** 2026-06-08. `skim_alpha` = `dev-master`.
+
+*(Results vary with Docker Desktop load and thermal throttling.)*
+
+</TabItem>
+<TabItem label="JSON">
+
+### JSON Response (wrk2)
+
+| Concurrency | Framework | RPS | Avg (ms) | p50 (ms) | p90 (ms) | p99 (ms) |
+|-------------|-----------|-----|----------|----------|----------|----------|
+| 1 | Fat Free | 169.76 | 6.06 | 5.45 | 7.44 | 16.96 |
+| 1 | Slim | 122.15 | 8.29 | 7.96 | 9.25 | 16.13 |
+| 1 | **SKIM Alpha** | **116.36** | 8.69 | 8.34 | 9.48 | 17.42 |
+| 1 | CodeIgniter 4 | 18.45 | 55.17 | 51.44 | 60.09 | 167.89 |
+| 10 | **SKIM Alpha** | **512.44** | 19.97 | 17.83 | 32.27 | 53.16 |
+| 10 | Slim | 505.50 | 20.10 | 18.34 | 31.81 | 50.26 |
+| 10 | Fat Free | 425.43 | 24.18 | 21.12 | 43.33 | 64.93 |
+| 10 | CodeIgniter 4 | 83.26 | 120.00 | 117.17 | 138.85 | 185.83 |
+
+> **Environment:** Docker (nginx + PHP-FPM), wrk2, 2 threads, 30 s duration. Apple Silicon (M-series) with Docker Desktop.  
+> **Run date:** 2026-06-09.
+
+</TabItem>
+<TabItem label="Routing">
+
+### Router Stress Test
+
+| Route Count | Framework | RPS | p50 (ms) | p99 (ms) |
+|-------------|-----------|-----|----------|----------|
+| 1 | **SKIM Alpha** | **486.33** | 107.71 | 382.75 |
+| 1 | Fat Free Framework | 404.23 | 149.81 | 485.11 |
+| 1 | Slim | 335.02 | 135.43 | 727.15 |
+| 100 | **SKIM Alpha** | **552.07** | 84.73 | 216.61 |
+| 100 | Slim | 445.24 | 108.49 | 333.51 |
+| 100 | Fat Free Framework | 417.03 | 106.10 | 279.60 |
+| 1000 | **SKIM Alpha** | **487.86** | 99.18 | 272.44 |
+| 1000 | Slim | 467.63 | 107.33 | 289.28 |
+| 1000 | Fat Free Framework | 413.44 | 138.35 | 212.83 |
+
+> **Environment:** Docker (nginx + PHP-FPM), wrk2. Apple Silicon (M-series) with Docker Desktop.  
+> **Run date:** 2026-06-09.
+
+</TabItem>
+<TabItem label="Concurrency">
+
+### RPS & Latency by Concurrent Connections
+
+| Concurrency | Framework | RPS | p50 (ms) | p99 (ms) | Errors |
+|-------------|-----------|-----|----------|----------|--------|
+| 1 | Fat Free Framework | 277.68 | 3.27 | 20.51 | 0 |
+| 1 | **SKIM Alpha** | **210.27** | 4.52 | 11.69 | 0 |
+| 1 | Slim | 159.38 | 5.17 | 64.91 | 0 |
+| 10 | Fat Free Framework | 1467.57 | 5.58 | 30.99 | 0 |
+| 10 | **SKIM Alpha** | **1052.34** | 8.20 | 37.98 | 0 |
+| 10 | Slim | 1077.63 | 8.02 | 40.23 | 0 |
+| 50 | Fat Free Framework | 1479.87 | 34.52 | 306.40 | 0 |
+| 50 | **SKIM Alpha** | **1074.39** | 46.63 | 103.84 | 0 |
+| 50 | Slim | 1101.34 | 46.29 | 114.22 | 0 |
+
+> **Environment:** Docker (nginx + PHP-FPM), wrk2. Apple Silicon (M-series) with Docker Desktop.  
+> **Run date:** 2026-06-08.
+
+</TabItem>
+<TabItem label="Cold Start">
+
+### First Request After FPM Restart
+
+| Framework | Cold Avg (ms) | Cold p50 (ms) | Cold p99 (ms) | Warm Avg (ms) |
+|-----------|---------------|---------------|---------------|---------------|
+| **SKIM Alpha** | **30.50** | 29.28 | 38.97 | 15.48 |
+| Slim | 33.70 | 35.01 | 40.34 | 18.69 |
+| Fat Free Framework | 59.09 | 59.06 | 67.94 | 32.71 |
+
+Cold start overhead = `cold_avg − warm_avg`.
+
+| Framework | Overhead |
+|-----------|----------|
+| SKIM Alpha | ~15 ms |
+| Slim | ~15 ms |
+| Fat Free Framework | ~26 ms |
+
+> This overhead is **PHP OPcache warm-up**, not framework-specific. All PHP applications pay a one-time compilation cost on the first request to a fresh worker. Once warm, SKIM Alpha settles to ~15 ms average.
+
+> **Environment:** 10 iterations after PHP-FPM restart. Apple Silicon (M-series) with Docker Desktop.  
+> **Run date:** 2026-06-08.
+
+</TabItem>
+<TabItem label="I/O">
+
+### Database & File Operations
+
+| Operation | Framework | RPS | p50 (ms) | p99 (ms) | Errors |
+|-----------|-----------|-----|----------|----------|--------|
+| `/db` | Fat Free Framework | 321.68 | 148.68 | 505.14 | 0 |
+| `/db` | **SKIM Alpha** | **269.99** | 180.66 | 459.11 | 0 |
+| `/db` | Slim | 217.79 | 216.62 | 699.35 | 0 |
+| `/file-read` | Slim | 383.74 | 140.70 | 399.88 | 0 |
+| `/file-read` | **SKIM Alpha** | **337.88** | 136.57 | 368.28 | 0 |
+| `/file-read` | Fat Free Framework | 320.26 | 135.36 | 676.83 | 0 |
+| `/file-write` | Fat Free Framework | 133.24 | 358.45 | 872.84 | 24 |
+| `/file-write` | Slim | 129.74 | 353.82 | 1060 | 0 |
+| `/file-write` | **SKIM Alpha** | **120.35** | 392.41 | 1090 | 0 |
+
+> **Environment:** Docker (nginx + PHP-FPM), PostgreSQL for DB tests, wrk2. Apple Silicon (M-series) with Docker Desktop.  
+> **Run date:** 2026-06-08.
+
+</TabItem>
+<TabItem label="Memory">
+
+### Peak Memory per Request
+
+| Framework | Current | Peak |
+|-----------|---------|------|
+| Fat Free Framework | 4.00 MB | 4.00 MB |
+| Slim | 4.00 MB | 4.00 MB |
+| **SKIM Alpha** | **4.00 MB** | **4.00 MB** |
+
+> All frameworks show identical peak memory (4 MB) in this minimal benchmark because PHP-FPM's `memory_limit` and worker pool sizing dominate the measurement.
+
+</TabItem>
+</Tabs>
+
+---
+
+## Benchmark Methodology
+
+All benchmarks run inside Docker (nginx + PHP-FPM) for consistent, reproducible results. The `skim_alpha` variant is a **managed** consumer project pinned to `dev-master`, using the same benchmark entry-point as other frameworks (closure routes, eager boot) so results are directly comparable.
+
+### What We Measure
+
+| Benchmark | Script | What it measures |
+|-----------|--------|------------------|
+| HTTP throughput | `wrk_run.php` | Hello World + JSON endpoints with percentiles |
+| Concurrency scaling | `wrk_concurrency.php` | RPS and latency at c = 1, 10, 50, 100, 200, 500, 1000 |
+| Router stress | `wrk_routing.php` | Router performance with 1, 100, and 1000 registered routes |
+| I/O | `wrk_io.php` | Database (PostgreSQL `SELECT 1`) and file read/write |
+| Memory | `wrk_memory.php` | `memory_get_peak_usage()` per request |
+| Cold start | `wrk_cold_start.php` | First request latency after PHP-FPM restart (10 iterations) |
+
+### Cold Start & OPcache
+
+PHP frameworks incur a one-time compilation cost on the first request after a worker starts. This is **not specific to SKIM** — it affects all PHP applications. The "cold" numbers include OPcache warm-up and autoload resolution. Once warm, all frameworks settle to stable baselines.
+
+Three factors contribute to cold-start latency:
+
+1. **PHP compilation** — parsing and bytecode generation for files not yet in OPcache.
+2. **Autoload resolution** — Composer classmap lookups (mitigated by `--classmap-authoritative`).
+3. **Framework bootstrap** — config loading, extension discovery, route compilation.
+
+The warm numbers reflect steady-state performance after OPcache is fully populated.
+
+---
+
+## Production Optimization Strategy
+
+A production deployment should enable all of the following:
+
+1. Composer classmap optimization
+2. OPcache
+3. OPcache preloading
+4. Framework cache compilation
+
+Together these eliminate most filesystem access and startup work.
+
+---
+
+## Step 1: Optimize Composer Autoloading
+
+Run:
+
+```bash
+composer dump-autoload --optimize --classmap-authoritative
+```
+
+### What It Does
+
+`--optimize`
+
+Builds a complete classmap of all discovered classes.
+
+`--classmap-authoritative`
+
+Disables PSR-4 fallback scanning. If a class is missing from the classmap, Composer fails immediately instead of scanning directories.
+
+### Benefits
+
+* Eliminates filesystem lookups during class resolution
+* Reduces startup latency
+* Improves consistency across environments
+* Particularly beneficial on Docker bind mounts
+
+### When To Run
+
+Run after:
+
+* `composer install`
+* `composer update`
+* dependency upgrades
+* CI build jobs
+
+Example Composer hook:
+
+```json
+{
+  "scripts": {
+    "post-install-cmd": [
+      "@composer dump-autoload --optimize --classmap-authoritative"
+    ]
+  }
+}
+```
+
+---
+
+## Step 2: Enable OPcache
+
+Recommended production configuration:
+
+```ini
+[opcache]
+opcache.enable=1
+opcache.memory_consumption=256
+opcache.interned_strings_buffer=32
+opcache.max_accelerated_files=20000
+opcache.validate_timestamps=0
+opcache.save_comments=1
+opcache.enable_cli=0
+```
+
+### Benefits
+
+* Eliminates repeated parsing
+* Eliminates repeated compilation
+* Stores bytecode in shared memory
+* Improves request latency and throughput
+
+---
+
+## Step 3: Enable OPcache Preloading
+
+Preloading compiles framework and dependency code during PHP-FPM startup.
+
+Instead of compiling files during the first request, PHP loads them into shared memory before any request reaches the application.
+
+### Example preload.php
+
+```php
+<?php declare(strict_types=1);
+
+require_once __DIR__ . '/vendor/autoload.php';
+
+function preload_dir(string $dir): void
+{
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(
+            $dir,
+            FilesystemIterator::SKIP_DOTS
+        )
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $path = $file->getRealPath();
+
+        if (!$path) {
+            continue;
+        }
+
+        opcache_compile_file($path);
+    }
+}
+
+preload_dir(__DIR__ . '/src');
+preload_dir(__DIR__ . '/vendor');
+```
+
+Configure PHP:
+
+```ini
+opcache.preload=/app/preload.php
+opcache.preload_user=www-data
+```
+
+### Benefits
+
+* Eliminates first-request compilation
+* Reduces worker warmup time
+* Improves startup consistency
+* Particularly useful for large applications
+
+---
+
+## Step 4: Build Framework Cache
+
+Compile framework metadata into static PHP files.
+
+```bash
+php skim cache:build
+```
+
+Generated cache files contain precomputed framework state and eliminate expensive runtime discovery.
+
+### Benefits
+
+* Faster configuration loading
+* Faster extension discovery
+* Reduced bootstrap overhead
+* Better OPcache utilization
+
+Because cache files are ordinary PHP arrays, OPcache stores them efficiently in shared memory.
+
+---
+
+## Deployment & Cache Invalidation
+
+When timestamp validation is disabled:
+
+```ini
+opcache.validate_timestamps=0
+```
+
+PHP never checks whether source files have changed.
+
+This delivers maximum performance but requires deployments to refresh OPcache explicitly.
+
+---
+
+## Development Configuration
+
+For local development:
+
+```ini
+opcache.validate_timestamps=1
+opcache.revalidate_freq=0
+```
+
+PHP automatically reloads modified files.
+
+No manual cache invalidation is required.
+
+---
+
+## Production Configuration
+
+For production:
+
+```ini
+opcache.validate_timestamps=0
+```
+
+Benefits:
+
+* No filesystem stat calls
+* Lower request latency
+* Better throughput
+* More predictable performance
+
+---
+
+## Recommended Deployment Flow
+
+A deployment should refresh the entire runtime environment rather than attempting to invalidate individual files.
+
+Example:
+
+```text
+git pull
+composer install --no-dev --optimize-autoloader
+composer dump-autoload --classmap-authoritative
+php skim cache:build
+restart php-fpm
+health check
+switch traffic
+```
+
+Restarting PHP-FPM:
+
+* clears OPcache
+* rebuilds preload data
+* reloads workers
+* makes all new files visible immediately
+
+This works regardless of whether one file changed or hundreds.
+
+---
+
+## CI/CD Integration
+
+Build optimizations should run during the CI phase rather than on production servers.
+
+Typical build stage:
+
+```bash
+composer install --no-dev --optimize-autoloader
+composer dump-autoload --classmap-authoritative
+php skim cache:build
+```
+
+Typical deployment stage:
+
+```bash
+docker compose restart php-fpm
+```
+
+or
+
+```bash
+systemctl restart php-fpm
+```
+
+---
+
+## Selective Invalidation
+
+For plugin systems or runtime-generated code, individual files can be invalidated manually.
+
+```php
+opcache_invalidate('routes.php', true);
+```
+
+Or reset the entire cache:
+
+```php
+opcache_reset();
+```
+
+For normal deployments, restarting PHP-FPM is usually simpler and safer.
+
+---
+
+## Preloading Considerations
+
+When preloading is enabled, invalidating a single script does not rebuild the preload cache.
+
+Preloaded code is loaded only during PHP-FPM startup.
+
+Any deployment that modifies:
+
+* framework classes
+* application code
+* vendor packages
+* preload configuration
+
+should restart PHP-FPM.
+
+---
+
+## Production Checklist
+
+Before deploying:
+
+* Enable OPcache
+* Enable OPcache preloading
+* Disable timestamp validation
+* Run `composer install --no-dev`
+* Run `composer dump-autoload --classmap-authoritative`
+* Run `php skim cache:build`
+* Restart PHP-FPM
+* Verify application health checks
+
+---
+
+## Optimization Summary
+
+| Optimization                  | Benefit                         | Recommended     |
+| ----------------------------- | ------------------------------- | --------------- |
+| Composer classmap             | Eliminates autoload scanning    | Yes             |
+| OPcache                       | Eliminates repeated compilation | Yes             |
+| OPcache preloading            | Eliminates startup compilation  | Yes             |
+| Framework cache               | Eliminates runtime discovery    | Yes             |
+| Timestamp validation disabled | Eliminates stat calls           | Production only |
+
+---
+
+## Final Recommendation
+
+For production deployments, always combine:
+
+* Composer classmap optimization
+* OPcache
+* OPcache preloading
+* Framework cache compilation
+* PHP-FPM restart during deployment
+
+These optimizations remove nearly all avoidable startup overhead and allow SKIM to perform competitively with the fastest PHP microframeworks while preserving framework functionality and developer ergonomics.

@@ -1,0 +1,34 @@
+---
+interface Props {
+  type: string;
+}
+
+const { type } = Astro.props;
+const slug = type.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+---
+<span class={`api-badge api-badge--${slug} not-content`}>{type}</span>
+
+<style>
+  .api-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.3px;
+    font-family: var(--sl-font-mono);
+    border: 0.5px solid;
+    margin-right: 4px;
+  }
+  .api-badge--facade        { background: var(--docs-badge-facade-bg); color: var(--docs-badge-facade-fg); border-color: var(--docs-badge-facade-bd); }
+  .api-badge--cache         { background: var(--docs-badge-cache-bg);  color: var(--docs-badge-cache-fg);  border-color: var(--docs-badge-cache-bd); }
+  .api-badge--driver-backed { background: var(--docs-badge-driver-bg); color: var(--docs-badge-driver-fg); border-color: var(--docs-badge-driver-bd); }
+  .api-badge--fail-soft     { background: var(--docs-badge-fail-bg);   color: var(--docs-badge-fail-fg);   border-color: var(--docs-badge-fail-bd); }
+  .api-badge--static        { background: var(--docs-badge-static-bg); color: var(--docs-badge-static-fg); border-color: var(--docs-badge-static-bd); }
+  /* catch-all for unlisted badge types */
+  .api-badge:not([class*="--facade"]):not([class*="--cache"]):not([class*="--driver"]):not([class*="--fail"]):not([class*="--static"]) {
+    background: var(--docs-tag-mixed-bg);
+    color: var(--docs-tag-mixed-fg);
+    border-color: var(--docs-tag-mixed-bd);
+  }
+</style>

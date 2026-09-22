@@ -1,0 +1,54 @@
+---
+title: Routing
+description: Routing definitions and URL dispatching in SKIM Framework.
+---
+
+SKIM wraps the fast and reliable `nikic/fast-route` library with a minimal, elegant API. Routes are defined in plain PHP, allowing full IDE autocomplete, static analysis, and zero parsing overhead.
+
+### Registering Routes
+
+Routes are canonically registered in the `routes.php` file in your project root. Here is an example of route definitions:
+
+```php
+// routes.php
+Router::get('/', [HomeController::class, 'index']);
+Router::get('/posts', [PostController::class, 'list']);
+Router::get('/posts/{id}', [PostController::class, 'show']);
+```
+
+### Parameter Tokens
+
+URL parameters can be matched using standard curly brace tokens:
+
+*   `{id}`: Matches any value.
+*   `@id:int`: Matches digits only (`[0-9]+`).
+*   `@slug:str`: Matches alphanumeric characters and dashes (`[a-zA-Z0-9\-]+`).
+
+Example:
+
+```php
+Router::get('/users/@id:int', [UserController::class, 'show']);
+Router::get('/blog/@slug:str', [BlogController::class, 'show']);
+```
+
+### Route Grouping & Prefixing
+
+You can group related routes together under a shared prefix and apply group-level middleware:
+
+```php
+Router::group(['prefix' => '/api/v1', 'middleware' => 'api_auth'], function() {
+    Router::get('/users', [UserApiController::class, 'index']);
+    Router::post('/users', [UserApiController::class, 'create']);
+});
+```
+
+### Named Routes & Generation
+
+To reference routes dynamically throughout your application, you can assign them names:
+
+```php
+Router::get('/profile', [ProfileController::class, 'show'])->name('profile');
+
+// Generate URL elsewhere:
+$url = route('profile'); // Returns "/profile"
+```

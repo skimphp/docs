@@ -1,0 +1,51 @@
+---
+title: AI & Docs (#ai*)
+description: Explore the AI-native documentation pipeline and MCP server capabilities.
+---
+
+SKIM features an **AI-Native Documentation Pipeline** that keeps humans and AI agents on the same page. Every core file and framework module contains `#ai*` comments at the bottom of the source.
+
+### How It Works
+
+Instead of interrupting developer reading flow with inline comments, all machine-readable instructions sit at the very end of PHP source files under specialized annotations:
+
+```php
+// app/Controllers/HomeController.php
+class HomeController {
+    public function index() {
+        return view('home');
+    }
+}
+
+#ai:class {
+#  description: "Main controller responsible for rendering the landing page.",
+#  lifecycle: "Instantiated per request, invoked by router."
+#}
+```
+
+These structured comments are completely parsed by a simple AST-based scanner to construct accurate documentation.
+
+### The CLI Pipeline
+
+```bash
+php skim docs:extract   # Scans #ai* blocks across source files and builds a structured llm.json
+php skim docs:llm       # Flattens llm.json into a consolidated, context-efficient llm.md file
+php skim docs:site      # Compiles the schema from llm.json into this Astro MDX documentation site
+```
+
+### Run as a Local MCP Server
+
+Because SKIM parses these annotations into structured JSON, you can easily serve your codebase structure to AI agents:
+
+1.  Add `#ai*` annotations to your own project files and run `php skim docs:extract`.
+2.  Enable the SKIM MCP (Model Context Protocol) Server by starting the daemon:
+    ```bash
+    php skim mcp:serve --port=8080
+    ```
+3.  Point your IDE agent or Claude Desktop client to the server endpoint. Your AI assistant will now read real contracts instead of hallucinating your APIs!
+
+<NoteBox>
+**Designed for Local Models**
+
+The annotations, extraction, and generation processes have been specifically tested to run and work flawlessly with lightweight local models, such as **Gemma 4 26B A4B**. No expensive cloud LLM APIs are required to generate or use these AI-native docs.
+</NoteBox>

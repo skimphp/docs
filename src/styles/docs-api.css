@@ -1,0 +1,415 @@
+/* ═══════════════════════════════════════════════════════════════
+   SKIM Docs Design System — Token Definitions & Global Overrides
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Dark theme tokens ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --sl-color-bg:            #17181c;
+  --sl-color-bg-nav:        #17181c;
+  --sl-color-bg-sidebar:    #1c1e24;
+  --docs-bg-surface:        #24262e;
+  --docs-bg-elevated:       #2e3039;
+  --docs-bg-deep:           #1c1e24;
+
+  /* Borders */
+  --docs-border:            #383a45;
+  --docs-border-strong:     #44475a;
+
+  /* Text */
+  --docs-text-primary:      #e2e4ec;
+  --docs-text-secondary:    #9a9db0;
+  --docs-text-muted:        #5c5f72;
+  --docs-text-heading:      #f0f2fa;
+
+  /* Syntax — PHP */
+  --docs-syn-keyword:       #bf96e5;
+  --docs-syn-fn:            #d4d8ff;
+  --docs-syn-type-string:   #8fddb8;
+  --docs-syn-type-int:      #7dbfe8;
+  --docs-syn-type-callable: #d4a843;
+  --docs-syn-type-bool:     #c8a0e0;
+  --docs-syn-type-mixed:    #9a9db0;
+  --docs-syn-type-void:     #9a9db0;
+  --docs-syn-type-array:    #7dbfe8;
+  --docs-syn-operator:      #5c5f72;
+  --docs-syn-param:         #d4d8ff;
+  --docs-syn-return:        #5dcaa5;
+
+  /* Lifecycle flow */
+  --docs-lc-fn:             #bf96e5;
+  --docs-lc-method:         #5dcaa5;
+  --docs-lc-comment:        #6a6e85;
+  --docs-lc-arrow:          #5c5f72;
+
+  /* Badge colors */
+  --docs-badge-facade-bg:   rgba(191, 150, 229, 0.08);
+  --docs-badge-facade-fg:   #bf96e5;
+  --docs-badge-facade-bd:   rgba(191, 150, 229, 0.22);
+
+  --docs-badge-cache-bg:    rgba(93, 202, 165, 0.08);
+  --docs-badge-cache-fg:    #5dcaa5;
+  --docs-badge-cache-bd:    rgba(93, 202, 165, 0.22);
+
+  --docs-badge-driver-bg:   rgba(109, 179, 242, 0.08);
+  --docs-badge-driver-fg:   #6db3f2;
+  --docs-badge-driver-bd:   rgba(109, 179, 242, 0.22);
+
+  --docs-badge-fail-bg:     rgba(232, 166, 69, 0.08);
+  --docs-badge-fail-fg:     #e8a645;
+  --docs-badge-fail-bd:     rgba(232, 166, 69, 0.28);
+
+  --docs-badge-static-bg:   rgba(191, 150, 229, 0.08);
+  --docs-badge-static-fg:   #bf96e5;
+  --docs-badge-static-bd:   rgba(191, 150, 229, 0.22);
+
+  /* Warning / Note callouts */
+  --docs-warn-bg:           rgba(232, 166, 69, 0.06);
+  --docs-warn-border:       rgba(232, 166, 69, 0.28);
+  --docs-warn-accent:       #e8a645;
+  --docs-warn-text:         #c8964a;
+  --docs-warn-code-bg:      rgba(232, 166, 69, 0.12);
+  --docs-warn-code-fg:      #e8a645;
+
+  --docs-note-bg:           rgba(109, 179, 242, 0.06);
+  --docs-note-border:       rgba(109, 179, 242, 0.22);
+  --docs-note-accent:       #6db3f2;
+  --docs-note-text:         #6aa8d8;
+  --docs-note-code-bg:      rgba(109, 179, 242, 0.12);
+  --docs-note-code-fg:      #6db3f2;
+
+  /* Param tag colors */
+  --docs-tag-string-bg:     rgba(143, 221, 184, 0.10);
+  --docs-tag-string-fg:     #8fddb8;
+  --docs-tag-string-bd:     rgba(143, 221, 184, 0.30);
+
+  --docs-tag-int-bg:        rgba(125, 191, 232, 0.10);
+  --docs-tag-int-fg:        #7dbfe8;
+  --docs-tag-int-bd:        rgba(125, 191, 232, 0.30);
+
+  --docs-tag-callable-bg:   rgba(212, 168, 67, 0.10);
+  --docs-tag-callable-fg:   #d4a843;
+  --docs-tag-callable-bd:   rgba(212, 168, 67, 0.30);
+
+  --docs-tag-mixed-bg:      rgba(154, 157, 176, 0.10);
+  --docs-tag-mixed-fg:      #9a9db0;
+  --docs-tag-mixed-bd:      rgba(154, 157, 176, 0.25);
+
+  --docs-tag-bool-bg:       rgba(191, 150, 229, 0.08);
+  --docs-tag-bool-fg:       #c8a0e0;
+  --docs-tag-bool-bd:       rgba(191, 150, 229, 0.22);
+
+  --docs-tag-array-bg:      rgba(109, 179, 242, 0.10);
+  --docs-tag-array-fg:      #6db3f2;
+  --docs-tag-array-bd:      rgba(109, 179, 242, 0.30);
+
+  --docs-tag-required-bg:   rgba(224, 122, 95, 0.08);
+  --docs-tag-required-fg:   #c47060;
+  --docs-tag-required-bd:   rgba(224, 122, 95, 0.25);
+
+  --docs-tag-throws-fg:     #e07a5f;
+
+  /* Mutable / scope badges */
+  --docs-mutable-bg:        rgba(126, 200, 122, 0.08);
+  --docs-mutable-fg:        #7ec87a;
+  --docs-mutable-bd:        rgba(126, 200, 122, 0.22);
+
+  /* Driver icon accent colors */
+  --docs-icon-array:        #6db3f2;
+  --docs-icon-file:         #5dcaa5;
+  --docs-icon-redis:        #e07a5f;
+}
+
+/* ── Light theme tokens ────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Backgrounds */
+  --sl-color-bg:            #f8f8fb;
+  --sl-color-bg-nav:        #ffffff;
+  --sl-color-bg-sidebar:    #f3f3f7;
+  --docs-bg-surface:        #ffffff;
+  --docs-bg-elevated:       #f0f0f6;
+  --docs-bg-deep:           #f5f5fa;
+
+  /* Borders */
+  --docs-border:            #dddde8;
+  --docs-border-strong:     #c8c8d8;
+
+  /* Text */
+  --docs-text-primary:      #1a1b26;
+  --docs-text-secondary:    #52546a;
+  --docs-text-muted:        #9898b0;
+  --docs-text-heading:      #0f1020;
+
+  /* Syntax — PHP */
+  --docs-syn-keyword:       #7c3aed;
+  --docs-syn-fn:            #1a1b26;
+  --docs-syn-type-string:   #16803c;
+  --docs-syn-type-int:      #1d6ab0;
+  --docs-syn-type-callable: #92500a;
+  --docs-syn-type-bool:     #6d28d9;
+  --docs-syn-type-mixed:    #52546a;
+  --docs-syn-type-void:     #52546a;
+  --docs-syn-type-array:    #1d6ab0;
+  --docs-syn-operator:      #9898b0;
+  --docs-syn-param:         #1a1b26;
+  --docs-syn-return:        #0f7a5a;
+
+  /* Lifecycle flow */
+  --docs-lc-fn:             #7c3aed;
+  --docs-lc-method:         #0f7a5a;
+  --docs-lc-comment:        #8888a8;
+  --docs-lc-arrow:          #9898b0;
+
+  /* Badge colors */
+  --docs-badge-facade-bg:   #ede9fe;
+  --docs-badge-facade-fg:   #5b21b6;
+  --docs-badge-facade-bd:   #c4b5fd;
+
+  --docs-badge-cache-bg:    #d1fae5;
+  --docs-badge-cache-fg:    #065f46;
+  --docs-badge-cache-bd:    #6ee7b7;
+
+  --docs-badge-driver-bg:   #dbeafe;
+  --docs-badge-driver-fg:   #1e40af;
+  --docs-badge-driver-bd:   #93c5fd;
+
+  --docs-badge-fail-bg:     #fef3c7;
+  --docs-badge-fail-fg:     #78350f;
+  --docs-badge-fail-bd:     #fcd34d;
+
+  --docs-badge-static-bg:   #ede9fe;
+  --docs-badge-static-fg:   #5b21b6;
+  --docs-badge-static-bd:   #c4b5fd;
+
+  /* Warning / Note callouts */
+  --docs-warn-bg:           #fffbeb;
+  --docs-warn-border:       #fcd34d;
+  --docs-warn-accent:       #d97706;
+  --docs-warn-text:         #92500a;
+  --docs-warn-code-bg:      #fef3c7;
+  --docs-warn-code-fg:      #78350f;
+
+  --docs-note-bg:           #eff6ff;
+  --docs-note-border:       #93c5fd;
+  --docs-note-accent:       #2563eb;
+  --docs-note-text:         #1e40af;
+  --docs-note-code-bg:      #dbeafe;
+  --docs-note-code-fg:      #1e40af;
+
+  /* Param tag colors */
+  --docs-tag-string-bg:     #d1fae5;
+  --docs-tag-string-fg:     #065f46;
+  --docs-tag-string-bd:     #6ee7b7;
+
+  --docs-tag-int-bg:        #dbeafe;
+  --docs-tag-int-fg:        #1e40af;
+  --docs-tag-int-bd:        #93c5fd;
+
+  --docs-tag-callable-bg:   #fef3c7;
+  --docs-tag-callable-fg:   #78350f;
+  --docs-tag-callable-bd:   #fcd34d;
+
+  --docs-tag-mixed-bg:      #f3f4f6;
+  --docs-tag-mixed-fg:      #374151;
+  --docs-tag-mixed-bd:      #d1d5db;
+
+  --docs-tag-bool-bg:       #ede9fe;
+  --docs-tag-bool-fg:       #5b21b6;
+  --docs-tag-bool-bd:       #c4b5fd;
+
+  --docs-tag-array-bg:      #dbeafe;
+  --docs-tag-array-fg:      #1e40af;
+  --docs-tag-array-bd:      #93c5fd;
+
+  --docs-tag-required-bg:   #fee2e2;
+  --docs-tag-required-fg:   #991b1b;
+  --docs-tag-required-bd:   #fca5a5;
+
+  --docs-tag-throws-fg:     #b91c1c;
+
+  /* Mutable / scope badges */
+  --docs-mutable-bg:        #d1fae5;
+  --docs-mutable-fg:        #065f46;
+  --docs-mutable-bd:        #6ee7b7;
+
+  /* Driver icon accent colors */
+  --docs-icon-array:        #1d6ab0;
+  --docs-icon-file:         #0f7a5a;
+  --docs-icon-redis:        #b93a20;
+}
+
+/* ── Global prose overrides ─────────────────────────────────────── */
+.sl-markdown-content {
+  color: var(--docs-text-primary);
+}
+
+.sl-markdown-content h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--docs-text-heading);
+  line-height: 1.15;
+}
+
+.sl-markdown-content h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--docs-text-heading);
+  border-bottom: 0.5px solid var(--docs-border);
+  padding-bottom: 0.5rem;
+  margin-top: 2.75rem;
+}
+
+.sl-markdown-content :not(pre) > code {
+  background: var(--docs-bg-surface);
+  border: 0.5px solid var(--docs-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.82em;
+  color: var(--docs-syn-keyword);
+}
+
+.sl-markdown-content pre {
+  background: var(--docs-bg-surface) !important;
+  border: 0.5px solid var(--docs-border);
+  border-radius: 10px;
+}
+
+.sl-anchor-link {
+  margin-left: 5px;
+}
+
+/* ── Driver grid layout utility ─────────────────────────────────── */
+.driver-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 1.75rem;
+  align-items: stretch !important;
+}
+
+.driver-grid > p {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  align-self: stretch !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.driver-grid > p > * {
+  align-self: stretch !important;
+  flex: 1 1 auto !important;
+}
+
+/* ── ApiProperty (global — not redesigned) ──────────────────────── */
+.api-property {
+  background: var(--docs-bg-surface);
+  border: 0.5px solid var(--docs-border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  transition: border-color 0.15s;
+}
+
+.api-property:hover {
+  border-color: var(--docs-border-strong);
+}
+
+.api-property-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.api-property-name {
+  font-family: var(--sl-font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--docs-text-heading);
+}
+
+.api-property-badge {
+  font-family: var(--sl-font-mono);
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 500;
+  border: 0.5px solid;
+}
+
+.api-property-type {
+  background: var(--docs-tag-mixed-bg);
+  color: var(--docs-tag-mixed-fg);
+  border-color: var(--docs-tag-mixed-bd);
+}
+
+.api-property-visibility.public {
+  background: var(--docs-badge-cache-bg);
+  color: var(--docs-badge-cache-fg);
+  border-color: var(--docs-badge-cache-bd);
+}
+
+.api-property-visibility.protected {
+  background: var(--docs-badge-fail-bg);
+  color: var(--docs-badge-fail-fg);
+  border-color: var(--docs-badge-fail-bd);
+}
+
+.api-property-visibility.private {
+  background: var(--docs-tag-required-bg);
+  color: var(--docs-tag-required-fg);
+  border-color: var(--docs-tag-required-bd);
+}
+
+.api-property-readonly {
+  background: var(--docs-badge-facade-bg);
+  color: var(--docs-badge-facade-fg);
+  border-color: var(--docs-badge-facade-bd);
+}
+
+.api-property-body {
+  font-size: 12.5px;
+  color: var(--docs-text-secondary);
+  line-height: 1.6;
+}
+
+.api-property-body > :global(*:last-child) {
+  margin-bottom: 0;
+}
+
+
+.driver-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 1.75rem;
+  align-items: stretch !important;
+}
+
+/* Force wrapping p elements generated by markdown inside the grid to stretch */
+.driver-grid > p {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  align-self: stretch !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.driver-grid > p > * {
+  align-self: stretch !important;
+  flex: 1 1 auto !important;
+}
+
+/* Collapse to 1 column on narrow sidebar layouts */
+@media (max-width: 800px) {
+  .driver-grid {
+    grid-template-columns: 1fr;
+  }
+}

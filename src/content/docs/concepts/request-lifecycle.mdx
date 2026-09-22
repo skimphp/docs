@@ -1,0 +1,45 @@
+---
+title: Request Lifecycle
+description: Learn how SKIM Framework handles incoming HTTP and CLI requests.
+---
+
+Every HTTP request in SKIM follows a single, linear, highly predictable path from entry to exit:
+
+```
+App::instance()          // lightweight object creation only
+  → App::run()
+    → ensureBooted()     // lazy boot: router, pipeline, extensions
+    → Request::fromGlobals()
+    → Router::dispatch()
+    → middleware pipeline (onion model)
+    → controller handler
+    → Response::send()
+```
+
+### Key Lifecycle Stages
+
+1. **Bootstrap & Entry Point**: All HTTP traffic is routed to `public/index.php`, which calls `App::instance()` followed by `App::run()`. `App::instance()` creates the singleton object without booting subsystems — boot is deferred until the first request.
+2. **Lazy Boot**: Inside `run()`, `ensureBooted()` initialises the router, pipeline, and extensions only once. Env and config are loaded on-demand when first accessed.
+3. **Request Initialization**: The `request` class captures global state using `Request::fromGlobals()`.
+4. **Routing**: The `router` dispatches the request against the registered route definitions.
+5. **Middleware Onion**: The request is passed through the registered middleware layers sequentially.
+6. **Controller Dispatch**: The matched controller or closure is executed.
+7. **Response Send**: The resulting `response` object is sent back to the client via `Response::send()`.
+
+### Error & Flow Control
+
+SKIM does not use exception-based flow control for standard routing events.
+* If a route is not found, the router returns `null` to indicate a **404 Not Found**.
+* If the request method is not allowed, the router returns `false` to indicate a **405 Method Not Allowed**.
+
+### Dependency Injection & Auto-Injection
+
+Controller parameter resolution is extremely flexible. Parameters are auto-injected by name or by type-hint:
+*   `request` (the current Request instance)
+*   `response` (the current Response instance)
+*   Route parameters (e.g., dynamic URL path tokens like `{id}`)
+*   Any class instance registered in the DI container
+
+### CLI Request Lifecycle
+
+CLI requests bypass the HTTP layer completely. Running `bin/skim <command>` boots the application container in CLI mode, parsing options using `ArgvParser`, and resolving the target command via the command map registered in `config/app.php`.

@@ -1,0 +1,29 @@
+---
+---
+<div class="api-signature not-content"><slot /></div>
+
+<style>
+  .api-signature {
+    margin-bottom: 1rem;
+  }
+  .api-signature :global(pre) {
+    background: var(--docs-bg-deep) !important;
+    border: 0.5px solid var(--docs-border) !important;
+    border-radius: 7px !important;
+    font-size: 12px !important;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  /* Map Shiki token classes to design system colors */
+  .api-signature :global(.keyword)              { color: var(--docs-syn-keyword) !important; }
+  .api-signature :global(.entity.name.function) { color: var(--docs-syn-fn) !important; }
+  .api-signature :global(.storage.type)         { color: var(--docs-syn-keyword) !important; }
+  /* Type hint coloring via data-type attributes added by Shiki transformer */
+  .api-signature :global([data-type="string"])   { color: var(--docs-syn-type-string) !important; }
+  .api-signature :global([data-type="int"])      { color: var(--docs-syn-type-int) !important; }
+  .api-signature :global([data-type="callable"]) { color: var(--docs-syn-type-callable) !important; }
+  .api-signature :global([data-type="bool"])     { color: var(--docs-syn-type-bool) !important; }
+  .api-signature :global([data-type="mixed"])    { color: var(--docs-syn-type-mixed) !important; }
+  .api-signature :global([data-type="void"])     { color: var(--docs-syn-type-void) !important; }
+  .api-signature :global([data-type="array"])    { color: var(--docs-syn-type-array) !important; }
+</style>

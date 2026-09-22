@@ -1,0 +1,21 @@
+---
+interface Props {
+  name: string;
+  type: string;
+  visibility?: 'public' | 'protected' | 'private';
+  readonly?: boolean;
+}
+
+const { name, type, visibility = 'public', readonly = false } = Astro.props;
+---
+<div class="api-property not-content">
+  <div class="api-property-header">
+    <span class="api-property-name">{name}</span>
+    <span class="api-property-badge api-property-type">{type}</span>
+    <span class={`api-property-badge api-property-visibility ${visibility}`}>{visibility}</span>
+    {readonly && <span class="api-property-badge api-property-readonly">readonly</span>}
+  </div>
+  <div class="api-property-body">
+    <slot />
+  </div>
+</div>

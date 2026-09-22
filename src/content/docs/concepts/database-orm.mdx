@@ -1,0 +1,55 @@
+---
+title: Database & ORM
+description: Work with raw queries, the query builder, and Active Record ORM in SKIM.
+---
+
+SKIM provides a database toolkit spanning three distinct layers: raw SQL, a fluent Query Builder, and an Active Record ORM.
+
+### 1. Raw Queries
+
+For ultimate performance and transparency, use `Db::` facade direct queries:
+
+```php
+$users = Db::all("SELECT * FROM users WHERE active = ?", [1]);
+$user = Db::row("SELECT * FROM users WHERE id = ?", [3]);
+$count = Db::val("SELECT COUNT(*) FROM users");
+```
+
+### 2. Query Builder
+
+Construct queries programmatically using a fluent interface with automatic parameter binding:
+
+```php
+$users = Db::table('users')
+    ->where('active', '=', 1)
+    ->where_null('deleted_at')
+    ->order_by('created_at', 'DESC')
+    ->get();
+```
+
+### 3. Active Record ORM
+
+Extend `Model` (or `MerryModel`) to interact with your tables as objects:
+
+```php
+class User extends Model {
+    protected static string $table = 'users';
+}
+
+// Fetch and update
+$user = User::find(1);
+$user->email = 'new@example.com';
+$user->save();
+```
+
+<NoteBox>
+**The `Db::null()` Sentinel**
+
+When updating columns to `NULL` via the Query Builder or Active Record, SQL parameters can easily trip up simple binding libraries. In SKIM, if you need to explicitly bind and persist a literal SQL `NULL` value, use the `Db::null()` sentinel.
+
+```php
+Db::table('users')
+    ->where('id', '=', 1)
+    ->update(['suspended_at' => Db::null()]);
+```
+</NoteBox>

@@ -1,0 +1,48 @@
+---
+title: Middleware
+description: Understand middleware implementation and execution order in SKIM.
+---
+
+SKIM middleware utilizes an onion-style execution model, where each middleware layer wraps around the next, allowing you to intercept and modify the request before it reaches your controller, and the response before it is sent back.
+
+### The Middleware Interface
+
+Every middleware class in SKIM must implement a single method:
+
+```php
+interface MiddlewareInterface {
+    public function handle(Request $request, Response $response, callable $next): mixed;
+}
+```
+
+*   `$request`: The current Request instance.
+*   `$response`: The current Response instance.
+*   `$next`: A callable triggering the next layer in the pipeline.
+
+### Example Middleware
+
+Here is a simple middleware that checks for a maintenance mode flag:
+
+```php
+class MaintenanceMiddleware implements MiddlewareInterface {
+    public function handle(Request $request, Response $response, callable $next): mixed {
+        if (config('app.maintenance')) {
+            return Response::json(['error' => 'Service Unavailable'], 503);
+        }
+        return $next($request, $response);
+    }
+}
+```
+
+### Execution Order
+
+SKIM executes middleware in a strict, predictable order:
+1.  **Global Middleware**: Applied to every HTTP request, run in the order they are defined in `config/app.php`.
+2.  **Route-Group Middleware**: Applied to route groups, executed from outermost group to innermost group.
+3.  **Route-Level Middleware**: Applied to individual route definitions, executed last before entering the controller handler.
+
+### Built-in Middleware
+
+*   `cors`: Applied globally by default to handle Cross-Origin Resource Sharing.
+*   `RateLimit`: Implements a sliding window rate limiter backed by Redis.
+*   `ToolbarMiddleware`: Injects the developer debug toolbar into HTML-only responses automatically.

@@ -1,0 +1,300 @@
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+#c { display: block; width: 100%; cursor: crosshair; }
+#ui { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; flex-direction: column; align-items: flex-end; }
+.btn { background: rgba(255,255,255,0.05); border: 0.5px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.5); font-size: 11px; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-family: monospace; transition: all 0.2s; }
+.btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.btn.active { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.35); }
+#speedbar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; }
+#speedbar span { color: rgba(255,255,255,0.3); font-size: 10px; font-family: monospace; }
+#speedlabel { color: rgba(255,255,255,0.5); font-size: 10px; font-family: monospace; min-width: 40px; text-align:right; }
+input[type=range] { width: 100px; accent-color: rgba(255,255,255,0.4); }
+</style>
+
+<div style="position:relative; background:#000; min-height:520px;">
+  <canvas id="c"></canvas>
+  <div id="ui">
+    <button class="btn active" id="b-wave">wave</button>
+    <button class="btn" id="b-explode">explode</button>
+    <button class="btn" id="b-rain">matrix</button>
+    <button class="btn" id="b-assemble">assemble</button>
+  </div>
+  <div id="speedbar">
+    <span>chaos</span>
+    <input type="range" id="speedslider" min="0" max="100" value="0" step="1">
+    <span id="speedlabel">0%</span>
+  </div>
+</div>
+
+<script>
+const ASCII = `                                      v    v v     v v  v vv    vvvv  v v    v v v    v   vv  v
+                                    v  v                       vv        v         v        v     v
+                               v          vv  v vv v  vvv vvvvvv vvvv  vv vv    vvvv v          v  v    v
+                       v v vvv v vv v  vv v  vvvv vvvvvvvv vv rvvvvvvvr vv vvvrv v  v  v v vrvvv v  v    v
+                 v  v  vv         vvvvvvvvvrvvvvvvrrrvr  v  vvrvrvvvvvv  vvvrv vv vvrrvvrvvvvv vvvvv vv v   v
+               v   v    v vv vvvvv   vvvv        vrvv iNIEIIId vrmrr v0IIINd vrrrmrvv         vv vv  v            v
+            vr vv rvvvvrvrvvvvvvrrmrmrvv0IIIEEEII1vvWIE      EI6 mvmWIA    EIWmmrmrrdIIIIEEIIRrvvvvmvrrrvvrrvvvvr v     v
+      v v vvv rv v             vvrmrrrvRI        EINE          ImrmIA        Idmmm NE        1II6vrrvrvrrvv       vvv vv
+         vvv     dIIIIEEEEEEIIEId rrrrNA          EA           E0rWE         AIvmWIA            IRvrrmrv  iIIIIII0   vvv
+    vv  vv v dIIIA              INimrmI           E            A60E           ErvI               ANirrrRIIE      IEI1  v r v   v
+     v vvv dIE                   ERmdIA          AE            AdrE           EiIA                ARWIIA            AIvvvvv v
+   vvvvvv WE                      EmmI           E             EimE           EiI                  EE                ANvvvvv v v
+ v vvvvvr1E                       EmmE           E             Ii1A           EIA                   E                 Evrvvv
+   vvvvvrI                        EmiE           A            ENvNA           EI                    E                 Emvrvr v
+  vv vvrrE           AEEEEEEEEEEAAIirI                       ANidI            EE                    E                 Errr vvv
+   vvvvvvI                        EIRI                       INvmE            E                     E                 Im m vvv
+v  vvvrrrIR                         EIA                       EImE            E                     E                 Errrvv  v
+   vvrvvriI                          AE                        ANI            E              A                        Ivrvvrv   v
+  v vvvmv WE                          A             AA          AE            A             1E                       A1vvvr  vv
+v   vvv mrv1IE                                       E           E                          AA          NA           Ivrvr vvv  v
+    vvvvmvrv dIEEEANrREAEEA            I            dE           A           A              I           AW          AIvvrvvv
+ v  vvvvvvmrvNA                        A            AA                       E             AA           I           Emvrvrv vv
+      vvrvrrrE                         E            I            AA          E             E           AE           Ivvm rv
+     v vvvvvmA                        AIE          AIIA          II         EIE           E            E           Edrrrv  v
+       v vrrvE                       ANiNE        AImrNIE      EEIRIA      EIiNE        AIA           E           EWvrrvvr v v
+      vv rvrvNA                    NIN vr6IEEAAEEI1vvrrv0IIIIII6vv r6IIEIEI0vvrWIIEEEEEIW I         EI           AWvvvvv  v
+     v v vvvv 6I                dEIImvmmmrv      vrrrrrrrvvv vvvvrrrv  v vvrmrvrv      vrr1IIA   AEIWRA         EW vvvvv
+      v  vvvv  dRIEEAANRAAEEEEIINm vrrmrrrrrrrrvvrvrvvvvrvvrrvrrvrvrvvrvvvvvrrrvrrrrrrrrrvrv iNINm vvvRIA     EI6 vvvvv
+           v v v     m00mv    vvrvvrrrvvrvv  vvvvv  v vvv v vv vvv vvvv r vvvvvvv v  vvvvvvrrv vvrvrrrv 0IIIII0  vvr
+              vvvrvvvv vvvvvrvvvvvvvvvv vvvvvv v r rvv  vvv v        v  vvv vv vvvvvrv r rv  rvvvvvrrvv v      v  v  v  v
+                  v  vvv vv   vvv vvv  vv    v                vvv  v  v         v v   v    vv vv vv vvvvrvvv   v
+                      v v  vvv   vv         v    vvvvvvv         v     v vv vvv         v       v   v        v
+          v                         v     v                                        vvv
+                                  v v                                                         v    v`;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const FONT = 9;
+const LHEIGHT = 11;
+const CW = FONT * 0.62;
+
+// Morph pools: subtle first, wild later
+const POOL_SUBTLE = 'rvmidIEANW01'.split('');
+const POOL_MID    = 'rvmidIEANW0163|/\\!?$%#@*'.split('');
+const POOL_WILD   = '░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀▄■□▪▫'.split('').concat(POOL_MID);
+
+let W, H, particles = [], mode = 'wave', frame = 0, mouse = {x:-9999,y:-9999};
+let chaosLevel = 0; // 0..1 driven by slider + auto-ramp
+let autoRamp = 0;   // auto ramp-up over time, small contribution
+const slider = document.getElementById('speedslider');
+const speedlabel = document.getElementById('speedlabel');
+
+slider.addEventListener('input', () => {
+  speedlabel.textContent = slider.value + '%';
+});
+
+function charColor(ch) {
+  if ('IEWANM0dmi16'.includes(ch)) return [255, 255, 255, 1.0];
+  if ('Rr'.includes(ch))           return [180, 220, 255, 0.85];
+  if ('m'.includes(ch))            return [140, 190, 255, 0.75];
+  if ('v'.includes(ch))            return [70,  130, 255, 0.55];
+  return [50, 90, 200, 0.35];
+}
+
+function buildParticles() {
+  particles = [];
+  const lines = ASCII.split('\n');
+  const totalW = Math.max(...lines.map(l => l.length)) * CW;
+  const totalH = lines.length * LHEIGHT;
+  const ox = (W - totalW) / 2;
+  const oy = (H - totalH) / 2;
+  lines.forEach((line, row) => {
+    for (let col = 0; col < line.length; col++) {
+      const ch = line[col];
+      if (ch === ' ') continue;
+      const tx = ox + col * CW;
+      const ty = oy + row * LHEIGHT;
+      const c = charColor(ch);
+      particles.push({
+        ch,           // original char
+        disp: ch,     // displayed char (may be morphed)
+        tx, ty,
+        x: tx, y: ty,
+        vx: 0, vy: 0,
+        c,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.5 + Math.random() * 2,
+        // morph state
+        morphTimer: Math.random() * 200,   // ticks until next morph attempt
+        morphing: false,
+        morphChar: ch,
+        morphProgress: 0,   // 0..1 flash duration
+        flashAlpha: 0,
+        // each particle has its own noise offset for organic spread
+        noiseOff: Math.random() * 1000,
+      });
+    }
+  });
+}
+
+function resize() {
+  const container = canvas.parentElement;
+  W = container.offsetWidth;
+  H = Math.max(520, W * 0.52);
+  canvas.width = W;
+  canvas.height = H;
+  container.style.minHeight = H + 'px';
+  buildParticles();
+}
+window.addEventListener('resize', resize);
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - r.left;
+  mouse.y = e.clientY - r.top;
+});
+canvas.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
+
+document.getElementById('b-wave').addEventListener('click', () => setMode('wave'));
+document.getElementById('b-explode').addEventListener('click', () => setMode('explode'));
+document.getElementById('b-rain').addEventListener('click', () => setMode('rain'));
+document.getElementById('b-assemble').addEventListener('click', () => setMode('assemble'));
+
+function setMode(m) {
+  mode = m; frame = 0;
+  document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('b-' + m).classList.add('active');
+  if (m === 'assemble') particles.forEach(p => { p.x = p.tx + (Math.random()-0.5)*W; p.y = -50-Math.random()*H*0.5; p.vx=0; p.vy=0; });
+  if (m === 'explode')  particles.forEach(p => { p.vx=(Math.random()-0.5)*18; p.vy=(Math.random()-0.5)*18-3; });
+  if (m === 'rain')     particles.forEach(p => { p.x=p.tx+(Math.random()-0.5)*10; p.y=-30-Math.random()*H*1.2; p.vx=(Math.random()-0.5)*0.4; p.vy=p.speed*3; });
+}
+
+// Organic noise: smooth pseudo-random based on index + time
+function smoothNoise(idx, t, freq) {
+  return Math.sin(idx * 0.31 + t * freq) * Math.cos(idx * 0.17 + t * freq * 0.7);
+}
+
+function pickMorphChar(p, chaos) {
+  if (chaos < 0.25) return POOL_SUBTLE[Math.floor(Math.random() * POOL_SUBTLE.length)];
+  if (chaos < 0.6)  return POOL_MID[Math.floor(Math.random() * POOL_MID.length)];
+  return POOL_WILD[Math.floor(Math.random() * POOL_WILD.length)];
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  frame++;
+
+  const t = frame * 0.016;
+
+  // chaos = slider + gentle organic auto-ramp (max contribution 15%)
+  autoRamp = 0.08 + 0.07 * Math.sin(t * 0.04);
+  const sliderVal = parseInt(slider.value) / 100;
+  chaosLevel = Math.min(1, sliderVal + autoRamp * (1 - sliderVal));
+
+  // morph rate: at chaos=0 almost nothing changes; at chaos=1 everything flickers
+  // interval in frames between morph checks per particle
+  const avgInterval = Math.max(2, 300 * Math.pow(1 - chaosLevel, 2.5));
+
+  particles.forEach((p, i) => {
+    // ── POSITION ──
+    if (mode === 'wave') {
+      const wave = Math.sin(t * 1.1 + p.tx * 0.013 + p.phase * 0.4) * 4.5;
+      const wave2 = Math.cos(t * 0.75 + p.ty * 0.019 + p.phase * 0.3) * 2;
+      p.x += (p.tx - p.x) * 0.08;
+      p.y += (p.ty + wave + wave2 - p.y) * 0.08;
+      const dx = mouse.x - p.x, dy = mouse.y - p.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 90) { const f = (90 - dist) / 90; p.x -= dx * f * 0.14; p.y -= dy * f * 0.14; }
+    }
+    if (mode === 'assemble') {
+      p.vx += (p.tx - p.x) * 0.042;
+      p.vy += (p.ty - p.y) * 0.042;
+      p.vx *= 0.74; p.vy *= 0.74;
+      p.x += p.vx; p.y += p.vy;
+    }
+    if (mode === 'explode') {
+      p.vy += 0.19; p.vx *= 0.99;
+      p.x += p.vx; p.y += p.vy;
+    }
+    if (mode === 'rain') {
+      p.vy += 0.065; p.x += p.vx; p.y += p.vy;
+      if (p.y >= p.ty - 2 && Math.abs(p.x - p.tx) < 4) {
+        p.vy *= -0.28; p.vx *= 0.5;
+        p.x = p.tx + (p.x - p.tx) * 0.5;
+        if (Math.abs(p.vy) < 0.5) { p.vy = 0; p.x = p.tx; p.y = p.ty; }
+      }
+      if (p.y > H + 20) { p.y = -10 - Math.random()*60; p.x = p.tx+(Math.random()-0.5)*8; p.vy = p.speed*2.5; }
+    }
+
+    // ── MORPH ──
+    p.morphTimer--;
+    if (p.morphTimer <= 0) {
+      // organic spread: use smoothNoise so nearby chars tend to morph together
+      const localChaos = Math.min(1, chaosLevel + smoothNoise(i, t, 0.3) * 0.25 * chaosLevel);
+      // weighted random: morph probability proportional to chaos
+      if (Math.random() < localChaos * 0.85) {
+        p.morphing = true;
+        p.morphChar = pickMorphChar(p, localChaos);
+        p.flashAlpha = 1.0;
+        // at high chaos, sometimes chain-morph (short timer = rapid change)
+        const chainChance = chaosLevel > 0.6 ? (chaosLevel - 0.6) * 1.5 : 0;
+        if (Math.random() < chainChance) {
+          p.morphTimer = 3 + Math.random() * 8;
+        } else {
+          p.morphTimer = avgInterval * (0.5 + Math.random());
+        }
+      } else {
+        // didn't morph this tick, recover toward original
+        p.morphing = false;
+        p.disp = p.ch;
+        p.morphTimer = avgInterval * (0.3 + Math.random() * 0.7);
+      }
+    }
+
+    if (p.morphing) {
+      p.flashAlpha *= 0.88;   // fade flash over ~8 frames
+      p.disp = p.morphChar;
+      if (p.flashAlpha < 0.05) {
+        // decide: stay morphed or snap back?
+        if (chaosLevel < 0.4 || Math.random() > chaosLevel * 0.5) {
+          p.disp = p.ch;
+          p.morphing = false;
+        }
+      }
+    } else {
+      p.disp = p.ch;
+    }
+
+    // ── DRAW ──
+    const wavePulse = mode === 'wave'
+      ? 0.6 + 0.4 * Math.sin(t * 1.4 + p.phase + p.tx * 0.009)
+      : 1;
+
+    const [r, g, b, a] = p.c;
+
+    if (p.morphing && p.flashAlpha > 0.05) {
+      // Morphed char: shift color toward cyan/white flash
+      const fi = p.flashAlpha;
+      const fr = Math.round(r + (255 - r) * fi * 0.7);
+      const fg = Math.round(g + (255 - g) * fi * 0.9);
+      const fb = Math.round(b + (255 - b) * fi * 0.6);
+      ctx.globalAlpha = Math.min(1, a * wavePulse + fi * 0.5);
+      ctx.font = `${FONT}px monospace`;
+      ctx.fillStyle = `rgb(${fr},${fg},${fb})`;
+      ctx.fillText(p.disp, p.x, p.y);
+
+      // subtle glow halo for high-chaos morphs
+      if (fi > 0.4 && chaosLevel > 0.4) {
+        ctx.globalAlpha = fi * 0.18 * chaosLevel;
+        ctx.font = `${FONT + 1}px monospace`;
+        ctx.fillStyle = `rgb(180,230,255)`;
+        ctx.fillText(p.disp, p.x - 0.5, p.y - 0.5);
+        ctx.font = `${FONT}px monospace`;
+      }
+    } else {
+      ctx.globalAlpha = a * wavePulse;
+      ctx.font = `${FONT}px monospace`;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillText(p.disp, p.x, p.y);
+    }
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+resize();
+draw();
+</script>

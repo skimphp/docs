@@ -1,0 +1,77 @@
+---
+interface Props {
+  name: string;
+  type: string;
+  required?: boolean;
+}
+
+const { name, type, required } = Astro.props;
+const typeSlug = (type ?? '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+---
+<div class="api-param not-content">
+  <span class="api-param__name">{name}</span>
+  <div class="api-param__tags">
+    {type && <span class={`api-param__type api-param__type--${typeSlug}`}>{type}</span>}
+    {required !== undefined && <span class="api-param__required">required</span>}
+  </div>
+  <div class="api-param__desc"><slot /></div>
+</div>
+
+<style>
+  .api-param {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 0.6rem 0;
+    border-top: 0.5px solid rgba(255, 255, 255, 0.04);
+  }
+  [data-theme="light"] .api-param { border-top-color: var(--docs-border); }
+
+  .api-param__name {
+    font-family: var(--sl-font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--docs-text-primary);
+    flex-shrink: 0;
+    min-width: 86px;
+  }
+  .api-param__tags { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; padding-top: 1px; }
+
+  .api-param__type {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 500;
+    font-family: var(--sl-font-mono);
+    border: 0.5px solid;
+    /* catch-all for unlisted types */
+    background: var(--docs-tag-mixed-bg);
+    color: var(--docs-tag-mixed-fg);
+    border-color: var(--docs-tag-mixed-bd);
+  }
+  .api-param__type--string   { background: var(--docs-tag-string-bg);   color: var(--docs-tag-string-fg);   border-color: var(--docs-tag-string-bd); }
+  .api-param__type--int      { background: var(--docs-tag-int-bg);      color: var(--docs-tag-int-fg);      border-color: var(--docs-tag-int-bd); }
+  .api-param__type--callable { background: var(--docs-tag-callable-bg); color: var(--docs-tag-callable-fg); border-color: var(--docs-tag-callable-bd); }
+  .api-param__type--mixed    { background: var(--docs-tag-mixed-bg);    color: var(--docs-tag-mixed-fg);    border-color: var(--docs-tag-mixed-bd); }
+  .api-param__type--bool     { background: var(--docs-tag-bool-bg);     color: var(--docs-tag-bool-fg);     border-color: var(--docs-tag-bool-bd); }
+  .api-param__type--array    { background: var(--docs-tag-array-bg);    color: var(--docs-tag-array-fg);    border-color: var(--docs-tag-array-bd); }
+
+  .api-param__required {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--docs-tag-required-bg);
+    color: var(--docs-tag-required-fg);
+    border: 0.5px solid var(--docs-tag-required-bd);
+    font-weight: 500;
+  }
+  .api-param__desc { font-size: 12.5px; color: var(--docs-text-secondary); line-height: 1.6; flex: 1; }
+  .api-param__desc :global(code) {
+    font-family: var(--sl-font-mono);
+    font-size: 11px;
+    background: var(--docs-bg-elevated);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--docs-syn-keyword);
+  }
+</style>

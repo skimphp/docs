@@ -1,0 +1,29 @@
+---
+title: Auth Extension
+description: Complete authentication surface for SKIM Framework applications.
+---
+
+The SKIM Auth extension handles the entire user authentication and authorization surface with zero boilerplate.
+
+### Features
+
+*   **Registration & Log In**: Built-in, fully testable controllers and views.
+*   **Email Verification**: Secure signature verification flow out of the box.
+*   **Password Reset**: Safe, token-based password reset pipeline.
+*   **Social Login (OAuth)**: One-click integration with Google, GitHub, and Facebook.
+
+### Basic Usage
+
+Protect your routes using the `auth` middleware:
+
+```php
+Router::group(['middleware' => 'auth'], function() {
+    Router::get('/dashboard', [DashboardController::class, 'index']);
+});
+```
+
+Retrieve the currently authenticated user in your controllers:
+
+```php
+$user = Auth::user();
+```

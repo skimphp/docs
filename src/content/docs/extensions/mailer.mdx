@@ -1,0 +1,39 @@
+---
+title: Mailer Extension
+description: High-performance email dispatching in SKIM Framework.
+---
+
+The SKIM Mailer extension wraps Symfony Mailer, providing a clean API and built-in support for 50+ SaaS mail transports out of the box.
+
+### Configuration
+
+Add mail configuration to `config/mail.php`:
+
+```php
+return [
+    'default' => env('MAIL_MAILER', 'smtp'),
+    'transports' => [
+        'smtp' => [
+            'host' => env('MAIL_HOST', 'smtp.mailtrap.io'),
+            'port' => env('MAIL_PORT', 2525),
+            'username' => env('MAIL_USERNAME'),
+            'password' => env('MAIL_PASSWORD'),
+        ],
+    ],
+];
+```
+
+### Basic Usage
+
+Send emails fluently using the `mail` facade:
+
+```php
+mail::to('user@example.com')
+    ->subject('Welcome to SKIM!')
+    ->view('emails.welcome', ['name' => 'Alice'])
+    ->send();
+```
+
+### Local Testing with Ethereal
+
+During local development, configure Mailer to catch test emails locally via Ethereal without touching your real SaaS provider credentials.

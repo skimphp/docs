@@ -1,0 +1,263 @@
+---
+title: Templates
+description: Native PHP templates with layouts, components, fragments, and parts — no compiler, zero runtime overhead.
+---
+
+SKIM uses raw PHP templates. No Twig, no Blade, no compilation step. You get real stack traces, IDE autocomplete, and opcache performance out of the box.
+
+## File Layout
+
+Templates live in `app/views/` and use `.php` (or `.html`) extension:
+
+```
+app/views/
+  layouts/
+    base.php
+  pages/
+    home.php
+    dashboard.php
+  components/
+    alert.php
+    card.php
+```
+
+## Rendering from a Controller
+
+Always return a `response` object. Never `echo` or `die`.
+
+```php
+use skim\core\response;
+
+class PostController {
+    public function index(Response $response): response {
+        return $response->view('pages/home', ['title' => 'Welcome']);
+    }
+
+    public function show(Response $response, int $id): response {
+        $post = Post::find($id);
+        return $response->view('pages/post', ['post' => $post]);
+    }
+}
+```
+
+## Layouts & Sections
+
+A child template declares its layout and captures named sections. The layout renders and injects them.
+
+**Child template** (`app/views/pages/home.php`):
+
+```php
+<?php $this->layout('layouts/base') ?>
+
+<?php $this->section('title') ?>
+    Home
+<?php $this->endSection() ?>
+
+<?php $this->section('content') ?>
+    <h1>Welcome</h1>
+    <p>Hello, <?= e($name) ?></p>
+<?php $this->endSection() ?>
+```
+
+**Layout** (`app/views/layouts/base.php`):
+
+```php
+<!DOCTYPE html>
+<html>
+<head>
+    <title><?= $this->block('title', 'SKIM App') ?></title>
+</head>
+<body>
+    <main><?= $this->block('content') ?></main>
+    <footer><?= $this->block('footer', '&copy; 2026') ?></footer>
+</body>
+</html>
+```
+
+<Note>
+`$this->block()` returns a default value when the section was never captured. `$this->hasSection()` checks existence without defaults.
+</Note>
+
+<Warning>
+Always call `e()` on user-supplied data. Skipping it is an XSS vulnerability.
+</Warning>
+
+### Aliases
+
+`section()` and `endSection()` are aliases for `start()` and `end()`. Use whichever reads best in context.
+
+```php
+<?php $this->section('content') ?>
+    <p>Hello</p>
+<?php $this->endSection() ?>
+```
+
+## Components
+
+Components are reusable, isolated templates that receive only their props. Parent data never leaks in.
+
+### Array Props (Legacy)
+
+```php
+<?= component('alert', ['message' => 'Profile saved', 'type' => 'success']) ?>
+```
+
+### Readonly Props Objects (Recommended)
+
+Define a `*_props` DTO class and pass it for type safety and IDE autocomplete:
+
+```php
+// app/view_props/alert_props.php
+readonly class AlertProps {
+    public function __construct(
+        public string $message,
+        public string $type = 'info'
+    ) {}
+}
+```
+
+```php
+<?= component('alert', new AlertProps(message: 'Profile saved', type: 'success')) ?>
+```
+
+**Component template** (`app/views/components/alert.php`):
+
+```php
+<div class="alert alert-<?= e($type) ?>">
+    <?= e($message) ?>
+</div>
+```
+
+<Note>
+Props objects must end in `_props`. Anything else throws a `ViewException`.
+</Note>
+
+### Components with Parts
+
+When a component needs multiple named content blocks — like a card with an optional header and footer — use `componentWithParts()`:
+
+```php
+<?= componentWithParts('card', new CardProps(title: 'Profile'), function($c) { ?>
+    <?php $c->part('header', function() { ?>
+        <h2>Edit Profile</h2>
+    <?php }) ?>
+
+    <form>...</form>
+
+    <?php $c->part('footer', function() { ?>
+        <button>Save</button>
+    <?php }) ?>
+<?php }) ?>
+```
+
+**Component template** (`app/views/components/card.php`):
+
+```php
+<div class="card">
+    <?php if (hasPart('header')): ?>
+        <div class="card-header"><?= part('header') ?></div>
+    <?php else: ?>
+        <div class="card-header"><h3><?= e($title) ?></h3></div>
+    <?php endif; ?>
+
+    <div class="card-body"><?= part() ?></div>
+
+    <?php if (hasPart('footer')): ?>
+        <div class="card-footer"><?= part('footer') ?></div>
+    <?php endif; ?>
+</div>
+```
+
+The main body (anything outside `part()` calls) is available via `part()` with no arguments. Named parts use `part('name')` and `hasPart('name')`.
+
+<Note>
+`part()` and `hasPart()` read from a static stack, so nested components with parts are fully isolated.
+</Note>
+
+## Fragments (HTMX / Datastar)
+
+Fragments let you render a small piece of a template without the full layout — ideal for HTMX partial updates.
+
+Mark a fragment in the template with HTML comments:
+
+```php
+<!-- app/views/pages/dashboard.php -->
+<?php $this->layout('layouts/base') ?>
+<?php $this->section('content') ?>
+
+<!-- @fragment stats_widget -->
+<div id="stats">
+    <span><?= e($stats_value) ?></span>
+</div>
+<!-- @end -->
+
+<!-- @fragment user_list -->
+<ul>
+    <?php foreach ($users as $user): ?>
+        <li><?= e($user) ?></li>
+    <?php endforeach; ?>
+</ul>
+<!-- @end -->
+
+<?php $this->endSection() ?>
+```
+
+Request a fragment from the controller:
+
+```php
+public function stats_widget(Response $response): response {
+    return $response->fragment('pages/dashboard', ['stats_value' => '42'], 'stats_widget');
+}
+```
+
+When `$fragment` is set, the layout is **bypassed entirely**. Only the named fragment is extracted and returned. This is much faster than rendering the full page and discarding everything else.
+
+<Warning>
+Fragments must be flat — no nesting. The parser validates structure and throws `ViewException` on nested, unmatched, or unclosed markers.
+</Warning>
+
+### Smart View
+
+`Response::smartView()` auto-selects full page or fragment based on request headers. Use it when the same endpoint serves both full-page loads and HTMX partials:
+
+```php
+public function dashboard(Response $response): response {
+    $data = ['stats_value' => '42', 'users' => ['Alice', 'Bob']];
+    return $response->smartView('pages/dashboard', $data);
+}
+```
+
+## Shared Data
+
+Cross-cutting values like `current_user` or `appName` can be injected into every template:
+
+```php
+// In middleware or boot
+View::share('current_user', $user);
+View::share('app_name', config('app.name'));
+```
+
+Shared data is merged with per-render data; per-render keys win on conflict.
+
+## Best Practices
+
+| Do | Don't |
+|----|-------|
+| Use `e()` on every output | `<?= $user->name ?>` — XSS risk |
+| Use `*_props` objects for components | Array props for complex components (no IDE help) |
+| Split HTMX responses into fragments | Render full pages for every partial update |
+| Keep fragment markers flat | Nest fragments inside fragments |
+| Use `section()` aliases for readability | Mix `start()` and `section()` in the same file |
+| Set `View::share()` in middleware | Pass the same data in every controller |
+
+## Helpers
+
+| Function | Purpose |
+|----------|---------|
+| `e($value)` | HTML-escape a string |
+| `component($name, $props)` | Render an isolated component |
+| `componentWithParts($name, $props, $closure)` | Render a component with named parts |
+| `part($name, $default)` | Get a named part inside a component |
+| `hasPart($name)` | Check if a part exists |
+| `route($name, $params)` | Generate a URL for a named route |
+| `asset($path)` | Vite-managed asset URL |
