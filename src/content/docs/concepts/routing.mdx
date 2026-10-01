@@ -3,52 +3,74 @@ title: Routing
 description: Routing definitions and URL dispatching in SKIM Framework.
 ---
 
-SKIM wraps the fast and reliable `nikic/fast-route` library with a minimal, elegant API. Routes are defined in plain PHP, allowing full IDE autocomplete, static analysis, and zero parsing overhead.
+SKIM wraps the fast and reliable `nikic/fast-route` library with a minimal, explicit API. Routes are defined in plain PHP, allowing full IDE autocomplete, static analysis, and zero parsing overhead.
 
 ### Registering Routes
 
-Routes are canonically registered in the `routes.php` file in your project root. Here is an example of route definitions:
+Routes are canonically registered in the `routes.php` file in your project root, which receives the application container as `$app`:
 
 ```php
 // routes.php
-Router::get('/', [HomeController::class, 'index']);
-Router::get('/posts', [PostController::class, 'list']);
-Router::get('/posts/{id}', [PostController::class, 'show']);
+/** @var Skim\Core\App $app */
+
+$app->router->get('/', [App\Controllers\HomeController::class, 'index']);
+$app->router->get('/posts', [App\Controllers\PostController::class, 'list']);
+$app->router->post('/posts', [App\Controllers\PostController::class, 'store']);
 ```
 
 ### Parameter Tokens
 
-URL parameters can be matched using standard curly brace tokens:
+URL parameters are matched using `@` tokens:
 
-*   `{id}`: Matches any value.
-*   `@id:int`: Matches digits only (`[0-9]+`).
+*   `@id`: Matches any value (`[^/]+`).
+*   `@id:int`: Matches digits only (`\d+`).
 *   `@slug:str`: Matches alphanumeric characters and dashes (`[a-zA-Z0-9\-]+`).
 
 Example:
 
 ```php
-Router::get('/users/@id:int', [UserController::class, 'show']);
-Router::get('/blog/@slug:str', [BlogController::class, 'show']);
+$app->router->get('/users/@id:int', [UserController::class, 'show']);
+$app->router->get('/blog/@slug:str', [BlogController::class, 'show']);
 ```
 
 ### Route Grouping & Prefixing
 
-You can group related routes together under a shared prefix and apply group-level middleware:
+Group related routes under a shared prefix and apply group-level middleware classes:
 
 ```php
-Router::group(['prefix' => '/api/v1', 'middleware' => 'api_auth'], function() {
-    Router::get('/users', [UserApiController::class, 'index']);
-    Router::post('/users', [UserApiController::class, 'create']);
-});
+$app->router->group('/admin', function (Skim\Core\Router $r): void {
+    $r->get('/users',        [AdminController::class, 'users']);
+    $r->post('/users/@id:int', [AdminController::class, 'updateUser']);
+}, middleware: [AuthMiddleware::class, AdminMiddleware::class]);
+```
+
+Groups nest — prefixes concatenate and middleware merges additively.
+
+### Route-Level Middleware
+
+Attach middleware to a single route via the fluent `middleware()` call:
+
+```php
+$app->router->get('/dashboard', [HomeController::class, 'dashboard'])
+    ->middleware(AuthMiddleware::class);
 ```
 
 ### Named Routes & Generation
 
-To reference routes dynamically throughout your application, you can assign them names:
+Assign a name to generate URLs dynamically:
 
 ```php
-Router::get('/profile', [ProfileController::class, 'show'])->name('profile');
+$app->router->get('/profile', [ProfileController::class, 'show'])->name('profile');
 
 // Generate URL elsewhere:
-$url = route('profile'); // Returns "/profile"
+$url = route('profile'); // "/profile"
+$url = route('user.show', ['id' => 5]); // "/user/5"
 ```
+
+### Dispatch Results
+
+`Router::dispatch()` never throws for standard routing events:
+
+*   `array` — matched route + extracted params.
+*   `null` — no route matched (**404**).
+*   `false` — path matched but method not allowed (**405**).

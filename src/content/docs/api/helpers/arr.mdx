@@ -1,0 +1,454 @@
+---
+title: arr
+description: "Array utility methods for finding, indexing, plucking, and common collection patterns."
+---
+
+<ApiBadge type="helper" />
+<ApiBadge type="array" />
+<ApiBadge type="stateless" />
+<ApiBadge type="collections" />
+
+`arr` provides common array transformations used across controllers, models, and services. It wraps PHP 8.4+ `array_find()` with key=&gt;value shorthand and provides multi-key indexing methods essential for eager-loading relation maps.
+
+```txt
+Symbol: Skim\Helpers\Arr
+Source: src/Helpers/Arr.php
+Lifecycle: stateless — all methods are pure functions
+Fallback: none
+Test seam: test directly — no mocking needed
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Arr::find(['id' => 5], $users);           // first user with id=5
+Arr::mapBy('id', $users);                // [5 => user, 6 => user, ...]
+Arr::pluck('name', $users);               // ['John', 'Jane', ...]
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+caller invokes static method
+-> pure computation
+-> return value
+```
+
+</LifecycleFlow>
+
+Thin utility layer. All methods work with both array and object items for flexibility with DB rows and model instances.
+
+<NoteBox>
+
+find() wraps PHP 8.4 array_find()
+
+</NoteBox>
+
+## Search
+
+<ApiMethod name="find">
+
+<ApiSignature>
+
+```php
+public static function find(array|callable $criteria, array $items): mixed
+```
+
+</ApiSignature>
+
+Finds the first element matching a key=&gt;value pair or callable predicate. Returns null if no match.
+
+<ApiParam name="$criteria" type="array" required>
+
+['col' =&gt; 'val'] shorthand or predicate function.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array to search.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="findAll">
+
+<ApiSignature>
+
+```php
+public static function findAll(array|callable $criteria, array $items): array
+```
+
+</ApiSignature>
+
+Returns all elements matching a key=&gt;value pair or callable. Re-indexes the result.
+
+<ApiParam name="$criteria" type="array" required>
+
+['col' =&gt; 'val'] shorthand or predicate function.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array to filter.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="filterBy">
+
+<ApiSignature>
+
+```php
+public static function filterBy(string $col, mixed $val, array $items): array
+```
+
+</ApiSignature>
+
+Filters items where column equals value (strict ===). Returns re-indexed array.
+
+<ApiParam name="$col" type="string" required>
+
+Column to match.
+
+</ApiParam>
+
+<ApiParam name="$val" type="mixed" required>
+
+Value to match.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array to filter.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Indexing
+
+<ApiMethod name="mapBy">
+
+<ApiSignature>
+
+```php
+public static function mapBy(string $key, array $items): array
+```
+
+</ApiSignature>
+
+Re-indexes an array by a column value. Last-write-wins on key collision.
+
+<ApiParam name="$key" type="string" required>
+
+Column to use as the new key.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array of arrays or objects.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Arr::mapBy('id', [['id'=>5,'name'=>'J']]); // [5 => ['id'=>5,'name'=>'J']]
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="mapCol">
+
+<ApiSignature>
+
+```php
+public static function mapCol(string $key, string $val, array $items): array
+```
+
+</ApiSignature>
+
+Maps two columns into key→value pairs.
+
+<ApiParam name="$key" type="string" required>
+
+Column for resulting key.
+
+</ApiParam>
+
+<ApiParam name="$val" type="string" required>
+
+Column for resulting value.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array of arrays or objects.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Arr::mapCol('id', 'name', $rows); // [5 => 'John', 6 => 'Jane']
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="mapNested">
+
+<ApiSignature>
+
+```php
+public static function mapNested(string $key1, string $key2, array $items): array
+```
+
+</ApiSignature>
+
+Creates a double-key index: result[k1][k2] = item. Last-write-wins at second level.
+
+<ApiParam name="$key1" type="string" required>
+
+First-level key column.
+
+</ApiParam>
+
+<ApiParam name="$key2" type="string" required>
+
+Second-level key column.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array of arrays or objects.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="mapKeys">
+
+<ApiSignature>
+
+```php
+public static function mapKeys(string $key1, string $key2, array $items): array
+```
+
+</ApiSignature>
+
+Creates a triple-key index: result[k1][k2][] = item. Appends at second level (not overwrites).
+
+<ApiParam name="$key1" type="string" required>
+
+First-level key column.
+
+</ApiParam>
+
+<ApiParam name="$key2" type="string" required>
+
+Second-level key column.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array of arrays or objects.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Extraction
+
+<ApiMethod name="pluck">
+
+<ApiSignature>
+
+```php
+public static function pluck(string $key, array $items): array
+```
+
+</ApiSignature>
+
+Extracts a single column into a flat list. Wraps array_column().
+
+<ApiParam name="$key" type="string" required>
+
+Column to extract.
+
+</ApiParam>
+
+<ApiParam name="$items" type="array" required>
+
+Array of arrays.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Arr::pluck('name', $users); // ['John', 'Jane', ...]
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Navigation
+
+<ApiMethod name="first">
+
+<ApiSignature>
+
+```php
+public static function first(array $items): mixed
+```
+
+</ApiSignature>
+
+Returns the first element or null if empty. Wraps PHP 8.5 array_first().
+
+<ApiParam name="$items" type="array" required>
+
+Input array.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="last">
+
+<ApiSignature>
+
+```php
+public static function last(array $items): mixed
+```
+
+</ApiSignature>
+
+Returns the last element or null if empty. Wraps PHP 8.5 array_last().
+
+<ApiParam name="$items" type="array" required>
+
+Input array.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Aggregation
+
+<ApiMethod name="normalize100">
+
+<ApiSignature>
+
+```php
+public static function normalize100(array $values): array
+```
+
+</ApiSignature>
+
+Normalizes numeric values so they sum to exactly 100. Remainder from rounding is added to the last element.
+
+<ApiParam name="$values" type="array" required>
+
+Associative array of numeric values.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="weightedPick">
+
+<ApiSignature>
+
+```php
+public static function weightedPick(array $weights): string|int
+```
+
+</ApiSignature>
+
+Picks a random key weighted by values. Uses random_int() for cryptographic randomness.
+
+<ApiParam name="$weights" type="array" required>
+
+Associative array of key =&gt; weight.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Arr::weightedPick(['red' => 80, 'blue' => 20]); // 'red' ~80% of the time
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Debug
+
+<ApiMethod name="toString">
+
+<ApiSignature>
+
+```php
+public static function toString(array $data, int $depth = 0): string
+```
+
+</ApiSignature>
+
+Returns a human-readable string dump of an array. No HTML — safe for CLI and log files.
+
+<ApiParam name="$data" type="array" required>
+
+Array to dump.
+
+</ApiParam>
+
+<ApiParam name="$depth" type="int">
+
+Internal recursion depth.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Helpers\Arr
+role: array utility helper
+layer: helpers
+lifecycle: stateless — all methods are pure functions
+owns: nothing
+flow: caller -> Arr::method() -> pure return value
+entry_points:
+  - find
+  - findAll
+  - mapBy
+  - mapCol
+  - pluck
+  - filterBy
+  - first
+  - last
+  - mapNested
+  - mapKeys
+  - normalize100
+  - weightedPick
+  - toString
+invariants:
+  - all methods accept both arrays and objects as items
+  - mapBy uses last-write-wins on key collision
+  - mapKeys appends (not overwrites) at second level
+  - normalize100 guarantees sum === 100
+non_goals:
+  - Does not provide lazy evaluation
+  - Does not support nested dot-notation keys
+```
+</AiContext>

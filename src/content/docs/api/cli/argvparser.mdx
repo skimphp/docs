@@ -1,0 +1,117 @@
+---
+title: ArgvParser
+description: "Pure value object that parses $argv into command name, positional args, and flags."
+---
+
+<ApiBadge type="value-object" />
+<ApiBadge type="cli" />
+<ApiBadge type="parser" />
+<ApiBadge type="immutable" />
+
+`ArgvParser` is a pure, immutable value object that transforms the raw PHP `$argv` array into structured command, args, and flags. It handles `--flag=value`, `--flag`, `-f` short flags, and positional arguments. Colon-commands like `migrate:down` automatically inject the sub-part as the first positional arg.
+
+```txt
+Symbol: Skim\Cli\ArgvParser
+Source: src/Cli/ArgvParser.php
+Lifecycle: instantiated once per CLI invocation via parse()
+Fallback: defaults to 'help' command when no command token is found
+Test seam: pure value object — instantiate directly in tests with known $argv arrays
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$parsed = ArgvParser::parse(['skim', 'migrate:down', '--steps=2']);
+// $parsed->command === 'migrate:down', $parsed->args === ['down'], $parsed->flags === ['steps' => '2']
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+ArgvParser::parse($argv)
+-> strip argv[0]
+-> iterate tokens
+-> classify as flag/command/arg
+-> inject colon sub-part
+-> return new self(...)
+```
+
+</LifecycleFlow>
+
+Pure value object with no I/O or side-effects. Safe to test directly without mocks.
+
+## Parsing
+
+<ApiMethod name="parse">
+
+<ApiSignature>
+
+```php
+public static function parse(array $argv): self
+```
+
+</ApiSignature>
+
+Parses the raw $argv array into a structured value object. Strips argv[0], classifies tokens as flags, command, or positional args, and injects the colon sub-part for commands like `migrate:down`.
+
+<ApiParam name="$argv" type="array" required>
+
+Raw $argv as received by PHP. argv[0] is the script name and is stripped automatically.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$parsed = ArgvParser::parse(['skim', 'cache:clear', 'user:', '--force']);
+// command='cache:clear', args=['clear','user:'], flags=['force'=>true]
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Flag Access
+
+<ApiMethod name="hasFlag">
+
+<ApiSignature>
+
+```php
+public function hasFlag(string ...$names): bool
+```
+
+</ApiSignature>
+
+Returns true when any of the given flag names is set in the parsed flags array. Accepts variadic names for convenience (e.g. checking both 'quiet' and 'q').
+
+<ApiParam name="$names" type="string" required>
+
+Flag names to test, without leading dashes. Variadic — pass one or more names.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\ArgvParser
+role: CLI argument parser
+layer: cli
+lifecycle: instantiated once per CLI invocation via parse()
+owns: parsed command, args, and flags
+flow: ArgvParser::parse($argv) -> strip argv[0] -> tokenize flags/args/command -> inject colon sub-part -> return immutable value object
+entry_points:
+  - parse
+  - hasFlag
+invariants:
+  - argv[0] is always stripped
+  - first non-flag token becomes the command
+  - colon-commands inject sub-part into args[0]
+  - flags may appear before or after the command token
+non_goals:
+  - Does not validate command names against a registry
+  - Does not handle quoted strings with spaces
+  - Does not support --flag value (space-separated) syntax
+```
+</AiContext>

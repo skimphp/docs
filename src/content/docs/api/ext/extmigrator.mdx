@@ -1,0 +1,158 @@
+---
+title: ExtMigrator
+description: "Runs extension migrations against the shared _migrations table with session-scoped rollback."
+---
+
+<ApiBadge type="extension" />
+<ApiBadge type="migration" />
+<ApiBadge type="database" />
+<ApiBadge type="transactional" />
+
+`ExtMigrator` applies an extension's migration files inside transactions and tracks them in the shared `_migrations` table. It supports session-scoped rollback for cleanup when installation fails partway through.
+
+```txt
+Symbol: Skim\Ext\ExtMigrator
+Source: src/Ext/ExtMigrator.php
+Lifecycle: instantiated per-extension install
+Test seam: use SQLite :memory: connection
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$migrator = new ExtMigrator('default');
+$applied = $migrator->run('acme/auth', __DIR__ . '/migrations');
+// On failure:
+$migrator->rollbackSession($applied);
+```
+</CodeExample>
+
+<WarningBox>
+
+rollbackSession() only rolls back migrations from the current run() call — not previous sessions
+
+</WarningBox>
+
+## Migration API
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $connection = 'default')
+```
+
+</ApiSignature>
+
+Sets the configured DB connection name used for all migration operations.
+
+<ApiParam name="$connection" type="string">
+
+Configured DB connection name from config/db.php. Default 'default'.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(string $extName, string $migrationsPath): array
+```
+
+</ApiSignature>
+
+Scans the migrations path, compares against applied migrations, and applies pending ones inside transactions. Returns the list of applied entries.
+
+<ApiParam name="$extName" type="string" required>
+
+Extension name. Must be non-empty and cannot contain colons.
+
+</ApiParam>
+
+<ApiParam name="$migrationsPath" type="string" required>
+
+Absolute path to directory containing migration .php files.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$applied = $migrator->run('acme/auth', '/path/to/ext/migrations');
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="rollbackSession">
+
+<ApiSignature>
+
+```php
+public function rollbackSession(array $appliedThisSession): array
+```
+
+</ApiSignature>
+
+Rolls back migrations applied during the current install session in reverse order. Each rollback runs inside a transaction.
+
+<ApiParam name="$appliedThisSession" type="array" required>
+
+Array of applied entries returned by run().
+
+</ApiParam>
+
+<WarningBox>
+
+Only rolls back migrations from the most recent run() call — not previous sessions
+
+</WarningBox>
+
+</ApiMethod>
+
+## Inspection
+
+<ApiMethod name="appliedThisSession">
+
+<ApiSignature>
+
+```php
+public function appliedThisSession(): array
+```
+
+</ApiSignature>
+
+Returns the list of migrations applied during the most recent run() call.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Ext\ExtMigrator
+role: extension migration runner
+layer: ext
+lifecycle: instantiated per-extension install
+owns: _migrations table rows for extension entries
+flow: run() -> ensureTable() -> appliedFor() -> pending() -> foreach: transaction(up() + INSERT tracking) -> rollbackSession(): reverse foreach: transaction(down() + DELETE tracking)
+entry_points:
+  - run
+  - rollbackSession
+  - appliedThisSession
+invariants:
+  - Each migration runs inside a transaction
+  - Tracking filename format is 'ext_name: filename.php'
+  - Extension name cannot contain colons
+  - _migrations table is auto-created
+side_effects:
+  - Creates _migrations table if missing
+  - Inserts tracking rows
+  - Executes DDL/DML from migration files
+  - Deletes rows on rollback
+non_goals:
+  - Does not handle core framework migrations
+  - Does not support down-migrations by batch
+  - Does not validate SQL syntax across drivers
+```
+</AiContext>

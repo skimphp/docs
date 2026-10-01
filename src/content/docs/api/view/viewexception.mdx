@@ -1,0 +1,65 @@
+---
+title: ViewException
+description: "Exception thrown when a template file is not found or a named fragment is missing."
+---
+
+<ApiBadge type="exception" />
+<ApiBadge type="view" />
+<ApiBadge type="error" />
+
+`ViewException` is thrown by the view system when a template file cannot be resolved or a requested fragment name does not exist in the rendered output.
+
+```txt
+Symbol: Skim\View\Exceptions\ViewException
+Source: src/View/Exceptions/ViewException.php
+Lifecycle: thrown during View::render() or Template::renderFile()
+Fallback: n/a — exception type
+Test seam: expect this exception in Pest tests for missing templates
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+try {
+    View::render('nonexistent');
+} catch (ViewException $e) {
+    Log::error($e->getMessage());
+}
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+View::render() or Template::renderFile()
+-> file/fragment not found
+-> throw new ViewException(...)
+```
+
+</LifecycleFlow>
+
+Simple RuntimeException subclass — exists solely for type-specific catching.
+
+<NoteBox>
+
+Distinguishable from generic RuntimeException for targeted error handling.
+
+</NoteBox>
+
+<AiContext>
+```txt
+symbol: Skim\View\Exceptions\ViewException
+role: view error type
+layer: view
+lifecycle: thrown during View::render() or Template::renderFile()
+owns: nothing
+flow: View::render() -> template not found or fragment missing -> throw ViewException
+invariants:
+  - Extends RuntimeException
+  - Thrown only for template-not-found and fragment-not-found errors
+non_goals:
+  - Does not handle rendering logic
+  - Does not provide recovery mechanisms
+```
+</AiContext>

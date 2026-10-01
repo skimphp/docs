@@ -1,0 +1,152 @@
+---
+title: ProgressBar
+description: "Terminal progress bar with TTY-aware rendering, percentage display, and braille spinner for unknown totals."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="progress" />
+<ApiBadge type="tty-aware" />
+<ApiBadge type="spinner" />
+
+`ProgressBar` provides a terminal progress indicator that renders a filled bar with percentage when total is known, or an animated braille spinner for indeterminate operations. Degrades to plain text on non-TTY output.
+
+```txt
+Symbol: Skim\Cli\ProgressBar
+Source: src/Cli/ProgressBar.php
+Lifecycle: instantiated with total and label, advance() called per step, finish() completes the bar
+Fallback: plain text percentage on non-TTY output
+Test seam: not designed for automated testing — writes directly to stdout
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$bar = new ProgressBar(total: 100, label: 'Processing');
+foreach ($items as $item) { $bar->advance(); }
+$bar->finish('All items processed');
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+__construct(total, label)
+-> render() initial frame
+-> advance(step) per iteration
+-> render() updated frame
+-> finish(msg)
+-> print elapsed time
+```
+
+</LifecycleFlow>
+
+Uses carriage return (\r) for in-place terminal updates. The bar is rendered immediately on construction so the user sees progress from the start.
+
+## Progress Control
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(int $total = 0, string $label = '')
+```
+
+</ApiSignature>
+
+Creates and immediately renders the progress bar. Total of 0 activates indeterminate spinner mode.
+
+<ApiParam name="$total" type="int">
+
+Total steps. 0 for indeterminate spinner mode.
+
+</ApiParam>
+
+<ApiParam name="$label" type="string">
+
+Text displayed alongside the bar.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="advance">
+
+<ApiSignature>
+
+```php
+public function advance(int $step = 1): void
+```
+
+</ApiSignature>
+
+Increments the progress counter by $step and re-renders. Clamps at total when known.
+
+<ApiParam name="$step" type="int">
+
+Number of steps to advance. Default 1.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="finish">
+
+<ApiSignature>
+
+```php
+public function finish(string $msg = 'Done'): void
+```
+
+</ApiSignature>
+
+Completes the bar, prints a newline, and displays elapsed time with a green success message.
+
+<ApiParam name="$msg" type="string">
+
+Completion message. Default 'Done'.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Rendering
+
+<ApiMethod name="render">
+
+<ApiSignature>
+
+```php
+private function render(): void
+```
+
+</ApiSignature>
+
+Renders the current state to stdout using carriage return for in-place updates. Switches between bar and spinner based on total.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\ProgressBar
+role: CLI progress indicator
+layer: cli
+lifecycle: instantiated with total and label, advance() called per step, finish() completes the bar
+owns: current count, startedAt timestamp, spinner state
+flow: new ProgressBar(total, label) -> render() -> advance() loop -> finish(msg) -> print elapsed
+entry_points:
+  - advance
+  - finish
+invariants:
+  - current is clamped at total
+  - spinner cycles through 10 braille frames
+  - render uses carriage return for in-place updates
+side_effects:
+  - writes to stdout via printf with carriage return
+non_goals:
+  - Does not support multiple concurrent bars
+  - Does not estimate remaining time
+  - Does not support custom bar characters
+```
+</AiContext>

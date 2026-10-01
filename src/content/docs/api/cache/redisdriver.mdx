@@ -1,0 +1,256 @@
+---
+title: RedisDriver
+description: "Redis cache driver using php-redis extension with lazy connection, SCAN-based flush, and tag support."
+---
+
+<ApiBadge type="driver" />
+<ApiBadge type="cache" />
+<ApiBadge type="redis" />
+<ApiBadge type="lazy-connection" />
+<ApiBadge type="tag-support" />
+
+`Skim\Cache\RedisDriver` is the production cache backend. It uses the php-redis extension (not Predis) for 5-10x better performance. Connection is lazy — the socket opens on first operation. Prefix-based flush uses SCAN to avoid blocking Redis. Tags are supported via Redis sets through `tags()`.
+
+```txt
+Symbol: Skim\Cache\RedisDriver
+Source: src/Cache/RedisDriver.php
+Lifecycle: lazy connection on first operation, reused for process lifetime
+Fallback: FileDriver when Redis is unreachable
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$driver = new RedisDriver(host: '127.0.0.1', port: 6379, prefix: 'skim_');
+$driver->set('user:1', $data, 3600);
+```
+</CodeExample>
+
+<WarningBox>
+
+flushAll() issues FLUSHDB which destroys ALL data in the selected Redis database, not just cache keys
+
+</WarningBox>
+
+<WarningBox>
+
+Prefer flush('prefix:') in production
+
+</WarningBox>
+
+## Architecture
+
+The driver prefixes all keys with the configured prefix (default 'skim_') to namespace cache entries within a shared Redis instance. SCAN-based flush avoids the KEYS command which blocks the Redis event loop on large datasets.
+
+<NoteBox>
+
+Why php-redis over Predis: extension is 5-10x faster, no Composer dependency. Tags use Redis sets: tag→[key1, key2, ...] — flush by tag deletes all member keys.
+
+</NoteBox>
+
+## Read API
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Reads the prefixed key from Redis, unserializes the value, and returns it or $default on miss/deserialization failure.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback returned on miss.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public function has(string $key): bool
+```
+
+</ApiSignature>
+
+Checks key existence via Redis EXISTS command.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Write API
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value, ?int $ttl = null): bool
+```
+
+</ApiSignature>
+
+Serializes the value and writes to Redis using SETEX (with TTL) or SET (without TTL).
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to persist.
+
+</ApiParam>
+
+<ApiParam name="$ttl" type="?int">
+
+TTL in seconds, or null for no expiry.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $key): bool
+```
+
+</ApiSignature>
+
+Deletes the prefixed key via Redis DEL command.
+
+<ApiParam name="$key" type="string" required>
+
+Exact cache key to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Invalidation
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public function flush(string $prefix): bool
+```
+
+</ApiSignature>
+
+Uses SCAN to find matching keys in batches of 100, then DEL to remove them. Avoids KEYS which blocks Redis.
+
+<ApiParam name="$prefix" type="string" required>
+
+Key prefix to match.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="flushAll">
+
+<ApiSignature>
+
+```php
+public function flushAll(): bool
+```
+
+</ApiSignature>
+
+Issues FLUSHDB on the selected Redis database, destroying all data in that database.
+
+<WarningBox>
+
+FLUSHDB destroys ALL data in the selected database, not just cache keys
+
+</WarningBox>
+
+<WarningBox>
+
+Prefer flush('prefix:') in production
+
+</WarningBox>
+
+</ApiMethod>
+
+## Tag Operations
+
+<ApiMethod name="tags">
+
+<ApiSignature>
+
+```php
+public function tags(array $tags): TaggedRedisDriver
+```
+
+</ApiSignature>
+
+Returns a tag-scoped proxy that tracks key membership in Redis sets and supports grouped invalidation.
+
+<ApiParam name="$tags" type="array" required>
+
+Tag identifiers for grouped operations.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$driver->tags(['users'])->set('user:42', $data, 3600);
+$driver->tags(['users'])->flush(); // Removes all keys tagged 'users'
+```
+</CodeExample>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $host, int $port, ?string $password, int $database, string $prefix)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cache\RedisDriver
+role: primary cache driver
+layer: cache
+lifecycle: lazy connection on first operation, reused for process lifetime
+invariants:
+  - connection is lazy — no socket opened until first operation
+  - flush() uses SCAN not KEYS
+  - values are serialized via PHP serialize()
+  - tags use Redis sets
+  - flushAll() issues FLUSHDB on selected database
+```
+</AiContext>

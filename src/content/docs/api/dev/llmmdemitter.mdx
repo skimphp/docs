@@ -1,0 +1,108 @@
+---
+title: LlmMdEmitter
+description: "Converts decoded llm.json data into compact grouped Markdown optimized for LLM context windows."
+---
+
+<ApiBadge type="emitter" />
+<ApiBadge type="markdown" />
+<ApiBadge type="llm" />
+<ApiBadge type="docs" />
+
+`LlmMdEmitter` transforms the structured llm.json array into a single Markdown file with class sections grouped by section_order. It renders compact signatures, param tables, and warning annotations in a format that fits within LLM context windows.
+
+```txt
+Symbol: Skim\Dev\Docs\Emitter\LlmMdEmitter
+Source: src/Dev/Docs/Emitter/LlmMdEmitter.php
+Lifecycle: instantiated per-use by DocsLlmCommand, no state retained
+Fallback: none — throws on write failure
+Test seam: instantiate directly with temp file paths
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$data = (new JsonEmitter())->load('llm.json');
+(new LlmMdEmitter())->emit($data, 'llm.md', frameworkLlmMd: 'vendor/skim/framework/llm.md');
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+emit()
+-> build header lines
+-> optionally prepend framework llm.md
+-> iterate classes
+-> renderClass()
+-> groupMethods()
+-> renderMethod()
+-> write()
+```
+
+</LifecycleFlow>
+
+Produces a single-file Markdown output designed for paste-into-LLM usage, not for human browsing.
+
+## Emit
+
+<ApiMethod name="emit">
+
+<ApiSignature>
+
+```php
+public function emit(array $data, string $outputPath, ?string $frameworkLlmMd = null): void
+```
+
+</ApiSignature>
+
+Accepts decoded llm.json array and writes compact class sections grouped by section_order. Prepends framework llm.md content when the optional path is provided and the file exists.
+
+<ApiParam name="$data" type="array" required>
+
+Decoded llm.json array with 'classes' and 'generated_at' keys.
+
+</ApiParam>
+
+<ApiParam name="$outputPath" type="string" required>
+
+Filesystem path for the output Markdown file.
+
+</ApiParam>
+
+<ApiParam name="$frameworkLlmMd" type="?string">
+
+Optional path to framework-level llm.md to prepend.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+When the output directory cannot be created or the file cannot be written.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Emitter\LlmMdEmitter
+role: Markdown emitter for LLM consumption
+layer: dev
+lifecycle: instantiated per-use by DocsLlmCommand, no state retained
+owns: none — stateless
+flow: emit(data, path) -> renderClass[] -> renderMethod[] -> groupMethods -> write
+entry_points:
+  - emit
+invariants:
+  - methods grouped by section_order
+  - compact signatures strip types from params
+  - #AI markers stripped from output text
+side_effects:
+  - writes Markdown file to disk
+  - creates parent directories
+non_goals:
+  - Does not generate MDX
+  - Does not extract or load llm.json
+```
+</AiContext>

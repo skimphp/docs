@@ -8,53 +8,51 @@ Follow this guide to create a new SKIM project and run it locally.
 ### Prerequisites
 
 *   PHP 8.5 or higher
-*   Composer (Dependency Manager for PHP)
-*   Docker & Docker Compose (optional but recommended for database/Redis)
+*   Composer
+*   Docker & Docker Compose (recommended — ships with the skeleton)
 
 ### 1. Create a New Project
 
-Use Composer to create a new project from the SKIM starter template:
+Create a project from the SKIM skeleton:
 
 ```bash
-composer create-project skim/framework my-app
+composer create-project skim/skeleton my-app
 cd my-app
 ```
 
 ### 2. Configure Environment
 
-Copy the example environment configuration file:
+Copy the example environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` in your editor to configure your application key, database, and Redis credentials.
+Open `.env` to configure database and Redis credentials.
 
 ### 3. Start Development Services
 
-Bring up the pre-configured local development environment using Docker:
+Bring up the pre-configured environment:
 
 ```bash
 docker compose up -d
 ```
 
 This starts:
-*   A PHP-FPM / Nginx web server
-*   PostgreSQL / MySQL database container
-*   Redis server
+*   `app` — PHP 8.5 with the built-in web server (OPcache + JIT), port **8080**
+*   `mysql` and `pgsql` — database containers
+*   `redis` — cache, session & queue backend
 
 ### 4. Run Migrations
 
-Run database migrations to initialize tables:
-
 ```bash
-php skim migrate
+docker compose exec app php skim migrate:up
 ```
 
 ### 5. Open in Browser
 
-Open your browser and visit:
 ```
-http://localhost:8000
+http://localhost:8080
 ```
-You should see the SKIM welcome screen!
+
+You should see the SKIM welcome screen.

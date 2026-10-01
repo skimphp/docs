@@ -1,0 +1,98 @@
+---
+title: LeakDetector
+description: "Runtime per-request leak detector for worker mode (dev/CI only). #AI:class Snapshots boundary state at begin_request and, after worker_reset has run at end_request, flags hard invariant violations immediately and sustained growth trends over a sliding window. Off unless WORKER_MODE + debug, or explicitly configured. Reports via log/request_trace/profiler — never throws mid-request."
+---
+
+Runtime per-request leak detector for worker mode (dev/CI only). #AI:class
+
+Snapshots boundary state at begin_request and, after worker_reset has run at
+end_request, flags hard invariant violations immediately and sustained growth
+trends over a sliding window. Off unless WORKER_MODE + debug, or explicitly
+configured. Reports via log/request_trace/profiler — never throws mid-request.
+
+```txt
+Symbol: Skim\Worker\LeakDetector
+Source: src/Worker/LeakDetector.php
+```
+
+## 
+
+<ApiMethod name="configure">
+
+<ApiSignature>
+
+```php
+public static function configure(string $mode): void
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="isActive">
+
+<ApiSignature>
+
+```php
+public static function isActive(): bool
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="begin">
+
+<ApiSignature>
+
+```php
+public static function begin(): void
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="check">
+
+<ApiSignature>
+
+```php
+public static function check(Skim\Core\App $app): void
+```
+
+</ApiSignature>
+
+Called at the END of endRequest(), AFTER WorkerReset::apply().
+
+</ApiMethod>
+
+<ApiMethod name="findings">
+
+<ApiSignature>
+
+```php
+public static function findings(): array
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Worker\LeakDetector
+```
+</AiContext>

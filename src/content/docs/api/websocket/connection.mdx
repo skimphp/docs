@@ -1,0 +1,288 @@
+---
+title: connection
+description: "WebSocket connection abstraction with room-based broadcasting and process-scoped room management."
+---
+
+<ApiBadge type="websocket" />
+<ApiBadge type="connection" />
+<ApiBadge type="rooms" />
+<ApiBadge type="broadcast" />
+
+`connection` wraps an underlying amphp WebSocket connection and adds room-based grouping. Rooms are stored in a static process-scoped array — use Redis pub/sub for multi-process fanout.
+
+```txt
+Symbol: Skim\Websocket\Connection
+Source: src/Websocket/Connection.php
+Lifecycle: created per WebSocket handshake by the server, destroyed on disconnect
+Fallback: n/a — wraps real connection
+Test seam: resetRooms() clears room state between tests
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$conn->join('chat:general');
+$conn->send(['type' => 'message', 'text' => 'Hello']);
+Connection::broadcast('chat:general', ['type' => 'notification'], except_id: $conn->id());
+```
+</CodeExample>
+
+<WarningBox>
+
+Rooms are process-local — connections in different PHP workers cannot see each other's rooms
+
+</WarningBox>
+
+<WarningBox>
+
+Use Redis pub/sub for multi-process room fanout
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+WebSocket handshake -> new Connection($id, $raw)
+-> Handler::onOpen($conn)
+-> $conn->join('room')
+-> Handler::onMessage() -> $conn->send() or Connection::broadcast()
+```
+
+</LifecycleFlow>
+
+Rooms are intentionally process-scoped. For multi-server WebSocket deployments, layer Redis pub/sub on top of the room API.
+
+<NoteBox>
+
+The raw connection is duck-typed (method_exists checks) to support both real amphp connections and test mocks.
+
+</NoteBox>
+
+## Connection API
+
+<ApiMethod name="id">
+
+<ApiSignature>
+
+```php
+public function id(): string
+```
+
+</ApiSignature>
+
+Returns the unique connection ID assigned at handshake.
+
+</ApiMethod>
+
+<ApiMethod name="send">
+
+<ApiSignature>
+
+```php
+public function send(string|array $message): void
+```
+
+</ApiSignature>
+
+Sends a string or JSON-encoded array to this client. Arrays are auto-encoded. No-ops if the underlying connection lacks sendText().
+
+<ApiParam name="$message" type="string" required>
+
+Raw string or array (auto JSON-encoded).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="close">
+
+<ApiSignature>
+
+```php
+public function close(int $code = 1000, string $reason = ''): void
+```
+
+</ApiSignature>
+
+Closes this connection with an optional WebSocket close code and reason.
+
+<ApiParam name="$code" type="int">
+
+WebSocket close code, default 1000 (normal).
+
+</ApiParam>
+
+<ApiParam name="$reason" type="string">
+
+Human-readable close reason.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Room Management
+
+<ApiMethod name="join">
+
+<ApiSignature>
+
+```php
+public function join(string $room): void
+```
+
+</ApiSignature>
+
+Adds this connection to a named room.
+
+<ApiParam name="$room" type="string" required>
+
+Room identifier (e.g., 'chat:general').
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="leave">
+
+<ApiSignature>
+
+```php
+public function leave(string $room): void
+```
+
+</ApiSignature>
+
+Removes this connection from a named room. Cleans up empty room entries.
+
+<ApiParam name="$room" type="string" required>
+
+Room identifier to leave.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="roomIds">
+
+<ApiSignature>
+
+```php
+public static function roomIds(string $room): array
+```
+
+</ApiSignature>
+
+Returns connection IDs of all connections in a room.
+
+<ApiParam name="$room" type="string" required>
+
+Room identifier to query.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Broadcasting
+
+<ApiMethod name="broadcast">
+
+<ApiSignature>
+
+```php
+public static function broadcast(string $room, string|array $message, ?string $exceptId = null): void
+```
+
+</ApiSignature>
+
+Sends a message to all connections in a room, optionally excluding one connection by ID.
+
+<ApiParam name="$room" type="string" required>
+
+Room to broadcast to.
+
+</ApiParam>
+
+<ApiParam name="$message" type="string" required>
+
+Payload (arrays are JSON-encoded per connection).
+
+</ApiParam>
+
+<ApiParam name="$exceptId" type="?string">
+
+Connection ID to exclude from broadcast.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Connection::broadcast('chat:general', ['text' => 'Hello'], except_id: $sender_id);
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="resetRooms">
+
+<ApiSignature>
+
+```php
+public static function resetRooms(): void
+```
+
+</ApiSignature>
+
+Clears the entire room map. Use in test tearDown() to prevent state leakage.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $id, mixed $rawConn)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Websocket\Connection
+role: websocket connection
+layer: websocket
+lifecycle: created per WebSocket handshake by the server, destroyed on disconnect
+owns: static rooms array, raw connection reference
+flow: Handler::onMessage() -> Connection::send/broadcast/join/leave -> amphp WebSocket
+entry_points:
+  - id
+  - send
+  - close
+  - join
+  - leave
+  - broadcast
+  - roomIds
+  - resetRooms
+invariants:
+  - Rooms are process-scoped static arrays
+  - broadcast() skips the excluded connection ID
+  - leave() cleans up empty rooms
+  - send() auto-JSON-encodes arrays
+side_effects:
+  - send() writes to the WebSocket
+  - close() terminates the connection
+  - join/leave mutate the static rooms array
+  - broadcast() sends to multiple connections
+non_goals:
+  - Does not handle WebSocket handshake
+  - Does not manage connection lifecycle beyond close()
+  - Does not provide cross-process room synchronization
+```
+</AiContext>

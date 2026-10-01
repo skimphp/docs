@@ -1,0 +1,220 @@
+---
+title: FileDriver
+description: "Filesystem cache driver storing each key as a serialized file with TTL-based expiry."
+---
+
+<ApiBadge type="driver" />
+<ApiBadge type="cache" />
+<ApiBadge type="filesystem" />
+<ApiBadge type="fail-soft" />
+
+`Skim\Cache\FileDriver` persists cache entries as individual files on disk. Each file contains a serialized tuple of [expiry_timestamp, value]. Keys are base64-encoded for safe filenames. TTL is tracked via the serialized expiry, not file mtime. The driver falls back gracefully when the directory is not writable.
+
+```txt
+Symbol: Skim\Cache\FileDriver
+Source: src/Cache/FileDriver.php
+Lifecycle: persistent across requests, TTL enforced on read
+Fallback: default cache driver when Redis is unreachable
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$driver = new FileDriver(path: sys_get_temp_dir() . '/skim_cache');
+$driver->set('user:1', $userData, 3600);
+```
+</CodeExample>
+
+<WarningBox>
+
+flushAll() deletes every .cache file in the configured path
+
+</WarningBox>
+
+<WarningBox>
+
+Not suitable for high-throughput production workloads — prefer Redis
+
+</WarningBox>
+
+## Architecture
+
+Each key maps to one file: base64(key).cache containing serialize([$expires, $value]). The driver is the default fallback when Redis is unavailable.
+
+<NoteBox>
+
+TTL tracked via serialized expiry timestamp, not file mtime (mtime unreliable on some filesystems). Falls back gracefully when directory is not writable.
+
+</NoteBox>
+
+## Read API
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Reads the cache file, unserializes the payload, checks expiry, and returns the value or $default. Deletes expired files on read.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback returned on miss or expiry.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public function has(string $key): bool
+```
+
+</ApiSignature>
+
+Delegates to get() with a sentinel default to detect misses and expiry.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Write API
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value, ?int $ttl = null): bool
+```
+
+</ApiSignature>
+
+Serializes [expiry, value] and writes atomically with LOCK_EX. Returns false when the directory is not writable.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to persist.
+
+</ApiParam>
+
+<ApiParam name="$ttl" type="?int">
+
+TTL in seconds, or null for no expiry.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $key): bool
+```
+
+</ApiSignature>
+
+Deletes the cache file for the key. Returns true if the file was absent or successfully unlinked.
+
+<ApiParam name="$key" type="string" required>
+
+Exact cache key to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Invalidation
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public function flush(string $prefix): bool
+```
+
+</ApiSignature>
+
+Scans the cache directory for .cache files, decodes filenames to keys, and deletes those matching the prefix.
+
+<ApiParam name="$prefix" type="string" required>
+
+Key prefix to match.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="flushAll">
+
+<ApiSignature>
+
+```php
+public function flushAll(): bool
+```
+
+</ApiSignature>
+
+Deletes every .cache file in the configured cache directory.
+
+<WarningBox>
+
+Deletes every .cache file in the configured path unconditionally
+
+</WarningBox>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $path)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cache\FileDriver
+role: filesystem cache driver
+layer: cache
+lifecycle: persistent across requests, TTL enforced on read
+invariants:
+  - set() uses LOCK_EX for atomic writes
+  - get() deletes expired files on read
+  - has() delegates to get() with sentinel
+  - keys are base64-encoded for safe filenames
+  - flush() scans glob and decodes filenames
+```
+</AiContext>

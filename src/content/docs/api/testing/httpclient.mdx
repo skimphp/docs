@@ -1,0 +1,289 @@
+---
+title: HttpClient
+description: "In-process HTTP test client that dispatches requests through the app without a real server."
+---
+
+<ApiBadge type="testing" />
+<ApiBadge type="http" />
+<ApiBadge type="client" />
+<ApiBadge type="in-process" />
+
+`HttpClient` provides a fluent API for testing HTTP endpoints in-process. Each method creates a fresh `PendingRequest`, so configuration does not leak between calls.
+
+```txt
+Symbol: Skim\Testing\HttpClient
+Source: src/Testing/HttpClient.php
+Lifecycle: instantiated per-test, wraps an app instance
+Fallback: n/a — test-only class
+Test seam: instantiate directly in test cases with the app under test
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$client = new HttpClient($app);
+$client->actingAs($user)->post('/api/posts', json: ['title' => 'Hello']);
+$client->get('/api/posts')->assertOk()->assertJson([...]);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+new HttpClient($app)
+-> HttpClient::get/post/etc()
+-> new PendingRequest($app)
+-> PendingRequest::send()
+-> App::dispatch()
+-> HttpResponse
+```
+
+</LifecycleFlow>
+
+Thin convenience layer over PendingRequest — each call creates a fresh instance to prevent state leakage.
+
+<NoteBox>
+
+Use actingAs() for authenticated routes, withSession() for session-dependent routes, withoutMiddleware() to isolate controller logic.
+
+</NoteBox>
+
+## Configuration
+
+<ApiMethod name="actingAs">
+
+<ApiSignature>
+
+```php
+public function actingAs(object $user): PendingRequest
+```
+
+</ApiSignature>
+
+Creates a pending request authenticated as the given user.
+
+<ApiParam name="$user" type="object" required>
+
+User object injected into the auth service.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="withHeaders">
+
+<ApiSignature>
+
+```php
+public function withHeaders(array $headers): PendingRequest
+```
+
+</ApiSignature>
+
+Creates a pending request with custom headers.
+
+<ApiParam name="$headers" type="array" required>
+
+Key-value header pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="withSession">
+
+<ApiSignature>
+
+```php
+public function withSession(array $data): PendingRequest
+```
+
+</ApiSignature>
+
+Creates a pending request with pre-populated session data.
+
+<ApiParam name="$data" type="array" required>
+
+Key-value session pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="followingRedirects">
+
+<ApiSignature>
+
+```php
+public function followingRedirects(): PendingRequest
+```
+
+</ApiSignature>
+
+Creates a pending request that automatically follows 3xx redirects.
+
+</ApiMethod>
+
+<ApiMethod name="withoutMiddleware">
+
+<ApiSignature>
+
+```php
+public function withoutMiddleware(): PendingRequest
+```
+
+</ApiSignature>
+
+Creates a pending request that skips all middleware during dispatch.
+
+</ApiMethod>
+
+## HTTP Methods
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $path, array $query = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a GET request through the app.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+<ApiParam name="$query" type="array">
+
+Query string parameters.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="post">
+
+<ApiSignature>
+
+```php
+public function post(string $path, array $post = [], array $json = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a POST request. When $json is non-empty, sets Content-Type to application/json.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+<ApiParam name="$post" type="array">
+
+Form-encoded POST data.
+
+</ApiParam>
+
+<ApiParam name="$json" type="array">
+
+JSON body data.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="put">
+
+<ApiSignature>
+
+```php
+public function put(string $path, array $post = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a PUT request with form-encoded body data.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+<ApiParam name="$post" type="array">
+
+Form-encoded body data.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $path): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a DELETE request.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(Skim\Core\App $app)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Testing\HttpClient
+role: test HTTP client
+layer: testing
+lifecycle: instantiated per-test, wraps an app instance
+owns: app instance reference
+flow: test -> HttpClient::method() -> PendingRequest -> App::dispatch() -> HttpResponse
+entry_points:
+  - actingAs
+  - withHeaders
+  - withSession
+  - followingRedirects
+  - withoutMiddleware
+  - get
+  - post
+  - put
+  - delete
+invariants:
+  - Each method creates a fresh PendingRequest
+  - Configuration does not leak between calls
+side_effects:
+  - Dispatches through App::dispatch() which runs the full router pipeline
+non_goals:
+  - Does not open real network connections
+  - Does not test CORS or real HTTP headers
+```
+</AiContext>

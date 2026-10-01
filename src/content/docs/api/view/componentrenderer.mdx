@@ -1,0 +1,158 @@
+---
+title: ComponentRenderer
+description: "Isolated component renderer enforcing strict props validation and clean template scope."
+---
+
+<ApiBadge type="component" />
+<ApiBadge type="props" />
+<ApiBadge type="isolation" />
+<ApiBadge type="profiler" />
+
+`ComponentRenderer` renders reusable UI components in an isolated scope. It supports both legacy array props and readonly *_props objects, validating the latter to enforce naming conventions.
+
+```txt
+Symbol: Skim\View\ComponentRenderer
+Source: src/View/ComponentRenderer.php
+Lifecycle: stateless static class, invoked per component render
+Fallback: n/a — stateless
+Test seam: use View::setPath() to redirect to test fixtures
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+ComponentRenderer::render('alert', ['message' => 'Saved']);
+ComponentRenderer::render('alert', new AlertProps(message: 'Saved'));
+```
+</CodeExample>
+
+<WarningBox>
+
+get_object_vars() only sees public properties — declare DTO props as public readonly
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+render($name, $props)
+-> is_object($props)? validatePropsClass()
+-> $data = is_object? get_object_vars() : $props
+-> new Template(componentsPath(), $data, null)
+-> renderFile($name)
+-> Profiler::view()
+-> return HTML
+```
+
+</LifecycleFlow>
+
+Components are intentionally isolated from the layout and shared data systems. This prevents accidental variable leakage and makes components predictable and testable.
+
+<NoteBox>
+
+Components are rendered with a fresh template instance and null layout, guaranteeing no parent template leakage.
+
+</NoteBox>
+
+## Rendering API
+
+<ApiMethod name="render">
+
+<ApiSignature>
+
+```php
+public static function render(string $name, array|object $props = []): string
+```
+
+</ApiSignature>
+
+Renders a component template in an isolated scope with validated props. Records timing in profiler.
+
+<ApiParam name="$name" type="string" required>
+
+Component name (maps to views/components/&#123;$name&#125;.php).
+
+</ApiParam>
+
+<ApiParam name="$props" type="array">
+
+Props array or *_props readonly object.
+
+</ApiParam>
+
+<ApiThrows type="ViewException">
+
+If props object is not a *_props class or component file is not found.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Validation
+
+<ApiMethod name="validatePropsClass">
+
+<ApiSignature>
+
+```php
+private static function validatePropsClass(string $class): void
+```
+
+</ApiSignature>
+
+Throws when the class name does not end with '_props'. Enforces the props naming convention.
+
+<ApiParam name="$class" type="string" required>
+
+FQCN of the props object.
+
+</ApiParam>
+
+<ApiThrows type="ViewException">
+
+When the class name does not end in '_props'.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Path Resolution
+
+<ApiMethod name="componentsPath">
+
+<ApiSignature>
+
+```php
+private static function componentsPath(): string
+```
+
+</ApiSignature>
+
+Resolves the components subdirectory under the active views path by delegating to View::viewsPath().
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\View\ComponentRenderer
+role: component renderer
+layer: view
+lifecycle: stateless static class, invoked per component render
+owns: nothing
+flow: render() -> validatePropsClass() -> get_object_vars() -> new Template() -> renderFile() -> Profiler::view() -> return HTML
+entry_points:
+  - render
+invariants:
+  - Props objects must end in '_props'
+  - Component templates receive ONLY props data, no shared context
+  - No layout wrapping is applied
+  - Profiler records every component render
+side_effects:
+  - Records component render timing in Profiler::view()
+non_goals:
+  - Does not support layout wrapping
+  - Does not cache rendered components
+  - Does not validate prop keys against component expectations
+```
+</AiContext>

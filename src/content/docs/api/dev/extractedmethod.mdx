@@ -1,0 +1,94 @@
+---
+title: ExtractedMethod
+description: "Readonly value object representing a single extracted public method with all annotation metadata."
+---
+
+<ApiBadge type="value" />
+<ApiBadge type="readonly" />
+<ApiBadge type="docs" />
+<ApiBadge type="no-framework-deps" />
+
+`ExtractedMethod` is the method-level data carrier within `ExtractedClass`. It holds every annotation field extracted from a single method's PHPDoc, inline comments, and detached #AI blocks.
+
+```txt
+Symbol: Skim\Dev\Docs\Value\ExtractedMethod
+Source: src/Dev/Docs/Value/ExtractedMethod.php
+Lifecycle: created once by ClassVisitor, held inside ExtractedClass, serialized by emitters
+Fallback: toArray() falls back to contracts[0] for contract
+Test seam: instantiate directly with test data
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// Accessed via ExtractedClass->methods
+foreach ($class->methods as $method) {
+    $array = $method->toArray();
+}
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+constructed by ClassVisitor
+-> held in ExtractedClass.methods
+-> serialized by toArray()
+```
+
+</LifecycleFlow>
+
+No framework dependencies — plain PHP only.
+
+## Construction
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $name, string $signature, ...)
+```
+
+</ApiSignature>
+
+Creates an immutable value object with all extracted method annotation fields. Only name and signature are required
+
+</ApiMethod>
+
+## Serialization
+
+<ApiMethod name="toArray">
+
+<ApiSignature>
+
+```php
+public function toArray(): array
+```
+
+</ApiSignature>
+
+Serializes to a plain associative array suitable for json_encode. Falls back to contracts[0] for contract and converts legacy throws to throws_details format.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Value\ExtractedMethod
+role: data carrier
+layer: dev
+lifecycle: created once by ClassVisitor, held inside ExtractedClass, serialized by emitters
+owns: none — pure value object
+flow: ClassVisitor -> new ExtractedMethod(...) -> ExtractedClass.methods -> toArray()
+entry_points:
+  - toArray
+invariants:
+  - readonly — never mutated after construction
+  - all array fields default to empty
+  - toArray() is JSON-safe
+non_goals:
+  - Does not extract itself
+  - Does not validate annotations
+```
+</AiContext>

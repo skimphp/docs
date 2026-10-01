@@ -1,0 +1,211 @@
+---
+title: FragmentExtractor
+description: "State-machine fragment parser replacing regex extraction with tokenized validation."
+---
+
+<ApiBadge type="fragment" />
+<ApiBadge type="parser" />
+<ApiBadge type="state-machine" />
+<ApiBadge type="validation" />
+
+`FragmentExtractor` tokenizes HTML comment markers, validates structural constraints (flat only, balanced pairs), and extracts named fragment content. More robust than the previous regex approach.
+
+```txt
+Symbol: Skim\View\FragmentExtractor
+Source: src/View/FragmentExtractor.php
+Lifecycle: stateless static class, invoked per fragment extraction
+Fallback: n/a — stateless
+Test seam: pass raw HTML strings directly, no file system needed
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+FragmentExtractor::extract($html, 'stats_widget');
+```
+</CodeExample>
+
+<WarningBox>
+
+Nested fragments throw ViewException
+
+</WarningBox>
+
+<WarningBox>
+
+Unmatched @end throws ViewException
+
+</WarningBox>
+
+<WarningBox>
+
+Missing fragment name throws ViewException
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+extract($html, $name)
+-> tokenize($html)
+-> validateNoNesting($tokens)
+-> extractByName($html, $tokens, $name)
+-> return trim(substr(...))
+```
+
+</LifecycleFlow>
+
+Replaced the regex-based extractor to avoid backtracking issues and to provide meaningful error messages for malformed fragment markup.
+
+<NoteBox>
+
+The parser intentionally limits fragments to one level. This prevents complex nesting bugs and keeps the mental model simple.
+
+</NoteBox>
+
+## Extraction API
+
+<ApiMethod name="extract">
+
+<ApiSignature>
+
+```php
+public static function extract(string $html, string $name): string
+```
+
+</ApiSignature>
+
+Tokenizes fragment markers, validates structure, and returns trimmed content for the named fragment.
+
+<ApiParam name="$html" type="string" required>
+
+Rendered HTML containing fragment markers.
+
+</ApiParam>
+
+<ApiParam name="$name" type="string" required>
+
+Fragment identifier to extract.
+
+</ApiParam>
+
+<ApiThrows type="ViewException">
+
+On nested fragments, unmatched @end, unclosed @fragment, or missing name.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="extractByName">
+
+<ApiSignature>
+
+```php
+private static function extractByName(string $html, array $tokens, string $name): string
+```
+
+</ApiSignature>
+
+Locates the named @fragment token and returns the substring between it and the following @end token.
+
+<ApiParam name="$html" type="string" required>
+
+Original HTML string.
+
+</ApiParam>
+
+<ApiParam name="$tokens" type="array" required>
+
+Validated token list.
+
+</ApiParam>
+
+<ApiParam name="$name" type="string" required>
+
+Fragment identifier to extract.
+
+</ApiParam>
+
+<ApiThrows type="ViewException">
+
+When the named fragment is not found.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Tokenization
+
+<ApiMethod name="tokenize">
+
+<ApiSignature>
+
+```php
+private static function tokenize(string $html): array
+```
+
+</ApiSignature>
+
+Scans HTML for fragment markers and returns a list of token arrays with type, name, offset, and length.
+
+<ApiParam name="$html" type="string" required>
+
+Rendered HTML string.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Validation
+
+<ApiMethod name="validateNoNesting">
+
+<ApiSignature>
+
+```php
+private static function validateNoNesting(array $tokens): void
+```
+
+</ApiSignature>
+
+Validates that fragments are flat (depth &lt;= 1) and all markers are balanced.
+
+<ApiParam name="$tokens" type="array" required>
+
+Token list from tokenize().
+
+</ApiParam>
+
+<ApiThrows type="ViewException">
+
+On nested fragments, unmatched @end, or unclosed @fragment.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\View\FragmentExtractor
+role: fragment parser
+layer: view
+lifecycle: stateless static class, invoked per fragment extraction
+owns: nothing
+flow: extract() -> tokenize() -> validateNoNesting() -> extractByName() -> return trimmed content
+entry_points:
+  - extract
+invariants:
+  - Fragments are flat — nesting is forbidden
+  - @fragment must be paired with @end
+  - HTML comments inside fragments do not break parsing
+  - Extraction is deterministic and order-preserving
+side_effects:
+  - none — pure functions
+non_goals:
+  - Does not support nested fragments
+  - Does not validate HTML structure
+  - Does not cache tokenized results
+```
+</AiContext>

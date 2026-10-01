@@ -1,0 +1,581 @@
+---
+title: model
+description: "Active record base class with dirty tracking, schema caching, guarded mass-assignment, and type casting."
+---
+
+<ApiBadge type="orm" />
+<ApiBadge type="active-record" />
+<ApiBadge type="dirty-tracking" />
+<ApiBadge type="schema-cache" />
+<ApiBadge type="guarded" />
+
+`model` is the active record base class for all database-backed models. It provides find/create/save/delete operations with automatic dirty tracking for efficient UPDATE queries, schema caching for introspection, guarded mass-assignment protection, and configurable type casting.
+
+```txt
+Symbol: Skim\Db\Model
+Source: src/Db/Model.php
+Lifecycle: instantiated via find/create/new, persisted via save(), schema cached per table for 1 hour
+Fallback: none
+Test seam: test_db() for SQLite :memory:, models work directly against it
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+class User extends Model {
+    protected static string $table = 'users';
+    public string $email { set(string $val) => strtolower(trim($val)); }
+}
+$user = User::find(1);           // model|null
+$user = User::findOrFail(1);   // model|throws
+User::create(['name' => 'John', 'email' => 'J@J.COM']);
+```
+</CodeExample>
+
+<WarningBox>
+
+all() defaults to limit 1000 — always paginate large tables
+
+</WarningBox>
+
+<WarningBox>
+
+deleteWhere() has no limit — deletes ALL matching rows
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Model::find/create/new
+-> hydration or fill()
+-> attribute assignment with dirty tracking
+-> save() checks PK presence
+-> doInsert() or doUpdate()
+-> Db::query() with %values% or %set%
+-> dirtyCols reset
+```
+
+</LifecycleFlow>
+
+Active record pattern with dirty tracking for efficient updates. Schema caching avoids repeated DESCRIBE calls. Guarded columns protect against mass-assignment vulnerabilities.
+
+<NoteBox>
+
+Subclasses should use PHP 8.4 property hooks for normalization and asymmetric visibility for id/timestamps.
+
+</NoteBox>
+
+## Driver Model
+
+<div class="driver-grid">
+  <ScopeBox name="$table">
+    Database table name.
+  </ScopeBox>
+  <ScopeBox name="$connection">
+    Named DB connection from config/db.php.
+  </ScopeBox>
+  <ScopeBox name="$primary">
+    Primary key column name.
+  </ScopeBox>
+  <ScopeBox name="$guarded">
+    Columns excluded from mass-assignment.
+  </ScopeBox>
+  <ScopeBox name="$casts">
+    Column type casting rules.
+  </ScopeBox>
+</div>
+
+## Finders
+
+<ApiMethod name="find">
+
+<ApiSignature>
+
+```php
+public static function find(int|string $id): ?static
+```
+
+</ApiSignature>
+
+Finds a record by primary key. Returns null if not found — never throws.
+
+<ApiParam name="$id" type="int" required>
+
+Primary key value.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="findOrFail">
+
+<ApiSignature>
+
+```php
+public static function findOrFail(int|string $id): static
+```
+
+</ApiSignature>
+
+Finds a record by primary key. Throws NotFoundException if missing — use in controllers for 404 responses.
+
+<ApiParam name="$id" type="int" required>
+
+Primary key value.
+
+</ApiParam>
+
+<ApiThrows type="NotFoundException">
+
+When no record matches the primary key.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="findBy">
+
+<ApiSignature>
+
+```php
+public static function findBy(string $col, mixed $val): ?static
+```
+
+</ApiSignature>
+
+Finds the first record matching a column=value condition. Validates column name against injection. Returns null if no match.
+
+<ApiParam name="$col" type="string" required>
+
+Column name (validated as identifier).
+
+</ApiParam>
+
+<ApiParam name="$val" type="mixed" required>
+
+Value to match.
+
+</ApiParam>
+
+<ApiThrows type="\InvalidArgumentException">
+
+If column name contains invalid characters.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="all">
+
+<ApiSignature>
+
+```php
+public static function all(int $limit = 1000): array
+```
+
+</ApiSignature>
+
+Returns all rows as hydrated models. Default limit of 1000 prevents accidental full-table scans.
+
+<ApiParam name="$limit" type="int">
+
+Maximum rows to return. Default 1000.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Query Building
+
+<ApiMethod name="where">
+
+<ApiSignature>
+
+```php
+public static function where(string|array $conditions, array $params = []): QueryScope
+```
+
+</ApiSignature>
+
+Returns a QueryScope for building filtered queries. Chain order/limit/paginate before terminal methods.
+
+<ApiParam name="$conditions" type="string" required>
+
+SQL fragment or column=&gt;value pairs.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+PDO params when conditions is a string.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$users = User::where(['status' => 'active'])->order('name')->limit(20)->all();
+```
+</CodeExample>
+
+<NoteBox>
+
+#[\NoDiscard] — always capture or chain the return value.
+
+</NoteBox>
+
+</ApiMethod>
+
+<ApiMethod name="count">
+
+<ApiSignature>
+
+```php
+public static function count(array $conditions = []): int
+```
+
+</ApiSignature>
+
+Returns COUNT(*) for the table, optionally filtered by conditions.
+
+<ApiParam name="$conditions" type="array">
+
+Column=&gt;value filter pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="raw">
+
+<ApiSignature>
+
+```php
+public static function raw(string $sql, array $params = []): array
+```
+
+</ApiSignature>
+
+Runs raw query_gen SQL scoped to this model's connection. Returns hydrated model instances. Use for JOINs and subqueries.
+
+<ApiParam name="$sql" type="string" required>
+
+SQL template with %placeholders%.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Placeholder values and :named params.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Creation
+
+<ApiMethod name="create">
+
+<ApiSignature>
+
+```php
+public static function create(array $data): static
+```
+
+</ApiSignature>
+
+Creates a new Model, mass-assigns non-guarded columns, and persists via save(). Guarded columns in $data are silently ignored.
+
+<ApiParam name="$data" type="array" required>
+
+Column=&gt;value pairs to assign.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Persistence
+
+<ApiMethod name="save">
+
+<ApiSignature>
+
+```php
+public function save(): void
+```
+
+</ApiSignature>
+
+INSERT if no primary key set
+
+</ApiMethod>
+
+## Deletion
+
+<ApiMethod name="deleteWhere">
+
+<ApiSignature>
+
+```php
+public static function deleteWhere(array $conditions): int
+```
+
+</ApiSignature>
+
+Deletes all rows matching the conditions. No limit — deletes ALL matching rows.
+
+<ApiParam name="$conditions" type="array" required>
+
+Column=&gt;value filter pairs.
+
+</ApiParam>
+
+<WarningBox>
+
+No limit — deletes ALL matching rows. Use with specific conditions.
+
+</WarningBox>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(): void
+```
+
+</ApiSignature>
+
+Deletes the current record from the database.
+
+<ApiThrows type="\LogicException">
+
+If model has no primary key set.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Mass Assignment
+
+<ApiMethod name="fill">
+
+<ApiSignature>
+
+```php
+public function fill(array $data): void
+```
+
+</ApiSignature>
+
+Assigns non-guarded attributes from an array. Guarded columns are silently skipped.
+
+<ApiParam name="$data" type="array" required>
+
+Column=&gt;value pairs to assign.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Hydration
+
+<ApiMethod name="hydrateOne">
+
+<ApiSignature>
+
+```php
+public static function hydrateOne(array $row): static
+```
+
+</ApiSignature>
+
+Creates a model instance from a DB row. Bypasses guarded check and dirty tracking. Never call directly in application code.
+
+<ApiParam name="$row" type="array" required>
+
+Associative array from DB fetch.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="hydrateMany">
+
+<ApiSignature>
+
+```php
+public static function hydrateMany(array $rows): array
+```
+
+</ApiSignature>
+
+Bulk hydrates an array of DB rows into model instances.
+
+<ApiParam name="$rows" type="array" required>
+
+Array of associative arrays.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Schema
+
+<ApiMethod name="schema">
+
+<ApiSignature>
+
+```php
+public static function schema(): array
+```
+
+</ApiSignature>
+
+Returns column definitions from the DB schema. Cached for 1 hour. Supports MySQL, PostgreSQL, and SQLite.
+
+</ApiMethod>
+
+<ApiMethod name="columnNames">
+
+<ApiSignature>
+
+```php
+public static function columnNames(): array
+```
+
+</ApiSignature>
+
+Returns a flat array of column names from the cached schema.
+
+</ApiMethod>
+
+## Accessors
+
+<ApiMethod name="toArray">
+
+<ApiSignature>
+
+```php
+public function toArray(): array
+```
+
+</ApiSignature>
+
+Returns all current attributes as a plain associative array.
+
+</ApiMethod>
+
+<ApiMethod name="getTable">
+
+<ApiSignature>
+
+```php
+public static function getTable(): string
+```
+
+</ApiSignature>
+
+Returns the table name for this model.
+
+</ApiMethod>
+
+<ApiMethod name="getConnection">
+
+<ApiSignature>
+
+```php
+public static function getConnection(): string
+```
+
+</ApiSignature>
+
+Returns the connection name for this model.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__get">
+
+<ApiSignature>
+
+```php
+public function __get(string $name): mixed
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="__set">
+
+<ApiSignature>
+
+```php
+public function __set(string $name, mixed $value): void
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="__isset">
+
+<ApiSignature>
+
+```php
+public function __isset(string $name): bool
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\Model
+role: active record base
+layer: db
+lifecycle: instantiated via find/create/new, persisted via save(), schema cached per table for 1 hour
+owns: attributes array, dirtyCols tracking
+flow: Model::find(id) -> Db::row() -> hydrateOne() -> model instance
+entry_points:
+  - find
+  - findOrFail
+  - findBy
+  - where
+  - all
+  - count
+  - create
+  - raw
+  - deleteWhere
+  - save
+  - delete
+  - fill
+  - toArray
+  - hydrateOne
+  - hydrateMany
+  - schema
+  - columnNames
+config_reads:
+  - db.*.connection
+invariants:
+  - find() returns null on missing — never throws
+  - findOrFail() throws NotFoundException
+  - save() is INSERT when no PK, UPDATE only dirty columns when PK set
+  - guarded columns silently skipped in fill() and INSERT
+  - schema cached for 1 hour with key schema:{table}:{connection}
+side_effects:
+  - save() executes INSERT or UPDATE
+  - delete() executes DELETE
+  - schema() reads and caches DB schema
+non_goals:
+  - Does not support relations — use MerryModel
+  - Does not provide query builder — use QueryScope via where()
+  - Does not handle validation — use Validate::make()
+```
+</AiContext>

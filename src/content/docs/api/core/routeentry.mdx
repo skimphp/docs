@@ -1,0 +1,150 @@
+---
+title: RouteEntry
+description: "Fluent route configuration object returned by router registration methods."
+---
+
+<ApiBadge type="fluent" />
+<ApiBadge type="route" />
+<ApiBadge type="middleware" />
+<ApiBadge type="named-route" />
+
+`Skim\Core\RouteEntry` is the return value of every `Router::add()` and `App::get()/post()/put()/patch()/delete()` call. It exposes two fluent configuration methods — `name()` and `middleware()` — and two read-only accessors consumed internally by the router during dispatch.
+
+```txt
+Symbol: Skim\Core\RouteEntry
+Source: src/Core/RouteEntry.php
+Lifecycle: Created fresh per route registration. Passed around by reference (object, not copy) until consumed by Router::dispatch().
+Test seam: Instantiate with a router mock
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$app->get('/users/@id:int', [UserController::class, 'show'])
+    ->name('user.show')
+    ->middleware(AuthMiddleware::class, RateLimitMiddleware::class);
+```
+</CodeExample>
+
+## Architecture
+
+RouteEntry is intentionally minimal — it captures only what needs to be set after route registration. The method, pattern, and handler are constructor-promoted readonly properties
+
+## Configuration
+
+<ApiMethod name="name">
+
+<ApiSignature>
+
+```php
+public function name(string $name): static
+```
+
+</ApiSignature>
+
+Assigns a unique name and registers it with the router for reverse URL generation via route(). Overwrites any previous registration for the same name.
+
+<ApiParam name="$name" type="string" required>
+
+Unique route name. Must be non-empty. Overwrites duplicates.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$route->name('user.show');
+// Later: route('user.show', ['id' => 5]) -> '/users/5'
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="middleware">
+
+<ApiSignature>
+
+```php
+public function middleware(string ...$classes): static
+```
+
+</ApiSignature>
+
+Appends one or more middleware class-strings to this route's execution stack. Route middleware runs after global and group middleware.
+
+<ApiParam name="$classes" type="string" required>
+
+Middleware class-strings. Each must implement the middleware interface.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$route->middleware(LogMiddleware::class);
+$route->middleware(CacheMiddleware::class); // log runs first, then cache
+```
+</CodeExample>
+
+<NoteBox>
+
+middleware is additive — call it multiple times to accumulate. Order within route middleware matches call order.
+
+</NoteBox>
+
+</ApiMethod>
+
+## Accessors
+
+<ApiMethod name="getName">
+
+<ApiSignature>
+
+```php
+public function getName(): ?string
+```
+
+</ApiSignature>
+
+Returns the assigned route name or null if name() was never called.
+
+</ApiMethod>
+
+<ApiMethod name="getMiddleware">
+
+<ApiSignature>
+
+```php
+public function getMiddleware(): array
+```
+
+</ApiSignature>
+
+Returns all appended middleware class-strings in registration order.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $method, string $pattern, mixed $handler, Skim\Core\Router $router)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Core\RouteEntry
+role: route configuration builder
+layer: core
+lifecycle: Created fresh per route registration. Passed around by reference (object, not copy) until consumed by Router::dispatch().
+flow: Router::add() -> new RouteEntry -> name() registers reverse URL -> middleware() appends to stack -> dispatch reads getName() and getMiddleware()
+invariants:
+  - name() overwrites duplicate names silently
+  - middleware() is additive, never replacing
+  - getName() returns null when name() was never called
+```
+</AiContext>

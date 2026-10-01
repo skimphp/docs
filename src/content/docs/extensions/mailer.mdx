@@ -3,37 +3,68 @@ title: Mailer Extension
 description: High-performance email dispatching in SKIM Framework.
 ---
 
-The SKIM Mailer extension wraps Symfony Mailer, providing a clean API and built-in support for 50+ SaaS mail transports out of the box.
+The `skim/mailer` extension wraps Symfony Mailer, providing a clean fluent API and built-in support for 50+ SaaS transports out of the box.
 
-### Configuration
-
-Add mail configuration to `config/mail.php`:
+### Configuration — `config/skim_mailer.php`
 
 ```php
 return [
-    'default' => env('MAIL_MAILER', 'smtp'),
-    'transports' => [
-        'smtp' => [
-            'host' => env('MAIL_HOST', 'smtp.mailtrap.io'),
-            'port' => env('MAIL_PORT', 2525),
-            'username' => env('MAIL_USERNAME'),
-            'password' => env('MAIL_PASSWORD'),
-        ],
+    'driver' => env('MAIL_DRIVER', 'smtp'),
+
+    'from' => [
+        'address' => env('MAIL_FROM', 'hello@example.com'),
+        'name'    => env('MAIL_FROM_NAME', 'Example'),
     ],
+
+    'smtp' => [
+        'host'       => env('MAIL_HOST', 'localhost'),
+        'port'       => (int) env('MAIL_PORT', 587),
+        'encryption' => env('MAIL_ENCRYPTION', 'tls'),
+        'username'   => env('MAIL_USERNAME'),
+        'password'   => env('MAIL_PASSWORD'),
+    ],
+    // mailgun / postmark / ses / sendgrid / log …
 ];
 ```
 
-### Basic Usage
+### Sending Mail
 
-Send emails fluently using the `mail` facade:
+`Mailer::to()` returns a `Mailable` — chain and `send()`:
 
 ```php
-mail::to('user@example.com')
+use Skim\Mailer\Mailer;
+
+Mailer::to('user@example.com')
     ->subject('Welcome to SKIM!')
-    ->view('emails.welcome', ['name' => 'Alice'])
+    ->view('emails/welcome', ['name' => 'Alice'])
     ->send();
+```
+
+Or build a dedicated `Mailable` subclass for reusable mail types and hand it to `Mailer::send()`:
+
+```php
+class WelcomeMail extends Mailable {
+    public function __construct(private readonly User $user) {}
+
+    public function build(): void {
+        $this->to($this->user->email)
+             ->subject('Welcome!')
+             ->view('emails/welcome', ['name' => $this->user->name]);
+    }
+}
+
+Mailer::send(new WelcomeMail($user));
+```
+
+### Testing
+
+```php
+Mailer::fake();
+// … code under test …
+Mailer::assertSent(WelcomeMail::class);
+Mailer::restore();
 ```
 
 ### Local Testing with Ethereal
 
-During local development, configure Mailer to catch test emails locally via Ethereal without touching your real SaaS provider credentials.
+During local development, point Mailer at an Ethereal mailbox to catch test emails without touching your real provider credentials. The `log` driver writes outgoing mail to `storage/logs/mail.log` instead of sending it.

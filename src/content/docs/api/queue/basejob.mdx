@@ -1,0 +1,131 @@
+---
+title: BaseJob
+description: "Convenience base class for queue jobs with default retry count, delay, and error logging."
+---
+
+<ApiBadge type="queue" />
+<ApiBadge type="job" />
+<ApiBadge type="abstract" />
+<ApiBadge type="base-class" />
+<ApiBadge type="defaults" />
+
+`BaseJob` is a convenience abstract class that implements the `job` interface with sensible defaults: 3 retry attempts, 0-second delay, and error_log on permanent failure. Most job classes extend this and override only `handle()`.
+
+```txt
+Symbol: Skim\Queue\BaseJob
+Source: src/Queue/BaseJob.php
+Lifecycle: instantiated by worker via unserialize, handle() called, failed() called on exhaustion
+Fallback: failed() logs to error_log by default — override for custom failure handling
+Test seam: extend in test job classes, override failed() to capture errors
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+class SendEmailJob extends BaseJob {
+    public function __construct(private readonly int $user_id) {}
+    public function handle(): void {
+        $user = User::findOrFail($this->user_id);
+        Mailer::send($user->email, 'welcome');
+    }
+}
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+worker unserializes BaseJob subclass
+-> handle() called
+-> on exception: worker retries up to tries() times
+-> on exhaustion: failed($e) called
+```
+
+</LifecycleFlow>
+
+Abstract class implementing the job interface. Subclasses must implement handle() and may override tries(), delay(), and failed().
+
+## Job Configuration
+
+<ApiMethod name="tries">
+
+<ApiSignature>
+
+```php
+public function tries(): int
+```
+
+</ApiSignature>
+
+Returns the default retry count of 3. Override in subclass for different retry behavior.
+
+</ApiMethod>
+
+<ApiMethod name="delay">
+
+<ApiSignature>
+
+```php
+public function delay(): int
+```
+
+</ApiSignature>
+
+Returns the default delay of 0 seconds. Override to delay first execution.
+
+</ApiMethod>
+
+## Failure Handling
+
+<ApiMethod name="failed">
+
+<ApiSignature>
+
+```php
+public function failed(\Throwable $e): void
+```
+
+</ApiSignature>
+
+Logs the error when all retries are exhausted. Default writes to error_log. Override for alerts or dead-letter handling.
+
+<ApiParam name="$e" type="\Throwable" required>
+
+The exception that caused the final failure.
+
+</ApiParam>
+
+<NoteBox>
+
+Does not rethrow — the worker catches any exception from failed() anyway.
+
+</NoteBox>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Queue\BaseJob
+role: queue job base class
+layer: queue
+lifecycle: instantiated by worker via unserialize, handle() called, failed() called on exhaustion
+owns: nothing — subclasses own their constructor properties
+flow: worker unserializes job -> handle() -> on exception: retry or failed()
+entry_points:
+  - handle
+  - failed
+  - tries
+  - delay
+invariants:
+  - tries() defaults to 3
+  - delay() defaults to 0
+  - failed() does not rethrow
+side_effects:
+  - failed() writes to error_log
+non_goals:
+  - Does not implement handle() — subclasses must
+  - Does not provide dead-letter queue
+  - Does not implement retry back-off (handled by worker)
+```
+</AiContext>

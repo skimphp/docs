@@ -1,0 +1,105 @@
+---
+title: CacheCommand
+description: "CLI command for cache invalidation by prefix or full backend flush."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="cache" />
+<ApiBadge type="destructive" />
+
+`CacheCommand` provides the `php skim cache:clear` and `php skim cache:flush` CLI entry points. It delegates to `Cache::flush($prefix)` for prefix-scoped invalidation or `Cache::flushAll()` when no prefix is supplied.
+
+```txt
+Symbol: Skim\Cli\Commands\CacheCommand
+Source: src/Cli/Commands/CacheCommand.php
+Lifecycle: instantiated by CLI kernel, handle() called once per invocation
+Fallback: none — unknown sub-commands print an error and return exit code 1
+Test seam: Cache::setDriver() to inject ArrayDriver, Cache::reset() in tearDown
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim cache:clear           # flushes everything
+php skim cache:clear user:     # flushes only user:* keys
+```
+</CodeExample>
+
+<WarningBox>
+
+Running `php skim cache:clear` without a prefix calls Cache::flushAll() which clears the entire cache backend
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+kernel dispatches CacheCommand
+-> handle()
+-> read sub-command from arg(0)
+-> read prefix from arg(1)
+-> Cache::flush(prefix) or Cache::flushAll()
+-> print success/error
+```
+
+</LifecycleFlow>
+
+Thin CLI wrapper over the cache facade. All cache logic lives in cache.php.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Dispatches clear/flush sub-commands. When a prefix is provided, calls Cache::flush($prefix). When no prefix is given, calls Cache::flushAll() which clears the entire backend.
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim cache:clear user:     # safe — prefix-scoped
+php skim cache:clear           # DANGEROUS — full backend flush
+```
+</CodeExample>
+
+<WarningBox>
+
+Without a prefix argument
+
+</WarningBox>
+
+<WarningBox>
+
+the entire cache backend is cleared — prefer prefix-scoped invalidation in production
+
+</WarningBox>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\CacheCommand
+role: CLI cache invalidation command
+layer: cli
+lifecycle: instantiated by CLI kernel, handle() called once per invocation
+owns: nothing — delegates all cache operations to cache facade
+flow: CacheCommand::handle() -> arg(0) sub-command -> Cache::flush(prefix) or Cache::flushAll() -> print result
+entry_points:
+  - handle
+invariants:
+  - clear and flush sub-commands are treated identically
+  - empty prefix triggers full backend flush
+side_effects:
+  - Cache::flush() or Cache::flushAll() mutates the active cache backend
+non_goals:
+  - Does not support tag-based invalidation
+  - Does not list cached keys
+```
+</AiContext>

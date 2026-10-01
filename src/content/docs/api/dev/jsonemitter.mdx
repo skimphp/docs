@@ -1,0 +1,150 @@
+---
+title: JsonEmitter
+description: "Serializes extracted class metadata to llm.json and loads it back — the single source of truth for all doc outputs."
+---
+
+<ApiBadge type="emitter" />
+<ApiBadge type="json" />
+<ApiBadge type="docs" />
+<ApiBadge type="no-framework-deps" />
+
+`JsonEmitter` is the serialization boundary between the AST extraction pipeline and all downstream consumers (LlmMdEmitter, MdxEmitter, mcp_server). It writes pretty-printed JSON with optional extension capability enrichment.
+
+```txt
+Symbol: Skim\Dev\Docs\Emitter\JsonEmitter
+Source: src/Dev/Docs/Emitter/JsonEmitter.php
+Lifecycle: instantiated per-use by commands, no state retained
+Fallback: none — throws on write/read failure
+Test seam: instantiate directly with temp file paths
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+(new JsonEmitter())->emit($classes, 'llm.json', $capabilityMap, $extensions);
+$data = (new JsonEmitter())->load('llm.json');
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+emit()
+-> build data array
+-> json_encode
+-> mkdir if needed
+-> file_put_contents
+load()
+-> file_exists check
+-> file_get_contents
+-> json_decode
+```
+
+</LifecycleFlow>
+
+No framework dependencies — plain PHP only. All other emitters and the MCP server read from the file this class produces.
+
+## Serialization
+
+<ApiMethod name="emit">
+
+<ApiSignature>
+
+```php
+public function emit(array $classes, string $outputPath, array $capabilityMap = [], array $installedExtensions = []): void
+```
+
+</ApiSignature>
+
+Serializes ExtractedClass[] to pretty-printed JSON at the given path. Creates parent directories if needed. Optionally includes extension capability data and installed extension names as top-level sections.
+
+<ApiParam name="$classes" type="ExtractedClass[]" required>
+
+Class records to serialize.
+
+</ApiParam>
+
+<ApiParam name="$outputPath" type="string" required>
+
+Filesystem path for the output JSON file.
+
+</ApiParam>
+
+<ApiParam name="$capabilityMap" type="array">
+
+Extension capability details written as top-level "capabilities" section when non-empty.
+
+</ApiParam>
+
+<ApiParam name="$installedExtensions" type="string[]">
+
+Installed extension names written under "extensions.installed" when non-empty.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+(new JsonEmitter())->emit($classes, 'build/llm.json');
+```
+</CodeExample>
+
+<ApiThrows type="\RuntimeException">
+
+When json_encode fails or the file cannot be written.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Deserialization
+
+<ApiMethod name="load">
+
+<ApiSignature>
+
+```php
+public function load(string $path): array
+```
+
+</ApiSignature>
+
+Reads and decodes llm.json from the given path. Throws when the file is missing, unreadable, or contains invalid JSON.
+
+<ApiParam name="$path" type="string" required>
+
+Path to the llm.json file.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+When file is missing, unreadable, or contains invalid JSON.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Emitter\JsonEmitter
+role: JSON serialization layer
+layer: dev
+lifecycle: instantiated per-use by commands, no state retained
+owns: none — stateless
+flow: emit(classes, path) -> json_encode -> file_put_contents
+entry_points:
+  - emit
+  - load
+invariants:
+  - emit() creates parent directories
+  - load() throws when file is missing or JSON is invalid
+  - JSON is pretty-printed with unescaped slashes and unicode
+side_effects:
+  - writes llm.json to disk
+  - creates parent directories
+non_goals:
+  - Does not extract classes
+  - Does not generate Markdown or MDX
+```
+</AiContext>

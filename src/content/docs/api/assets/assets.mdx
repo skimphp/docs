@@ -1,0 +1,209 @@
+---
+title: assets
+description: "Vite asset integration — resolves hashed URLs from manifest.json and generates script/style tags with HMR support."
+---
+
+<ApiBadge type="vite" />
+<ApiBadge type="assets" />
+<ApiBadge type="hmr" />
+<ApiBadge type="manifest" />
+
+`assets` resolves asset paths to Vite-built URLs. In dev mode (APP_DEBUG=true), it proxies through Vite's HMR dev server at localhost:5173. In production, it reads the Vite manifest.json to return cache-busted hashed filenames.
+
+```txt
+Symbol: Skim\Assets\Assets
+Source: src/Assets/Assets.php
+Lifecycle: static facade, manifest loaded and cached on first production url() call
+Fallback: checks .vite/manifest.json then build/manifest.json for older Vite versions
+Test seam: setManifest(), setViteUrl(), reset()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+<?= Assets::js('js/app.js') ?>
+<?= Assets::css('css/app.css') ?>
+```
+</CodeExample>
+
+<WarningBox>
+
+Production throws RuntimeException if manifest.json is missing — run npm run build first
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Assets::url/js/css()
+-> debug check
+-> dev: viteUrl + path
+-> prod: manifest() loads from disk
+-> manifest[path].file
+-> buildPath + hashed filename
+```
+
+</LifecycleFlow>
+
+Thin integration layer — all intelligence is in Vite's manifest format. The facade exists to provide a single API for templates.
+
+<NoteBox>
+
+The manifest cache is process-local. Call reset() after changing manifest files in tests.
+
+</NoteBox>
+
+## Asset Resolution
+
+<ApiMethod name="url">
+
+<ApiSignature>
+
+```php
+public static function url(string $path): string
+```
+
+</ApiSignature>
+
+Returns the URL for a given asset path. In dev mode, returns the Vite HMR proxy URL. In production, returns the hashed filename from manifest.json.
+
+<ApiParam name="$path" type="string" required>
+
+Asset path relative to Vite project root.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+In production when asset is not found in manifest.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Tag Generation
+
+<ApiMethod name="js">
+
+<ApiSignature>
+
+```php
+public static function js(string $path): string
+```
+
+</ApiSignature>
+
+Returns a &lt;script type="module"&gt; tag. In dev mode, also injects the Vite HMR client script.
+
+<ApiParam name="$path" type="string" required>
+
+JS entrypoint path.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="css">
+
+<ApiSignature>
+
+```php
+public static function css(string $path): string
+```
+
+</ApiSignature>
+
+Returns a &lt;link rel="stylesheet"&gt; tag. In dev mode, returns empty string because Vite injects CSS via HMR JS.
+
+<ApiParam name="$path" type="string" required>
+
+CSS file path.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="setViteUrl">
+
+<ApiSignature>
+
+```php
+public static function setViteUrl(string $url): void
+```
+
+</ApiSignature>
+
+Overrides the Vite dev server URL. Default is http://localhost:5173.
+
+<ApiParam name="$url" type="string" required>
+
+Vite dev server base URL.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="setManifest">
+
+<ApiSignature>
+
+```php
+public static function setManifest(array $manifest): void
+```
+
+</ApiSignature>
+
+Injects a manifest array directly, bypassing file-based loading. Use in tests.
+
+<ApiParam name="$manifest" type="array" required>
+
+Fake Vite manifest.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears the cached manifest. Forces re-read from disk on the next url() call.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Assets\Assets
+role: Vite asset resolver
+layer: assets
+lifecycle: static facade, manifest loaded and cached on first production url() call
+owns: manifest cache, vite URL, public path
+flow: Assets::url(path) -> debug? viteUrl/path : manifest()[path] -> buildPath/file
+entry_points:
+  - url
+  - js
+  - css
+config_reads:
+  - app.debug
+  - assets.build_path
+invariants:
+  - dev mode always proxies to Vite URL
+  - production requires manifest.json
+  - css() returns empty string in dev mode (Vite injects via HMR)
+side_effects:
+  - Reads manifest.json from disk on first production call
+non_goals:
+  - Does not run Vite build
+  - Does not handle image/font assets
+  - Does not support multiple Vite projects
+```
+</AiContext>

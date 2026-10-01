@@ -1,0 +1,57 @@
+---
+title: MigrationExecutor
+description: "Executes migration payloads (SQL or callables) with optional dry-run collection. Extracted from Migrator for isolated testing and pretend mode support."
+---
+
+Executes migration payloads (SQL or callables) with optional dry-run collection.
+
+Extracted from Migrator for isolated testing and pretend mode support.
+
+```txt
+Symbol: Skim\Db\MigrationExecutor
+Source: src/Db/MigrationExecutor.php
+```
+
+## 
+
+<ApiMethod name="pretend">
+
+<ApiSignature>
+
+```php
+public function pretend(bool $value): static
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="collected">
+
+<ApiSignature>
+
+```php
+public function collected(): array
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(string|array|callable $payload, string $connection): void
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\MigrationExecutor
+```
+</AiContext>

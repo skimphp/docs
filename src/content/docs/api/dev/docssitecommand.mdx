@@ -1,0 +1,82 @@
+---
+title: DocsSiteCommand
+description: "CLI command that reads llm.json and generates one MDX file per class for the Starlight documentation site."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="docs" />
+<ApiBadge type="mdx" />
+<ApiBadge type="starlight" />
+
+`DocsSiteCommand` converts the structured llm.json into component-style MDX files suitable for a Starlight/Astro documentation site. Each class becomes one .mdx file
+
+```txt
+Symbol: Skim\Dev\Docs\Commands\DocsSiteCommand
+Source: src/Dev/Docs/Commands/DocsSiteCommand.php
+Lifecycle: instantiated by CLI router or DocsCommand, runs synchronously
+Fallback: none — returns 1 when llm.json is missing or write fails
+Test seam: instantiate directly with setInput() to inject flags
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim docs:site
+php skim docs:site --output=build/docs
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> resolve paths
+-> JsonEmitter.load(llm.json)
+-> MdxEmitter.emit()
+-> MDX files written
+```
+
+</LifecycleFlow>
+
+Requires docs:extract to have been run first
+
+## Pipeline
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Loads llm.json and generates one MDX file per class. Returns 1 when llm.json is missing or write fails.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Commands\DocsSiteCommand
+role: CLI MDX generator
+layer: dev
+lifecycle: instantiated by CLI router or DocsCommand, runs synchronously
+owns: JsonEmitter, MdxEmitter instances
+flow: handle() -> JsonEmitter.load() -> MdxEmitter.emit() -> *.mdx files
+entry_points:
+  - handle
+config_reads:
+  - docs.output.json
+  - docs.output.mdx_dir
+invariants:
+  - fails when llm.json does not exist
+  - duplicate class names get suffixed filenames
+side_effects:
+  - writes MDX files to configured or overridden output directory
+non_goals:
+  - Does not generate llm.md
+  - Does not run extraction
+```
+</AiContext>

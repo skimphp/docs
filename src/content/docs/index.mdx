@@ -10,9 +10,9 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 # SKIM Framework
 
-SKIM is a PHP 8.5+ micro-framework built around a single principle: ship only what every project actually needs, and make every decision explicit. The core has exactly two external dependencies — `nikic/fast-route` for routing and `pestphp/pest` for testing. Everything else is a deliberate choice you make. No template engine, no YAML config, no autoloaded magic — just PHP arrays, raw templates, static facades that are fully testable, and `strict_types=1` on every file.
+SKIM is a PHP 8.5+ micro-framework built around a single principle: ship only what every project actually needs, and make every decision explicit. The core has exactly one runtime dependency — `nikic/fast-route` for routing. Everything else is a deliberate choice you make. No template engine, no YAML config, no autoloaded magic — just PHP arrays, raw templates, static facades that are fully testable, and `strict_types=1` on every file.
 
-## Two dependencies. By design.
+## One dependency. By design.
 
 <CardGrid>
   <Card title="Minimal Footprint" icon="rocket">
@@ -27,7 +27,7 @@ SKIM is a PHP 8.5+ micro-framework built around a single principle: ship only wh
 
 A few things SKIM deliberately does not do:
 
-*   **No Blade or Twig**: Raw PHP with opcache is faster, and you get real stack traces.
+*   **No Blade or Twig**: Raw PHP templates with opcache are faster, and you get real stack traces.
 *   **No YAML or INI config**: PHP arrays give you IDE autocomplete and zero parse overhead.
 *   **No lazy facade magic**: Static calls like `Db::` and `Cache::` are testable via `setDriver()` / `reset()`.
 *   **Lazy connections**: Connections to Redis and the database are lazy — nothing opens until first use.
@@ -43,20 +43,20 @@ The core stays minimal. Capabilities you actually want live as official extensio
 
 ## AI-Native Docs
 
-SKIM's documentation pipeline is designed for both humans and machines. Each PHP file ends with a block of `#ai*` comments — placed after the class code so they never interrupt developer reading flow. These comments describe parameters, lifecycle, types, and inter-class contracts in a structured format any LLM can parse, including lightweight local models like Gemma 4 26B.
+SKIM's documentation pipeline is designed for both humans and machines. Each PHP file ends with a block of `#AI*` comments — placed after the class code so they never interrupt developer reading flow. These comments describe parameters, lifecycle, types, and inter-class contracts in a structured format any LLM can parse, including lightweight local models.
 
-Run `php skim docs:extract` to scan `#ai*` blocks and produce a structured `llm.json` covering the entire API surface. From there, `docs:llm` flattens it to a single `llm.md` you can paste into any LLM — and `docs:site` regenerates this site from the same source.
+Run `php skim docs:extract` to scan `#AI*` blocks and produce a structured `llm.json` covering the entire API surface. From there, `docs:llm` flattens it to a single `llm.md` you can paste into any LLM — and `docs:site` regenerates this site from the same source.
 
-The same pipeline works for your own application. Add `#ai*` skill comments to your project files and SKIM can run as a local MCP server — serving both framework context and your project's own architecture to any agent that asks. Your agent stops hallucinating your API because it reads the actual contracts.
+The same pipeline works for your own application. Add `#AI*` comments to your project files and SKIM can run as a local MCP server — serving both framework context and your project's own architecture to any agent that asks. Your agent stops hallucinating your API because it reads the actual contracts.
 
 ## Quick Start
 
 ```bash
-composer create-project skim/framework my-app
+composer create-project skim/skeleton my-app
 cd my-app
 cp .env.example .env
 docker compose up -d
-php skim migrate
+docker compose exec app php skim migrate:up
 ```
 
 ## Architecture at a Glance
@@ -68,7 +68,7 @@ php skim migrate
        / S K \       / K I \       / I M \       / M _ \
       '-----'       '-----'       '-----'       '-----'
          |             |             |             |
-    8.5+ PHP ── strict_types ── snake_case ── zero_deps
+    PHP 8.5+ ── strict_types ── PascalCase ── zero_deps
          |             |             |             |
          '-------------+-------------+-------------'
                          |
@@ -80,23 +80,23 @@ php skim migrate
          ┌────────────────────┼────────────────────┐
          ▼                    ▼                    ▼
     ┌──────────┐       ┌──────────┐         ┌──────────┐
-    │  router  │◄─────►│    DI    │◄───────►│ pipeline │
+    │  Router  │◄─────►│    DI    │◄───────►│ Pipeline │
     │ dispatch │       │ container│         │  onion   │
     └────┬─────┘       └────┬─────┘         └────┬─────┘
          │                  │                    │
          ▼                  ▼                    ▼
     ┌──────────┐       ┌──────────┐         ┌──────────┐
     │  Db::    │       │ Cache::  │         │Session:: │
-    │ query()  │       │remember()│         │ flash() │
-    │ ORM      │       │ tags()   │         │regen()  │
+    │ query()  │       │remember()│         │ flash()  │
+    │ ORM      │       │ tags()   │         │regenerate│
     └────┬─────┘       └────┬─────┘         └────┬─────┘
          │                  │                    │
          └──────────────────┼────────────────────┘
                             │
                             ▼
               ┌─────────────────────┐
-              │   Response::send()  │
-              │   view()  json()    │
+              │  Response::send()   │
+              │  view()   json()    │
               └─────────────────────┘
 ```
 
@@ -123,8 +123,7 @@ php skim migrate
 ## Generate Docs
 
 ```bash
-php skim docs:extract   # scan #ai* annotations → llm.json
+php skim docs:extract   # scan #AI* annotations → llm.json
 php skim docs:llm       # llm.json → llm.md (paste into any LLM)
 php skim docs:site      # llm.json → this site (MDX files)
 ```
-

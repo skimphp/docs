@@ -1,0 +1,85 @@
+---
+title: toolbar_middleware
+description: "Injects the debug toolbar HTML into text/html responses when APP_DEBUG is true."
+---
+
+<ApiBadge type="middleware" />
+<ApiBadge type="debug" />
+<ApiBadge type="toolbar" />
+<ApiBadge type="dev-only" />
+
+`ToolbarMiddleware` appends the SKIM debug toolbar before `</body>` in HTML responses. It only activates when debug mode is enabled and the request is a standard page load (not JSON, AJAX, or hypermedia).
+
+```txt
+Symbol: Skim\Middleware\ToolbarMiddleware
+Source: src/Middleware/ToolbarMiddleware.php
+Lifecycle: registered as global middleware
+Test seam: set app.debug to false to disable
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// Registered globally in app boot — no manual setup needed
+$app->use(ToolbarMiddleware::class);
+```
+</CodeExample>
+
+## Middleware
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(Request $req, Response $res, callable $next): mixed
+```
+
+</ApiSignature>
+
+Runs the next middleware/controller, then injects toolbar HTML into the response if all conditions are met: debug enabled, non-API request, text/html content type, and &lt;/body&gt; present.
+
+<ApiParam name="$req" type="request" required>
+
+Current HTTP request.
+
+</ApiParam>
+
+<ApiParam name="$res" type="response" required>
+
+Current HTTP response.
+
+</ApiParam>
+
+<ApiParam name="$next" type="callable" required>
+
+Next middleware or controller in the pipeline.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Middleware\ToolbarMiddleware
+role: debug toolbar middleware
+layer: middleware
+lifecycle: registered as global middleware
+owns: nothing
+flow: handle() -> $next() -> check debug -> check request type -> check content-type -> Toolbar::render() -> inject before </body>
+entry_points:
+  - handle
+config_reads:
+  - app.debug
+invariants:
+  - Only modifies text/html responses
+  - Skips JSON/AJAX/hypermedia requests
+  - No-op when debug is false
+side_effects:
+  - Modifies response body by injecting toolbar HTML
+  - Adds X-Debug header
+non_goals:
+  - Does not render toolbar for API responses
+  - Does not modify non-HTML content
+  - Does not collect profiler data itself
+```
+</AiContext>

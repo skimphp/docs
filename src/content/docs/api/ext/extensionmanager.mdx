@@ -1,0 +1,142 @@
+---
+title: extensionManager
+description: "Coordinates extension discovery, dependency validation, topological sorting, and lifecycle hooks."
+---
+
+<ApiBadge type="extension" />
+<ApiBadge type="lifecycle" />
+<ApiBadge type="discovery" />
+<ApiBadge type="dependency-graph" />
+
+`extensionManager` discovers extensions from Composer packages, validates their dependency requirements, topologically sorts them, and invokes register()/boot() hooks in the correct order during app boot.
+
+```txt
+Symbol: Skim\Ext\ExtensionManager
+Source: src/Ext/ExtensionManager.php
+Lifecycle: created by discover() during app boot
+Test seam: construct with mock extension metadata arrays
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$manager = extensionManager::discover(basePath(), $app);
+$manager->register($app);
+$manager->boot($app);
+```
+</CodeExample>
+
+## Discovery
+
+<ApiMethod name="discover">
+
+<ApiSignature>
+
+```php
+public static function discover(string $root, App $app): self
+```
+
+</ApiSignature>
+
+Scans Composer packages for extensions, validates dependencies, topologically sorts them, and stores metadata in the app container.
+
+<ApiParam name="$root" type="string" required>
+
+Project root directory containing vendor/.
+
+</ApiParam>
+
+<ApiParam name="$app" type="app" required>
+
+Application container to store extension metadata.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$manager = extensionManager::discover(basePath(), $app);
+```
+</CodeExample>
+
+<ApiThrows type="\RuntimeException">
+
+On missing dependency or circular dependency.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Lifecycle Hooks
+
+<ApiMethod name="register">
+
+<ApiSignature>
+
+```php
+public function register(App $app): void
+```
+
+</ApiSignature>
+
+Calls register(app) for every extension in dependency-sorted order. Throws immediately if conflicts exist.
+
+<ApiParam name="$app" type="app" required>
+
+Application container.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+When extension conflicts are detected.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="boot">
+
+<ApiSignature>
+
+```php
+public function boot(App $app): void
+```
+
+</ApiSignature>
+
+Calls boot(app) for every extension in dependency-sorted order. Runs after all extensions have been registered.
+
+<ApiParam name="$app" type="app" required>
+
+Application container.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Ext\ExtensionManager
+role: extension lifecycle coordinator
+layer: ext
+lifecycle: created by discover() during app boot
+owns: extension instances cache
+flow: discover() -> ExtRegistry::installed() -> validateDependencies() -> topologicalSort() -> store in app
+entry_points:
+  - discover
+  - register
+  - boot
+invariants:
+  - register() runs before boot()
+  - dependencies are validated before sorting
+  - circular dependencies throw
+  - replacement extensions must declare conflicts
+side_effects:
+  - Stores sys.extensions and sys.extension_conflicts in app container
+  - Instantiates extension classes
+  - Calls register() and boot() hooks
+non_goals:
+  - Does not install or download extensions
+  - Does not resolve version conflicts
+  - Does not hot-reload extensions at runtime
+```
+</AiContext>

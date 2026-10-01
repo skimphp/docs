@@ -1,0 +1,56 @@
+---
+title: WorkerInstallCommand
+description: "CLI command that generates FrankenPHP worker mode files."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="worker" />
+<ApiBadge type="frankenphp" />
+
+CLI command that generates FrankenPHP worker mode files.
+
+Creates:
+- public/worker.php
+- Caddyfile
+- docker/Dockerfile.frankenphp
+
+Example:
+php skim worker:install
+
+```txt
+Symbol: Skim\Cli\Commands\WorkerInstallCommand
+Source: src/Cli/Commands/WorkerInstallCommand.php
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim worker:install
+```
+</CodeExample>
+
+## 
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Generates the worker entrypoint, Caddyfile, and Dockerfile. #AI:handle
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\WorkerInstallCommand
+role: CLI worker install command
+layer: cli
+entry_points:
+  - handle
+```
+</AiContext>

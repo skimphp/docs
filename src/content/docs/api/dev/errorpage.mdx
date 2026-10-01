@@ -1,0 +1,53 @@
+---
+title: ErrorPage
+description: "Developer-friendly error page rendered when APP_DEBUG=true. #AI:class Use only via the exception handler registered in App::run(). Delegates HTML generation to dev_view templates with a fallback to inline HTML if the template system itself fails. Never expose in production. Example: // Registered by App::run() when APP_DEBUG=true: set_exception_handler(fn(\\Throwable $e) => ErrorPage::render($e)); Testing: Call render() directly with a test Throwable; output goes to stdout."
+---
+
+Developer-friendly error page rendered when APP_DEBUG=true. #AI:class
+
+Use only via the exception handler registered in App::run(). Delegates
+HTML generation to dev_view templates with a fallback to inline HTML
+if the template system itself fails. Never expose in production.
+
+Example:
+// Registered by App::run() when APP_DEBUG=true:
+set_exception_handler(fn(\Throwable $e) =&gt; ErrorPage::render($e));
+
+Testing: Call render() directly with a test Throwable; output goes to stdout.
+
+```txt
+Symbol: Skim\Dev\ErrorPage
+Source: src/Dev/ErrorPage.php
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// Registered by App::run() when APP_DEBUG=true:
+set_exception_handler(fn(\Throwable $e) => ErrorPage::render($e));
+```
+</CodeExample>
+
+## 
+
+<ApiMethod name="render">
+
+<ApiSignature>
+
+```php
+public static function render(Throwable $e): void
+```
+
+</ApiSignature>
+
+Renders a full HTML error page to stdout using dev_view templates. #AI:render
+
+Falls back to minimal inline HTML if template rendering fails, ensuring
+the developer always sees the error even when the template system breaks.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\ErrorPage
+```
+</AiContext>

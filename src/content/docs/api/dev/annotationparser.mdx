@@ -1,0 +1,283 @@
+---
+title: AnnotationParser
+description: "Parses PHPDoc blocks, inline comments, and #AI hash blocks to extract @ai.* tags into typed arrays."
+---
+
+<ApiBadge type="extractor" />
+<ApiBadge type="parser" />
+<ApiBadge type="annotations" />
+<ApiBadge type="no-framework-deps" />
+
+`AnnotationParser` is the low-level parsing engine for the docs extraction pipeline. It handles three input formats (PHPDoc, inline //, and #AI hash blocks) and coerces values into PHP types (arrays, records, booleans).
+
+```txt
+Symbol: Skim\Dev\Docs\Extractor\AnnotationParser
+Source: src/Dev/Docs/Extractor/AnnotationParser.php
+Lifecycle: instantiated per-use by ClassVisitor, no state retained between calls
+Fallback: unknown tags silently ignored unless $strict is true
+Test seam: instantiate directly
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$parser = new AnnotationParser();
+$tags = $parser->parse($docblock_string);
+$inline = $parser->parseInline($source_lines);
+$hash = $parser->parseHashAi('#AI role: cache facade');
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+parse()
+-> stripLines()
+-> iterate lines
+-> match @ai.* or #AI
+-> splitTopLevel
+-> coerceValue
+parseInline()
+-> split summary vs tags
+-> parse tags
+parseHashAi()
+-> detect __target or key:value
+-> splitTopLevel
+-> coerceValue
+```
+
+</LifecycleFlow>
+
+No framework dependencies — plain PHP only. The VOCABULARY constant defines the known key set for strict mode validation.
+
+## Driver Model
+
+<div class="driver-grid">
+  <ScopeBox name="$strict" mutable>
+    When true, throws UnexpectedValueException on unknown #AI keys. Default false.
+  </ScopeBox>
+</div>
+
+## Parsing
+
+<ApiMethod name="parse">
+
+<ApiSignature>
+
+```php
+public function parse(string $docblock): array
+```
+
+</ApiSignature>
+
+Accepts a raw docblock string and extracts all @ai.* and #AI tags into an associative array keyed by tag suffix. Each value is an array of strings. Continuation lines starting with whitespace are appended to the previous tag.
+
+<ApiParam name="$docblock" type="string" required>
+
+Raw docblock string, with or without /** delimiters.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="parseInline">
+
+<ApiSignature>
+
+```php
+public function parseInline(string $source): array
+```
+
+</ApiSignature>
+
+Parses inline // comments, extracting @ai.* tags and capturing preceding non-tag lines as a 'summary' key. Stops at the first non-// line.
+
+<ApiParam name="$source" type="string" required>
+
+Raw source lines starting with //.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="parseHashAi">
+
+<ApiSignature>
+
+```php
+public function parseHashAi(string $source): array
+```
+
+</ApiSignature>
+
+Parses #AI hash annotation blocks. Detects `#AI:{target}` section headers (stored as __target) and `#AI key: value` pairs split by semicolons. Nested brackets and braces are preserved during splitting.
+
+<ApiParam name="$source" type="string" required>
+
+One or more lines starting with #AI.
+
+</ApiParam>
+
+<ApiThrows type="\UnexpectedValueException">
+
+When $strict is true and an unknown key is encountered.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Value Coercion
+
+<ApiMethod name="parseBracketList">
+
+<ApiSignature>
+
+```php
+public function parseBracketList(string $value): array
+```
+
+</ApiSignature>
+
+Parses a bracket-delimited list string into an array of coerced values. Supports both comma and semicolon delimiters.
+
+<ApiParam name="$value" type="string" required>
+
+Bracket-delimited string like `[a; b; c]`.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="parseRecord">
+
+<ApiSignature>
+
+```php
+public function parseRecord(string $value): array
+```
+
+</ApiSignature>
+
+Parses a pipe-delimited record string `{key: value | key: value}` into an associative array with coerced values.
+
+<ApiParam name="$value" type="string" required>
+
+Record string with optional braces.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="coerceValue">
+
+<ApiSignature>
+
+```php
+public function coerceValue(string $value): mixed
+```
+
+</ApiSignature>
+
+Coerces a string annotation value into its PHP equivalent. Bracket lists become arrays, brace records become associative arrays, and true/false/yes/no/1/0 become booleans.
+
+<ApiParam name="$value" type="string" required>
+
+Raw string value from an annotation.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Utilities
+
+<ApiMethod name="splitTopLevel">
+
+<ApiSignature>
+
+```php
+public function splitTopLevel(string $value, string $delimiter): array
+```
+
+</ApiSignature>
+
+Splits a string at top-level delimiters only, preserving content inside square brackets and curly braces. Tracks nesting depth to avoid splitting nested structures.
+
+<ApiParam name="$value" type="string" required>
+
+String to split.
+
+</ApiParam>
+
+<ApiParam name="$delimiter" type="string" required>
+
+Single-character delimiter.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="extractSummary">
+
+<ApiSignature>
+
+```php
+public function extractSummary(string $docblock): string
+```
+
+</ApiSignature>
+
+Extracts the first non-tag, non-empty lines from a docblock as the summary sentence. Stops at the first @tag or #AI line.
+
+<ApiParam name="$docblock" type="string" required>
+
+Raw docblock string.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="extractExamples">
+
+<ApiSignature>
+
+```php
+public function extractExamples(string $docblock): array
+```
+
+</ApiSignature>
+
+Extracts Example: blocks from a raw docblock. #AI:extract_examples
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Extractor\AnnotationParser
+role: annotation parser
+layer: dev
+lifecycle: instantiated per-use by ClassVisitor, no state retained between calls
+owns: VOCABULARY constant
+flow: parse/parseInline/parseHashAi -> splitTopLevel -> coerceValue -> typed result
+entry_points:
+  - parse
+  - parseInline
+  - parseHashAi
+  - parseBracketList
+  - parseRecord
+  - coerceValue
+  - splitTopLevel
+  - extractSummary
+invariants:
+  - unknown tags silently ignored by default
+  - $strict mode throws on unknown keys
+  - continuation lines appended to previous tag
+  - semicolons split top-level items only
+non_goals:
+  - Does not read files
+  - Does not traverse AST
+  - Does not validate tag semantics
+```
+</AiContext>

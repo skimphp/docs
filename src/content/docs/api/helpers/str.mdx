@@ -1,0 +1,292 @@
+---
+title: str
+description: "Static string utility methods for slugs, truncation, UUIDs, random strings, and case conversion."
+---
+
+<ApiBadge type="helper" />
+<ApiBadge type="string" />
+<ApiBadge type="stateless" />
+
+`str` provides common string transformations as pure static methods. Used across controllers, models, and CLI commands for slug generation, text truncation, UUID creation, and case conversion.
+
+```txt
+Symbol: Skim\Helpers\Str
+Source: src/Helpers/Str.php
+Lifecycle: stateless — all methods are pure functions
+Fallback: none
+Test seam: test directly — no mocking needed
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Str::slug('Hello World!');     // 'hello-world'
+Str::uuid();                   // '550e8400-e29b-41d4-a716-446655440000'
+Str::toSnake('UserProfile');  // 'user_profile'
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+caller invokes static method
+-> pure computation
+-> return value
+```
+
+</LifecycleFlow>
+
+Thin, focused utility class. Prefer these over ad-hoc string manipulation for consistency.
+
+<NoteBox>
+
+contains/startsWith/endsWith are thin wrappers over PHP 8.0+ str_* functions for API consistency.
+
+</NoteBox>
+
+## Slugs & Truncation
+
+<ApiMethod name="slug">
+
+<ApiSignature>
+
+```php
+public static function slug(string $text): string
+```
+
+</ApiSignature>
+
+Converts text to a URL-safe slug by lowercasing, stripping non-alphanumeric characters (Unicode-aware), and collapsing whitespace/dashes into single dashes.
+
+<ApiParam name="$text" type="string" required>
+
+Input text to slugify.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="excerpt">
+
+<ApiSignature>
+
+```php
+public static function excerpt(string $text, int $length = 100, string $suffix = '...', bool $wordBoundary = true): string
+```
+
+</ApiSignature>
+
+Truncates text to $length characters. When $wordBoundary is true, backs up to the last space to avoid mid-word cuts. Appends $suffix only when truncation occurs.
+
+<ApiParam name="$text" type="string" required>
+
+Input text to truncate.
+
+</ApiParam>
+
+<ApiParam name="$length" type="int">
+
+Maximum character count before truncation. Default 100.
+
+</ApiParam>
+
+<ApiParam name="$suffix" type="string">
+
+Appended when text is truncated. Default '...'.
+
+</ApiParam>
+
+<ApiParam name="$wordBoundary" type="bool">
+
+When true, avoids cutting mid-word. Default true.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Generation
+
+<ApiMethod name="random">
+
+<ApiSignature>
+
+```php
+public static function random(int $length = 32): string
+```
+
+</ApiSignature>
+
+Generates a cryptographically random alphanumeric string using random_int().
+
+<ApiParam name="$length" type="int">
+
+Number of characters. Default 32.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="uuid">
+
+<ApiSignature>
+
+```php
+public static function uuid(): string
+```
+
+</ApiSignature>
+
+Generates an RFC 4122 UUID v4 using random_bytes().
+
+</ApiMethod>
+
+## Predicates
+
+<ApiMethod name="contains">
+
+<ApiSignature>
+
+```php
+public static function contains(string $haystack, string $needle): bool
+```
+
+</ApiSignature>
+
+Returns true when $haystack contains $needle. Thin wrapper over str_contains().
+
+<ApiParam name="$haystack" type="string" required>
+
+String to search in.
+
+</ApiParam>
+
+<ApiParam name="$needle" type="string" required>
+
+Substring to look for.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="startsWith">
+
+<ApiSignature>
+
+```php
+public static function startsWith(string $str, string $prefix): bool
+```
+
+</ApiSignature>
+
+Returns true when $str starts with $prefix.
+
+<ApiParam name="$str" type="string" required>
+
+String to test.
+
+</ApiParam>
+
+<ApiParam name="$prefix" type="string" required>
+
+Expected prefix.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="endsWith">
+
+<ApiSignature>
+
+```php
+public static function endsWith(string $str, string $suffix): bool
+```
+
+</ApiSignature>
+
+Returns true when $str ends with $suffix.
+
+<ApiParam name="$str" type="string" required>
+
+String to test.
+
+</ApiParam>
+
+<ApiParam name="$suffix" type="string" required>
+
+Expected suffix.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Case Conversion
+
+<ApiMethod name="toSnake">
+
+<ApiSignature>
+
+```php
+public static function toSnake(string $str): string
+```
+
+</ApiSignature>
+
+Converts CamelCase or PascalCase to snake_case. Handles consecutive capitals correctly (e.g. 'HTMLParser' → 'html_parser').
+
+<ApiParam name="$str" type="string" required>
+
+CamelCase input.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="toCamel">
+
+<ApiSignature>
+
+```php
+public static function toCamel(string $str): string
+```
+
+</ApiSignature>
+
+Converts snake_case to camelCase (first letter lowercase).
+
+<ApiParam name="$str" type="string" required>
+
+snake_case input.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Helpers\Str
+role: string utility helper
+layer: helpers
+lifecycle: stateless — all methods are pure functions
+owns: nothing
+flow: caller -> Str::method() -> pure return value
+entry_points:
+  - slug
+  - excerpt
+  - random
+  - uuid
+  - contains
+  - startsWith
+  - endsWith
+  - toSnake
+  - toCamel
+invariants:
+  - all methods are static and pure
+  - slug() is Unicode-aware via mb_* and \p{L}
+  - random() and uuid() use random_int/random_bytes for cryptographic safety
+non_goals:
+  - Does not handle HTML entities
+  - Does not perform locale-aware collation
+```
+</AiContext>

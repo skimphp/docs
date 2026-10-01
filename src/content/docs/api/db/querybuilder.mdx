@@ -1,0 +1,199 @@
+---
+title: QueryBuilder
+description: "Internal SQL template processor for query_gen %placeholder% substitution."
+---
+
+<ApiBadge type="internal" />
+<ApiBadge type="query_gen" />
+<ApiBadge type="sql-template" />
+<ApiBadge type="null-safe" />
+
+`QueryBuilder` processes SQL templates with `%placeholder%` tokens into executable SQL and PDO parameter arrays. It is internal to the `db` facade — not part of the public SKIM API. Unused placeholders are stripped silently, enabling dynamic queries without conditionals.
+
+```txt
+Symbol: Skim\Db\QueryBuilder
+Source: src/Db/QueryBuilder.php
+Lifecycle: stateless — called per query by Db:: methods
+Fallback: none
+Test seam: use Db::query(..., debug: true) to inspect generated SQL
+```
+
+<WarningBox>
+
+interpolate() output is NOT safe to execute — for debug display only
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Db::query/val/row/all()
+-> QueryBuilder::build(sql, params)
+-> process %set%/%values%/%where%/%order_by%/%group_by%/%limit%/%offset%
+-> strip unused placeholders
+-> collect :named params
+-> return [sql, pdoParams]
+```
+
+</LifecycleFlow>
+
+QueryBuilder is the engine behind query_gen. It processes templates in a fixed order to avoid key conflicts between %set% and %where% params.
+
+<NoteBox>
+
+This class is internal. Application code should use Db::query/val/row/all which delegate to QueryBuilder.
+
+</NoteBox>
+
+## Core Processing
+
+<ApiMethod name="build">
+
+<ApiSignature>
+
+```php
+public static function build(string $sql, array $params): array
+```
+
+</ApiSignature>
+
+Processes a SQL template with %placeholders% into executable SQL and PDO params. Unused placeholders are stripped. Null :named params are excluded.
+
+<ApiParam name="$sql" type="string" required>
+
+SQL template with %placeholders%.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array" required>
+
+Placeholder values and :named params.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Clause Builders
+
+<ApiMethod name="buildWhere">
+
+<ApiSignature>
+
+```php
+public static function buildWhere(array $conditions): string
+```
+
+</ApiSignature>
+
+Builds a WHERE clause from flat or nested and/or conditions. Returns empty string when conditions are empty.
+
+<ApiParam name="$conditions" type="array" required>
+
+Flat list ['a = :a'] or nested ['or' =&gt; [...], 'and' =&gt; [...]].
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="buildSet">
+
+<ApiSignature>
+
+```php
+public static function buildSet(array $data): array
+```
+
+</ApiSignature>
+
+Builds a SET clause for UPDATE. Null skips the column, NullMarker forces SET col = NULL.
+
+<ApiParam name="$data" type="array" required>
+
+Column =&gt; value pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="buildValues">
+
+<ApiSignature>
+
+```php
+public static function buildValues(array $data): array
+```
+
+</ApiSignature>
+
+Builds INSERT column list and VALUES placeholders.
+
+<ApiParam name="$data" type="array" required>
+
+Column =&gt; value pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Debug
+
+<ApiMethod name="interpolate">
+
+<ApiSignature>
+
+```php
+public static function interpolate(string $sql, array $params): string
+```
+
+</ApiSignature>
+
+Substitutes PDO params into SQL for debug display. NOT safe to execute — values are not driver-escaped.
+
+<ApiParam name="$sql" type="string" required>
+
+Built SQL with :named placeholders.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array" required>
+
+PDO param values.
+
+</ApiParam>
+
+<WarningBox>
+
+Output is NOT safe to execute — for profiler and debug:true display only
+
+</WarningBox>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\QueryBuilder
+role: SQL template processor
+layer: db
+lifecycle: stateless — called per query by Db:: methods
+owns: nothing
+flow: Db::method() -> QueryBuilder::build(sql, params) -> [built_sql, pdoParams] -> PDO prepare/execute
+entry_points:
+  - build
+  - buildWhere
+  - buildSet
+  - buildValues
+  - interpolate
+invariants:
+  - unused %placeholders% are stripped silently
+  - null values in %set% skip the column
+  - NullMarker in %set% produces literal NULL
+  - limit/offset are inlined as int (not PDO-bound)
+  - null :named params are excluded from PDO array
+non_goals:
+  - Not a query builder ORM — it is a template pre-processor
+  - Does not validate SQL syntax
+  - Does not escape identifiers
+```
+</AiContext>

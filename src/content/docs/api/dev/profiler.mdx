@@ -1,0 +1,370 @@
+---
+title: profiler
+description: "Static event collector that records DB queries, cache ops, view renders, and log entries for debug toolbar display."
+---
+
+<ApiBadge type="dev" />
+<ApiBadge type="debug" />
+<ApiBadge type="profiler" />
+<ApiBadge type="static" />
+<ApiBadge type="toolbar" />
+
+`profiler` is a static event collector that records framework operations (DB queries, cache ops, view renders, log entries) during a request. All methods are no-ops when disabled, ensuring zero overhead in production. The toolbar reads collected events for display.
+
+```txt
+Symbol: Skim\Dev\Profiler
+Source: src/Dev/Profiler.php
+Lifecycle: created empty at boot, enabled by App::run() when APP_DEBUG=true, populated during request, read by toolbar, reset between requests
+Fallback: all recording methods are no-ops when disabled
+Test seam: enable()/disable() to toggle, reset() to clear between tests
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Profiler::enable();
+// ... request processing ...
+$summary = Profiler::summary();  // ['db' => ['count' => 5, 'ms' => 12.3], ...]
+$events  = Profiler::events();  // raw event array for toolbar
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+enable()
+-> db()/cache()/view()/log() during request
+-> summary()/events() for toolbar
+-> reset() between requests
+```
+
+</LifecycleFlow>
+
+Static facade pattern — all state is process-local. Called by framework internals (db.php, cache.php, view.php, log.php) after every operation.
+
+## Driver Model
+
+<div class="driver-grid">
+  <ScopeBox name="$events" mutable>
+    Array of recorded event arrays, cleared by reset().
+  </ScopeBox>
+  <ScopeBox name="$enabled" mutable>
+    Boolean toggle — when false, all recording methods are no-ops.
+  </ScopeBox>
+</div>
+
+## Control
+
+<ApiMethod name="enable">
+
+<ApiSignature>
+
+```php
+public static function enable(): void
+```
+
+</ApiSignature>
+
+Enables event collection. Called by App::run() when APP_DEBUG=true.
+
+</ApiMethod>
+
+<ApiMethod name="disable">
+
+<ApiSignature>
+
+```php
+public static function disable(): void
+```
+
+</ApiSignature>
+
+Disables event collection. All recording methods become no-ops.
+
+</ApiMethod>
+
+## Recording
+
+<ApiMethod name="db">
+
+<ApiSignature>
+
+```php
+public static function db(string $sql, float $ms, string $connection = 'default', int $rows = 0): void
+```
+
+</ApiSignature>
+
+Records a database query event with interpolated SQL, timing, connection name, and row count. No-op when disabled.
+
+<ApiParam name="$sql" type="string" required>
+
+Interpolated SQL string (not raw template).
+
+</ApiParam>
+
+<ApiParam name="$ms" type="float" required>
+
+Execution time in milliseconds.
+
+</ApiParam>
+
+<ApiParam name="$connection" type="string">
+
+Connection name from config.
+
+</ApiParam>
+
+<ApiParam name="$rows" type="int">
+
+Number of affected or returned rows.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="cache">
+
+<ApiSignature>
+
+```php
+public static function cache(string $op, string $key, bool $hit = false, ?int $ttl = null, string $driver = 'redis'): void
+```
+
+</ApiSignature>
+
+Records a cache operation event with operation type, key, hit/miss status, optional TTL, and driver name. No-op when disabled.
+
+<ApiParam name="$op" type="string" required>
+
+Operation name (get, set, delete, remember).
+
+</ApiParam>
+
+<ApiParam name="$key" type="string" required>
+
+Cache key operated on.
+
+</ApiParam>
+
+<ApiParam name="$hit" type="bool">
+
+Whether the operation was a cache hit.
+
+</ApiParam>
+
+<ApiParam name="$ttl" type="?int">
+
+TTL in seconds, or null for reads/deletes.
+
+</ApiParam>
+
+<ApiParam name="$driver" type="string">
+
+Active cache driver name.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="view">
+
+<ApiSignature>
+
+```php
+public static function view(string $template, ?string $fragment = null, float $ms = 0.0): void
+```
+
+</ApiSignature>
+
+Records a template render event with template path, optional fragment name, and render time. No-op when disabled.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to views directory.
+
+</ApiParam>
+
+<ApiParam name="$fragment" type="?string">
+
+Fragment name for partial renders, null for full page.
+
+</ApiParam>
+
+<ApiParam name="$ms" type="float">
+
+Render time in milliseconds.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="log">
+
+<ApiSignature>
+
+```php
+public static function log(string $level, string $message, array $context = [], string $file = '', int $line = 0): void
+```
+
+</ApiSignature>
+
+Records a log entry with level, message, context, and source location from debug_backtrace. No-op when disabled.
+
+<ApiParam name="$level" type="string" required>
+
+Log level (debug, info, warning, error).
+
+</ApiParam>
+
+<ApiParam name="$message" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$context" type="array">
+
+Additional context data.
+
+</ApiParam>
+
+<ApiParam name="$file" type="string">
+
+Source file from debug_backtrace.
+
+</ApiParam>
+
+<ApiParam name="$line" type="int">
+
+Source line from debug_backtrace.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Reading
+
+<ApiMethod name="summary">
+
+<ApiSignature>
+
+```php
+public static function summary(): array
+```
+
+</ApiSignature>
+
+Returns an aggregate summary of all collected events grouped by type, with counts and timing totals for toolbar badge display.
+
+</ApiMethod>
+
+<ApiMethod name="events">
+
+<ApiSignature>
+
+```php
+public static function events(): array
+```
+
+</ApiSignature>
+
+Returns all raw events collected during the current request. Used by the toolbar renderer to build detailed panels.
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears the event buffer without disabling the profiler. Call in tests between requests to isolate per-request data.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="panel">
+
+<ApiSignature>
+
+```php
+public static function panel(string $id, string $label, array $options): void
+```
+
+</ApiSignature>
+
+Registers a custom toolbar panel for user-defined debug extensions. #AI:panel
+
+Use in controllers, middleware, or extensions to add debug panels to
+the toolbar. Panels appear as additional tabs after the built-in ones.
+When $html is provided, it renders directly. When $template is set,
+the toolbar renders it via dev_view with $data.
+
+Example:
+Profiler::panel('htmx', 'htmx Debug', [
+'icon' =&gt; 'arrows exchange',
+'data' =&gt; ['swaps' =&gt; 3, 'boosts' =&gt; 1],
+]);
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Profiler::panel('htmx', 'htmx Debug', [
+    'icon' => 'arrows exchange',
+    'data' => ['swaps' => 3, 'boosts' => 1],
+]);
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="panels">
+
+<ApiSignature>
+
+```php
+public static function panels(): array
+```
+
+</ApiSignature>
+
+Returns all registered custom panels for toolbar rendering. #AI:panels
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Profiler
+role: debug event collector
+layer: dev
+lifecycle: created empty at boot, enabled by App::run() when APP_DEBUG=true, populated during request, read by toolbar, reset between requests
+owns: events array, enabled flag
+flow: db/cache/view/log() -> enabled? -> append to $events
+entry_points:
+  - enable
+  - disable
+  - db
+  - cache
+  - view
+  - log
+  - summary
+  - events
+  - reset
+invariants:
+  - all recording methods are no-ops when disabled
+  - reset() clears events but does not disable
+  - summary() computes aggregates from raw events
+side_effects:
+  - mutates static $events array on each recording call
+non_goals:
+  - Does not persist events across requests
+  - Does not filter or sample events
+  - Does not replace structured logging
+```
+</AiContext>

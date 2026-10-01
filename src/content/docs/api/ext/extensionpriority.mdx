@@ -1,0 +1,40 @@
+---
+title: ExtensionPriority
+description: "Named integer bands controlling extension registration and boot order."
+---
+
+<ApiBadge type="constants" />
+<ApiBadge type="extension" />
+<ApiBadge type="ordering" />
+
+`ExtensionPriority` defines four named bands that control when extensions register and boot relative to each other. Lower values execute first.
+
+```txt
+Symbol: Skim\Ext\ExtensionPriority
+Source: src/Ext/ExtensionPriority.php
+Lifecycle: stateless constants
+Test seam: none needed
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// composer.json extra.skim: { "priority": 10 }
+// or in code: ExtensionPriority::CORE
+```
+</CodeExample>
+
+<AiContext>
+```txt
+symbol: Skim\Ext\ExtensionPriority
+role: priority constants
+layer: ext
+lifecycle: stateless constants
+owns: priority band constants
+invariants:
+  - CORE < OFFICIAL < PAID < USER
+  - lower number = earlier execution
+non_goals:
+  - Does not enforce priority values
+  - Does not validate extension ordering
+```
+</AiContext>

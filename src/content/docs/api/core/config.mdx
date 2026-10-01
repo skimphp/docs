@@ -1,0 +1,226 @@
+---
+title: config
+description: "Static config registry with lazy-loading and dot-notation read access across plain PHP array files."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="config" />
+<ApiBadge type="dot-notation" />
+<ApiBadge type="lazy-load" />
+<ApiBadge type="frozen-after-boot" />
+
+`Skim\Core\Config` is the single source of configuration for the entire application. It lazy-loads a directory of plain PHP array files on first `get()` call, namespaces each file's return value by its filename, and exposes dot-notation reads. After the first load() call the registry is frozen — further load() calls are silently ignored.
+
+```txt
+Symbol: Skim\Core\Config
+Source: src/Core/Config.php
+Lifecycle: static facade, lazy-loaded on first get() call, frozen afterwards
+Test seam: set(), reset()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Config::load(__DIR__ . '/../config');
+$host = Config::get('db.default.host', 'localhost');
+```
+</CodeExample>
+
+<WarningBox>
+
+Config is frozen after boot — set() sets the boot flag and should only be used in tests
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Config::get(key)
+-> !$booted check
+-> auto-load basePath('config')
+-> idempotent check
+-> glob *.php
+-> require each
+-> store by filename
+-> explode('.')
+-> traverse $data
+```
+
+</LifecycleFlow>
+
+Config is intentionally simple — plain PHP arrays with no parser overhead. IDE autocomplete works natively on the returned arrays.
+
+<NoteBox>
+
+Config files must return arrays. Non-array return values from a config file are silently skipped during load().
+
+</NoteBox>
+
+## Read API
+
+<ApiMethod name="load">
+
+<ApiSignature>
+
+```php
+public static function load(string $dir): void
+```
+
+</ApiSignature>
+
+Scans $dir for *.php files, requires each one, and stores the returned array under a key derived from the filename (without extension). Only the first call takes effect
+
+<ApiParam name="$dir" type="string" required>
+
+Absolute path to the directory containing config PHP files.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Config::load(__DIR__ . '/../config');
+// config/db.php  → Config::get('db.default.host')
+// config/app.php → Config::get('app.name')
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public static function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Auto-loads config directory on first call when not yet booted. Traverses the config data using dot-separated segments. Returns $default when any segment is missing or a non-array intermediate is encountered.
+
+<ApiParam name="$key" type="string" required>
+
+Dot-separated path such as 'db.default.host'.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback returned when the path does not resolve.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="loadCompiledCache">
+
+<ApiSignature>
+
+```php
+private static function loadCompiledCache(): bool
+```
+
+</ApiSignature>
+
+Attempts to load config from a pre-compiled PHP array cache at storage/config_cache/config.php. Returns false when the cache file is missing or stale (APP_DEBUG=true and any config/*.php file newer than cache). Sets booted flag on success.
+
+</ApiMethod>
+
+<ApiMethod name="all">
+
+<ApiSignature>
+
+```php
+public static function all(): array
+```
+
+</ApiSignature>
+
+Returns the entire internal config data array as-is. Auto-loads on first call.
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public static function set(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Writes a value at the given dot-notation path, creating intermediate arrays as needed. Sets the boot flag to prevent auto-load from overwriting test values. Intended for test setup only.
+
+<ApiParam name="$key" type="string" required>
+
+Dot-separated path to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Value to store at the resolved path.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Config::set('db.default.host', 'sqlite::memory:');
+// ... run tests ...
+Config::reset();
+```
+</CodeExample>
+
+<NoteBox>
+
+Always pair with reset() in tearDown() to avoid leaking state between tests.
+
+</NoteBox>
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears all loaded config data and resets the boot flag so the next load() or get() call will re-scan the config directory.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Core\Config
+role: static config facade
+layer: core
+lifecycle: static facade, lazy-loaded on first get() call, frozen afterwards
+owns: config data map, boot flag
+flow: Config::get(key) -> auto-load if !$booted -> explode('.') -> traverse $data
+entry_points:
+  - get
+  - load
+invariants:
+  - load() is idempotent — only the first call has effect
+  - get() auto-loads config directory when not yet booted
+  - get() returns $default when any path segment is missing
+  - set() creates intermediate arrays and sets booted flag
+  - all() returns the raw nested array
+side_effects:
+  - load() sets the boot flag preventing further loads
+  - get() triggers lazy load on first call
+  - set() sets boot flag and mutates the in-memory config map
+non_goals:
+  - Does not write config back to disk
+  - Does not validate config structure
+  - Does not support runtime config reloading
+```
+</AiContext>

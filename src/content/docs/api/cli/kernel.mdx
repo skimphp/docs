@@ -1,0 +1,195 @@
+---
+title: kernel
+description: "CLI kernel — central dispatcher owning command registry, help rendering, dispatch, timing, and error output."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="kernel" />
+<ApiBadge type="dispatcher" />
+<ApiBadge type="command-registry" />
+
+`kernel` is the central dispatcher for the SKIM CLI. It owns the built-in command registry, merges user-defined commands from config, resolves command names, prints the header banner, dispatches commands with timing and error handling, and provides interactive or static help listings.
+
+```txt
+Symbol: Skim\Cli\Kernel
+Source: src/Cli/Kernel.php
+Lifecycle: instantiated once per CLI invocation in bin/skim, run() called with parsed argv
+Fallback: unknown commands show error box with Levenshtein suggestion
+Test seam: instantiate directly, pass ArgvParser with known input
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$kernel = new Kernel();
+$exit_code = $kernel->run(ArgvParser::parse($argv));
+exit($exit_code);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+run(ArgvParser)
+-> check --version/--quiet/--no-ansi
+-> resolve(commandName)
+-> if found: dispatch()
+-> if help/list: showHelp()
+-> if unknown: errorBox + didYouMean
+-> return exit code
+```
+
+</LifecycleFlow>
+
+The kernel is the single entry point for all CLI operations. It keeps the command registry as a private constant and merges user commands from config at runtime.
+
+## Dispatch
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(ArgvParser $input): int
+```
+
+</ApiSignature>
+
+Runs the CLI. Handles --version/--quiet/--no-ansi/--agent flags, resolves the command, dispatches it, or shows help for unknown/help/list commands.
+
+<ApiParam name="$input" type="ArgvParser" required>
+
+Parsed CLI input from ArgvParser::parse().
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="dispatch">
+
+<ApiSignature>
+
+```php
+private function dispatch(string $class, string $commandName, ArgvParser $input): int
+```
+
+</ApiSignature>
+
+Instantiates, configures, and dispatches a resolved command class. Prints header, records timing, catches exceptions.
+
+<ApiParam name="$class" type="string" required>
+
+FQCN of the command class.
+
+</ApiParam>
+
+<ApiParam name="$commandName" type="string" required>
+
+Registered command name.
+
+</ApiParam>
+
+<ApiParam name="$input" type="ArgvParser" required>
+
+Parsed CLI input.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Command Resolution
+
+<ApiMethod name="resolve">
+
+<ApiSignature>
+
+```php
+private function resolve(string $name): ?string
+```
+
+</ApiSignature>
+
+Resolves a command name to its FQCN. Supports direct match and colon-prefix fallback.
+
+<ApiParam name="$name" type="string" required>
+
+Command name from argv.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="allCommands">
+
+<ApiSignature>
+
+```php
+private function allCommands(): array
+```
+
+</ApiSignature>
+
+Merges built-in COMMANDS with user-defined commands from config/app.php.
+
+</ApiMethod>
+
+## Help Display
+
+<ApiMethod name="showHelp">
+
+<ApiSignature>
+
+```php
+private function showHelp(): ?string
+```
+
+</ApiSignature>
+
+Shows interactive TUI help on TTY or static command listing otherwise. Returns selected command name for re-dispatch or null to exit.
+
+</ApiMethod>
+
+<ApiMethod name="buildGroups">
+
+<ApiSignature>
+
+```php
+private function buildGroups(): array
+```
+
+</ApiSignature>
+
+Builds ordered command groups from all registered commands, sorted by GROUP_ORDER.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Kernel
+role: CLI central dispatcher
+layer: cli
+lifecycle: instantiated once per CLI invocation in bin/skim, run() called with parsed argv
+owns: command registry, group ordering, quiet/noAnsi/agent flags
+flow: Kernel::run(input) -> check flags -> resolve command -> dispatch or showHelp -> return exit code
+entry_points:
+  - run
+config_reads:
+  - app.commands
+  - app.debug
+  - APP_ENV
+invariants:
+  - built-in COMMANDS map is immutable
+  - user commands from config/app.php are merged at runtime
+  - --quiet suppresses header and duration
+  - --no-ansi forces plain output
+  - --agent implies --quiet and --no-ansi
+side_effects:
+  - prints to stdout/stderr
+  - reads config for user commands and debug mode
+non_goals:
+  - Does not parse argv (see ArgvParser)
+  - Does not implement command logic (see command subclasses)
+  - Does not manage process signals
+```
+</AiContext>

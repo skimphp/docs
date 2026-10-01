@@ -1,0 +1,317 @@
+---
+title: PendingRequest
+description: "Immutable request builder that dispatches through the app with auth, session, and header injection."
+---
+
+<ApiBadge type="testing" />
+<ApiBadge type="http" />
+<ApiBadge type="immutable" />
+<ApiBadge type="builder" />
+
+`PendingRequest` is an immutable builder that configures and dispatches in-process HTTP requests. Each configuration method returns a clone, preventing state leakage between test assertions.
+
+```txt
+Symbol: Skim\Testing\PendingRequest
+Source: src/Testing/PendingRequest.php
+Lifecycle: created per-request by HttpClient, cloned on each configuration call, consumed on HTTP method call
+Fallback: n/a — test-only class
+Test seam: use via HttpClient or instantiate directly with an app instance
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$req = new PendingRequest($app);
+$req->actingAs($user)
+    ->withHeaders(['Accept' => 'application/json'])
+    ->post('/api/posts', json: ['title' => 'Test'])
+    ->assertCreated();
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+HttpClient::method() -> new PendingRequest($app)
+-> actingAs/withHeaders/etc() -> clone
+-> get/post/etc() -> send()
+-> RequestFactory::make()
+-> clone app
+-> bind fakes
+-> App::dispatch()
+-> HttpResponse
+```
+
+</LifecycleFlow>
+
+Immutable builder pattern — each configuration call returns a clone, making it safe to reuse a base PendingRequest across multiple assertions.
+
+<NoteBox>
+
+When $json is non-empty on post(), Content-Type is automatically set to application/json.
+
+</NoteBox>
+
+## Configuration
+
+<ApiMethod name="actingAs">
+
+<ApiSignature>
+
+```php
+public function actingAs(object $user): static
+```
+
+</ApiSignature>
+
+Returns a clone configured to authenticate as the given user via AuthFake.
+
+<ApiParam name="$user" type="object" required>
+
+User object bound to AuthService in the cloned container.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="withHeaders">
+
+<ApiSignature>
+
+```php
+public function withHeaders(array $headers): static
+```
+
+</ApiSignature>
+
+Returns a clone with additional request headers merged into existing ones.
+
+<ApiParam name="$headers" type="array" required>
+
+Key-value header pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="withSession">
+
+<ApiSignature>
+
+```php
+public function withSession(array $data): static
+```
+
+</ApiSignature>
+
+Returns a clone with pre-populated session data bound via SessionFake.
+
+<ApiParam name="$data" type="array" required>
+
+Key-value session pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="withCookies">
+
+<ApiSignature>
+
+```php
+public function withCookies(array $cookies): static
+```
+
+</ApiSignature>
+
+Returns a clone with the given cookies.
+
+<ApiParam name="$cookies" type="array" required>
+
+Key-value cookie pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="followingRedirects">
+
+<ApiSignature>
+
+```php
+public function followingRedirects(): static
+```
+
+</ApiSignature>
+
+Returns a clone that automatically follows 3xx redirects via recursive get().
+
+</ApiMethod>
+
+<ApiMethod name="withoutMiddleware">
+
+<ApiSignature>
+
+```php
+public function withoutMiddleware(): static
+```
+
+</ApiSignature>
+
+Returns a clone that skips all middleware during dispatch.
+
+</ApiMethod>
+
+## HTTP Methods
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $path, array $query = []): HttpResponse
+```
+
+</ApiSignature>
+
+Dispatches a GET request through the app.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+<ApiParam name="$query" type="array">
+
+Query string parameters.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="post">
+
+<ApiSignature>
+
+```php
+public function post(string $path, array $post = [], array $json = []): HttpResponse
+```
+
+</ApiSignature>
+
+Dispatches a POST request. Sets Content-Type to application/json when $json is non-empty.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+<ApiParam name="$post" type="array">
+
+Form-encoded POST data.
+
+</ApiParam>
+
+<ApiParam name="$json" type="array">
+
+JSON body data.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="put">
+
+<ApiSignature>
+
+```php
+public function put(string $path, array $post = []): HttpResponse
+```
+
+</ApiSignature>
+
+Dispatches a PUT request with form-encoded body data.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+<ApiParam name="$post" type="array">
+
+Form-encoded body data.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $path): HttpResponse
+```
+
+</ApiSignature>
+
+Dispatches a DELETE request.
+
+<ApiParam name="$path" type="string" required>
+
+Request URI path.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(Skim\Core\App $app)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Testing\PendingRequest
+role: test request builder
+layer: testing
+lifecycle: created per-request by HttpClient, cloned on each configuration call, consumed on HTTP method call
+owns: configuration state (user, headers, session, cookies, flags)
+flow: PendingRequest::config() -> clone -> HTTP method -> send() -> RequestFactory::make() -> App::dispatch() -> HttpResponse
+entry_points:
+  - actingAs
+  - withHeaders
+  - withSession
+  - withCookies
+  - followingRedirects
+  - withoutMiddleware
+  - get
+  - post
+  - put
+  - delete
+invariants:
+  - Configuration methods return clones — original is never mutated
+  - Auth and session are bound to a cloned app, not the original
+  - Redirect following recurses via get()
+side_effects:
+  - Clones app instance
+  - Binds auth/session fakes into cloned container
+  - Dispatches through router pipeline
+non_goals:
+  - Does not open real network connections
+  - Does not test WebSocket or SSE endpoints
+```
+</AiContext>

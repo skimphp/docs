@@ -1,0 +1,310 @@
+---
+title: FakeClient
+description: "Test double for HTTP client that records requests and returns stub responses."
+---
+
+<ApiBadge type="testing" />
+<ApiBadge type="http" />
+<ApiBadge type="fake" />
+<ApiBadge type="stub" />
+
+`FakeClient` extends `client` to intercept all HTTP requests in tests. It records every request for later assertion and returns configurable stub responses without making real network calls.
+
+```txt
+Symbol: Skim\Http\FakeClient
+Source: src/Http/FakeClient.php
+Lifecycle: created via Client::fake()
+Test seam: Client::fake($stubs) factory
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$http = Client::fake([
+    'GET https://api.example.com/users' => ['status' => 200, 'body' => [['id' => 1]]],
+]);
+$resp = $http->get('https://api.example.com/users');
+$http->assertSent('GET', 'users');
+```
+</CodeExample>
+
+## HTTP Methods
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $url, array $query = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Records a GET request and returns the matching stub response. Query params are not appended to the URL in the fake.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL.
+
+</ApiParam>
+
+<ApiParam name="$query" type="array">
+
+Query params (ignored in fake).
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Request headers (recorded but not sent).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="post">
+
+<ApiSignature>
+
+```php
+public function post(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Records a POST request with body data and returns the matching stub response.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Request body data (recorded).
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Request headers (recorded but not sent).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="put">
+
+<ApiSignature>
+
+```php
+public function put(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Records a PUT request with body data and returns the matching stub response.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Request body data (recorded).
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Request headers (recorded but not sent).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="patch">
+
+<ApiSignature>
+
+```php
+public function patch(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Records a PATCH request with body data and returns the matching stub response.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Request body data (recorded).
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Request headers (recorded but not sent).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Records a DELETE request with optional body data and returns the matching stub response.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Request body data (recorded).
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Request headers (recorded but not sent).
+
+</ApiParam>
+
+</ApiMethod>
+
+## Assertions
+
+<ApiMethod name="assertSent">
+
+<ApiSignature>
+
+```php
+public function assertSent(string $method, string $url): void
+```
+
+</ApiSignature>
+
+Throws RuntimeException when no recorded request matches the given method and URL substring.
+
+<ApiParam name="$method" type="string" required>
+
+HTTP method (case-insensitive).
+
+</ApiParam>
+
+<ApiParam name="$url" type="string" required>
+
+URL substring to match via str_contains.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$http->assertSent('GET', 'users'); // matches any URL containing 'users'
+```
+</CodeExample>
+
+<ApiThrows type="\RuntimeException">
+
+When no matching request was recorded.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="assertNothingSent">
+
+<ApiSignature>
+
+```php
+public function assertNothingSent(): void
+```
+
+</ApiSignature>
+
+Throws RuntimeException when any HTTP requests were recorded.
+
+<ApiThrows type="\RuntimeException">
+
+When any requests were recorded.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Inspection
+
+<ApiMethod name="recorded">
+
+<ApiSignature>
+
+```php
+public function recorded(): array
+```
+
+</ApiSignature>
+
+Returns all recorded requests for custom assertions. Each entry has method, url, and body keys.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(array $stubs)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Http\FakeClient
+role: HTTP test fake
+layer: http
+lifecycle: created via Client::fake()
+owns: recorded request log
+flow: Client::fake($stubs) -> FakeClient -> method() -> fakeSend() -> record + match stub -> HttpResponse
+entry_points:
+  - get
+  - post
+  - put
+  - patch
+  - delete
+  - assertSent
+  - assertNothingSent
+  - recorded
+invariants:
+  - No real HTTP calls are made
+  - Unstubbed requests return 200 with empty JSON body
+  - Stub matching priority: METHOD+URL > URL > METHOD
+side_effects:
+  - Records requests in memory
+non_goals:
+  - Does not simulate network failures
+  - Does not validate request format
+  - Does not follow redirects
+```
+</AiContext>

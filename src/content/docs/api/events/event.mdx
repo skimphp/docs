@@ -1,0 +1,300 @@
+---
+title: event
+description: "Synchronous event bus with priority ordering, one-time listeners, and async dispatch via queue."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="events" />
+<ApiBadge type="pubsub" />
+<ApiBadge type="async" />
+<ApiBadge type="priority" />
+
+`event` is the static event bus for decoupling side effects. Listeners run synchronously in priority order during emit(). Async dispatch via emitAsync() delegates to the queue worker.
+
+```txt
+Symbol: Skim\Events\Event
+Source: src/Events/Event.php
+Lifecycle: static, listeners registered during boot phase
+Test seam: off() to clear listeners
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Event::on(UserCreatedEvent::class, fn($e) => Log::info("User {$e->user->id} created"));
+Event::emit(new UserCreatedEvent($user));
+```
+</CodeExample>
+
+## Registration
+
+<ApiMethod name="on">
+
+<ApiSignature>
+
+```php
+public static function on(string $event, callable $listener, int $priority = 0): void
+```
+
+</ApiSignature>
+
+Registers a persistent listener for the event. Higher priority runs first
+
+<ApiParam name="$event" type="string" required>
+
+Event class-string or string name.
+
+</ApiParam>
+
+<ApiParam name="$listener" type="callable" required>
+
+Callback receiving the event object or payload.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="int">
+
+Higher number runs first. Default 0.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Event::on(UserCreatedEvent::class, fn($e) => Mailer::send($e->user));
+Event::on('user.created', fn($data) => Log::info($data['id']), priority: 10);
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="once">
+
+<ApiSignature>
+
+```php
+public static function once(string $event, callable $listener, int $priority = 0): void
+```
+
+</ApiSignature>
+
+Registers a one-time listener that is automatically removed after the first dispatch.
+
+<ApiParam name="$event" type="string" required>
+
+Event class-string or string name.
+
+</ApiParam>
+
+<ApiParam name="$listener" type="callable" required>
+
+Callback receiving the event object or payload.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="int">
+
+Higher number runs first. Default 0.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Dispatch
+
+<ApiMethod name="emit">
+
+<ApiSignature>
+
+```php
+public static function emit(object|string $payload, mixed $data = null): void
+```
+
+</ApiSignature>
+
+Dispatches the event to all registered listeners in priority order. For typed events, the object is passed directly. For string events, $data is the payload. All listeners run synchronously.
+
+<ApiParam name="$payload" type="object" required>
+
+Event object (typed) or event name (string).
+
+</ApiParam>
+
+<ApiParam name="$data" type="mixed">
+
+Payload for string events. Ignored for typed events.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Event::emit(new UserCreatedEvent($user));
+Event::emit('user.created', ['id' => $user->id]);
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="emitAsync">
+
+<ApiSignature>
+
+```php
+public static function emitAsync(object|string $payload, mixed $data = null): void
+```
+
+</ApiSignature>
+
+Pushes the event to the queue for async processing in a worker process. Requires skim/queue to be installed.
+
+<ApiParam name="$payload" type="object" required>
+
+Event object or event name.
+
+</ApiParam>
+
+<ApiParam name="$data" type="mixed">
+
+Payload for string events.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Event::emitAsync(new ReportGeneratedEvent($report));
+```
+</CodeExample>
+
+<ApiThrows type="\RuntimeException">
+
+When skim/queue is not installed.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="resetRequest">
+
+<ApiSignature>
+
+```php
+public static function resetRequest(): void
+```
+
+</ApiSignature>
+
+Clears the listener registry between requests in worker mode.
+
+</ApiMethod>
+
+<ApiMethod name="off">
+
+<ApiSignature>
+
+```php
+public static function off(?string $event = null): void
+```
+
+</ApiSignature>
+
+Removes all listeners for a specific event, or all listeners when $event is null.
+
+<ApiParam name="$event" type="?string">
+
+Event name to clear, or null for all listeners.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Event::off(UserCreatedEvent::class); // Remove listeners for one event
+Event::off();                           // Remove all listeners
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="listenerCount">
+
+<ApiSignature>
+
+```php
+public static function listenerCount(string $event): int
+```
+
+</ApiSignature>
+
+Returns the number of listeners currently registered for the given event.
+
+<ApiParam name="$event" type="string" required>
+
+Event class-string or string name.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="captureBootSnapshot">
+
+<ApiSignature>
+
+```php
+public static function captureBootSnapshot(): void
+```
+
+</ApiSignature>
+
+Captures the current listener registry as the boot-time snapshot. #AI:capture_boot_snapshot
+
+Call once after boot/extensions are registered in worker mode. The snapshot
+is restored by resetRequest() on every subsequent request so boot-time
+listeners survive while request-time listeners are dropped.
+
+</ApiMethod>
+
+<ApiMethod name="totalListenerCount">
+
+<ApiSignature>
+
+```php
+public static function totalListenerCount(): int
+```
+
+</ApiSignature>
+
+Returns the total number of listeners across all events. #AI:total_listener_count
+
+Used by the leak detector to detect listener accumulation in worker mode.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Events\Event
+role: static event bus
+layer: events
+lifecycle: static, listeners registered during boot phase
+owns: listener registry
+flow: Event::on(class, fn) -> register
+entry_points:
+  - on
+  - once
+  - emit
+  - emitAsync
+  - off
+  - listenerCount
+invariants:
+  - Listeners run in priority order (higher first)
+  - once() listeners are removed after first call
+  - emit() is synchronous — all listeners complete before returning
+side_effects:
+  - emit() runs listeners inline
+  - emitAsync() pushes to queue
+non_goals:
+  - Does not support wildcard event patterns
+  - Does not persist events
+  - Does not guarantee delivery for emitAsync — depends on queue worker
+```
+</AiContext>

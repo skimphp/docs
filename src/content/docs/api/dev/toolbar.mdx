@@ -1,0 +1,93 @@
+---
+title: toolbar
+description: "Debug toolbar rendered before </body> for HTML responses when APP_DEBUG=true, showing queries, cache, timeline, views, and log."
+---
+
+<ApiBadge type="dev" />
+<ApiBadge type="debug" />
+<ApiBadge type="toolbar" />
+<ApiBadge type="html" />
+<ApiBadge type="profiler" />
+
+`toolbar` generates a fixed-bottom debug panel with tabbed views for request info, DB queries, cache statistics, timeline breakdown, rendered views, and log entries. It reads all data from Profiler::summary() and Profiler::events().
+
+```txt
+Symbol: Skim\Dev\Toolbar
+Source: src/Dev/Toolbar.php
+Lifecycle: called by ToolbarMiddleware after controller returns, before response is sent
+Fallback: returns empty string when APP_DEBUG=false
+Test seam: call render() with a mock request after populating profiler
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// Called by toolbar_middleware, not directly:
+$html = Toolbar::render($req);
+$response_body .= $html;
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+render()
+-> check app.debug
+-> Profiler::summary()
+-> Profiler::events()
+-> build panels
+-> return HTML
+```
+
+</LifecycleFlow>
+
+Called by ToolbarMiddleware, not directly. The toolbar includes inline CSS and JavaScript for self-contained rendering.
+
+## Rendering
+
+<ApiMethod name="render">
+
+<ApiSignature>
+
+```php
+public static function render(Request $req): string
+```
+
+</ApiSignature>
+
+Generates the complete debug toolbar HTML string from profiler data. Returns empty string when APP_DEBUG=false. Builds tabbed panels for request info, DB queries, cache stats, timeline, views, and log entries.
+
+<ApiParam name="$req" type="request" required>
+
+Current HTTP request for method/path display in the toolbar header.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Toolbar
+role: debug toolbar renderer
+layer: dev
+lifecycle: called by ToolbarMiddleware after controller returns, before response is sent
+owns: none — reads from profiler
+flow: render(req) -> config debug check -> Profiler::summary() + events() -> build_*_rows() -> HTML template
+entry_points:
+  - render
+config_reads:
+  - app.debug
+  - cache.driver
+invariants:
+  - returns empty string when debug is off
+  - all output is HTML-escaped
+  - reads from profiler static state
+side_effects:
+  - generates large HTML string with inline CSS and JavaScript
+non_goals:
+  - Does not collect events (profiler does)
+  - Does not inject itself (ToolbarMiddleware does)
+  - Does not render for JSON/AJAX responses
+```
+</AiContext>

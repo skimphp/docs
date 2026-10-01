@@ -1,0 +1,147 @@
+---
+title: InstallCommand
+description: "Interactive CLI installer that generates .env from prompts and optionally runs migrations."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="installer" />
+<ApiBadge type="interactive" />
+<ApiBadge type="setup" />
+
+`InstallCommand` implements the `php skim install` CLI command. It provides an interactive wizard that prompts for application, database, cache, and logging configuration, writes the results to `.env`, reloads env/config, and optionally runs migrations.
+
+```txt
+Symbol: Skim\Cli\Commands\InstallCommand
+Source: src/Cli/Commands/InstallCommand.php
+Lifecycle: instantiated by kernel, handle() called once per invocation
+Fallback: existing .env is preserved unless --force or user confirms overwrite
+Test seam: not designed for automated testing due to interactive STDIN prompts
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim install              # interactive wizard
+php skim install --force      # overwrite existing .env without prompting
+php skim install --no-migrate # skip migration step
+```
+</CodeExample>
+
+<WarningBox>
+
+Overwrites .env when --force is passed or user confirms
+
+</WarningBox>
+
+<WarningBox>
+
+DB password is shown in plain text during prompt
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> check existing .env
+-> prompt application config
+-> prompt database config
+-> prompt cache config
+-> prompt logging config
+-> buildEnv()
+-> file_put_contents(.env)
+-> Env::reset() + Env::load()
+-> Config::reset() + Config::load()
+-> optionally MigrateCommand::handle()
+```
+
+</LifecycleFlow>
+
+After writing .env, the command reloads env and config so that subsequent migration runs use the newly written configuration values.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Runs the interactive installation wizard. Prompts for config, writes .env, reloads env/config, and optionally runs migrations.
+
+<WarningBox>
+
+Overwrites .env when --force is passed or user confirms overwrite
+
+</WarningBox>
+
+</ApiMethod>
+
+## Key Generation
+
+<ApiMethod name="generateKey">
+
+<ApiSignature>
+
+```php
+private function generateKey(): string
+```
+
+</ApiSignature>
+
+Generates a base64-encoded 32-byte cryptographic key for APP_KEY.
+
+</ApiMethod>
+
+## Environment Building
+
+<ApiMethod name="buildEnv">
+
+<ApiSignature>
+
+```php
+private function buildEnv(array $vars): string
+```
+
+</ApiSignature>
+
+Formats key-value pairs as .env file content with one KEY=VALUE per line.
+
+<ApiParam name="$vars" type="array" required>
+
+Associative array of ENV_KEY =&gt; value pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\InstallCommand
+role: CLI interactive installer
+layer: cli
+lifecycle: instantiated by kernel, handle() called once per invocation
+owns: nothing — writes .env file and delegates migrations
+flow: InstallCommand::handle() -> prompt app/db/cache/log config -> buildEnv() -> file_put_contents(.env) -> Env::reset/load -> Config::reset/load -> optionally MigrateCommand::handle()
+entry_points:
+  - handle
+invariants:
+  - APP_KEY is always freshly generated
+  - debug defaults to true for local env
+  - migrations run with newly written config after env reload
+side_effects:
+  - writes .env file
+  - reloads env and config
+  - optionally runs migrations via MigrateCommand
+non_goals:
+  - Does not install composer dependencies
+  - Does not create database
+  - Does not configure Docker
+```
+</AiContext>

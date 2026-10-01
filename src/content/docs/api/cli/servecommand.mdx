@@ -1,0 +1,82 @@
+---
+title: ServeCommand
+description: "CLI command that starts PHP built-in dev server and optional Vite in parallel."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="server" />
+<ApiBadge type="development" />
+
+`ServeCommand` implements the `php skim serve` CLI command. It launches PHP's built-in development server pointed at the public/ directory and, if package.json exists, starts a Vite dev server alongside it using proc_open for parallel process control.
+
+```txt
+Symbol: Skim\Cli\Commands\ServeCommand
+Source: src/Cli/Commands/ServeCommand.php
+Lifecycle: instantiated by kernel, handle() blocks until both processes exit
+Fallback: Vite is skipped when no package.json exists
+Test seam: not designed for automated testing — launches long-lived OS processes
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim serve                          # PHP 127.0.0.1:8000 + Vite
+php skim serve --host=0.0.0.0 --port=8080
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> read --host and --port flags
+-> proc_open(php -S host:port -t public/)
+-> if package.json: proc_open(npm run dev)
+-> proc_close all processes
+```
+
+</LifecycleFlow>
+
+Uses proc_open over shell_exec for non-blocking, controlled process management. Both processes are killed cleanly on Ctrl+C via signal propagation.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Launches PHP dev server and optional Vite in parallel. Blocks until both processes exit.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\ServeCommand
+role: CLI dev server launcher
+layer: cli
+lifecycle: instantiated by kernel, handle() blocks until both processes exit
+owns: nothing — delegates to OS process management
+flow: ServeCommand::handle() -> resolve host/port -> proc_open(php -S) -> optionally proc_open(npm run dev) -> proc_close both
+entry_points:
+  - handle
+invariants:
+  - PHP server always starts
+  - Vite starts only when package.json exists
+  - both processes share STDIN/STDOUT/STDERR
+side_effects:
+  - launches OS processes
+  - binds to network port
+non_goals:
+  - Does not configure production web servers
+  - Does not manage SSL certificates
+  - Does not proxy requests between PHP and Vite
+```
+</AiContext>

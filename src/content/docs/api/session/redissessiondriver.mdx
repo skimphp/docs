@@ -1,0 +1,267 @@
+---
+title: RedisSessionDriver
+description: "Redis-backed session driver for multi-server and load-balanced deployments."
+---
+
+<ApiBadge type="session" />
+<ApiBadge type="driver" />
+<ApiBadge type="redis" />
+<ApiBadge type="multi-server" />
+
+`RedisSessionDriver` stores each session as a single serialized JSON blob in Redis, keyed by a configurable prefix plus the session ID. It is required for load-balanced deployments where file-based sessions would not be shared across workers.
+
+```txt
+Symbol: Skim\Session\RedisSessionDriver
+Source: src/Session/RedisSessionDriver.php
+Lifecycle: instantiated by session facade, start() called once per request, Redis connection opened lazily
+Fallback: none — use FileSessionDriver when Redis is unavailable
+Test seam: use SessionFake in tests instead
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$driver = new RedisSessionDriver('redis', 6379, null, 'sess_', 7200);
+$driver->start();
+```
+</CodeExample>
+
+<WarningBox>
+
+flush() deletes session data from Redis irreversibly
+
+</WarningBox>
+
+<WarningBox>
+
+Each write re-serializes the full session — avoid storing large payloads
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Session::start()
+-> RedisSessionDriver::start()
+-> read PHPSESSID cookie or generateId()
+-> Redis GET
+-> json_decode
+-> Redis EXPIRE
+-> setcookie if new
+```
+
+</LifecycleFlow>
+
+Stores session as a single JSON blob rather than individual keys — simpler but means every write is O(session_size).
+
+<NoteBox>
+
+Each set()/delete() triggers a full JSON re-serialization and Redis write. For typical session sizes (&lt;4KB) this is acceptable.
+
+</NoteBox>
+
+## Session API
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns session value by key from the in-memory data array, or $default if absent.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback when key is missing.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Stores a value in the in-memory data array and immediately persists the full session to Redis.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to persist.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public function has(string $key): bool
+```
+
+</ApiSignature>
+
+Returns true when the key exists in the in-memory session data.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $key): void
+```
+
+</ApiSignature>
+
+Removes a key from the in-memory data and persists the change to Redis.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="id">
+
+<ApiSignature>
+
+```php
+public function id(): string
+```
+
+</ApiSignature>
+
+Returns the current session ID.
+
+</ApiMethod>
+
+## Lifecycle
+
+<ApiMethod name="start">
+
+<ApiSignature>
+
+```php
+public function start(): void
+```
+
+</ApiSignature>
+
+Starts or resumes a Redis-backed session. Reads session ID from cookie or generates new one. Loads data from Redis and renews TTL. Sends cookie only for new sessions.
+
+</ApiMethod>
+
+<ApiMethod name="regenerate">
+
+<ApiSignature>
+
+```php
+public function regenerate(): void
+```
+
+</ApiSignature>
+
+Deletes the old Redis session key, generates a new Session ID, sends a fresh cookie, and persists existing data under the new key.
+
+</ApiMethod>
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public function flush(): void
+```
+
+</ApiSignature>
+
+Deletes session data from Redis and expires the session cookie.
+
+<WarningBox>
+
+Irreversible — all session data for this ID is deleted from Redis
+
+</WarningBox>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $host, int $port, ?string $password, string $prefix, int $lifetime)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Session\RedisSessionDriver
+role: session driver (redis)
+layer: session
+lifecycle: instantiated by session facade, start() called once per request, Redis connection opened lazily
+owns: Redis session keys under configured prefix
+flow: Session::method() -> RedisSessionDriver -> Redis SETEX/GET/DEL
+entry_points:
+  - start
+  - get
+  - set
+  - has
+  - delete
+  - regenerate
+  - flush
+  - id
+invariants:
+  - start() is idempotent
+  - Redis connection is opened lazily and reused
+  - every write re-serializes the full session as JSON
+  - TTL is renewed on each start()
+side_effects:
+  - Opens Redis connection on first use
+  - Writes JSON blobs to Redis
+  - Sets cookie headers for new sessions
+non_goals:
+  - Does not support session locking
+  - Does not encrypt session data
+  - Not suitable for very large session payloads
+```
+</AiContext>

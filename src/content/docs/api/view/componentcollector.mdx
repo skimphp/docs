@@ -1,0 +1,294 @@
+---
+title: ComponentCollector
+description: "Closure-based part capture for components with stack-scoped isolation."
+---
+
+<ApiBadge type="component" />
+<ApiBadge type="parts" />
+<ApiBadge type="closures" />
+<ApiBadge type="isolation" />
+<ApiBadge type="stack" />
+
+`ComponentCollector` captures named content blocks inside components via closures and output buffering. Each render gets its own instance
+
+```txt
+Symbol: Skim\View\ComponentCollector
+Source: src/View/ComponentCollector.php
+Lifecycle: instantiated per componentWithParts() call, pushed onto static stack during capture
+Fallback: getPart() returns empty string for missing parts
+Test seam: instantiate directly and call captureMain/capturePart
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+componentWithParts('card', new CardProps(title: 'Profile'), function($c) {
+    $c->part('header', fn() => '<h2>Profile</h2>');
+    echo '<p>Main content</p>';
+});
+```
+</CodeExample>
+
+<WarningBox>
+
+Calling current() when stack is empty returns null — global helpers must handle this
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+new ComponentCollector()
+-> push onto stack
+-> captureMain($render)
+-> capturePart($name, $render)
+-> pop from stack
+-> component template reads getMain/getPart/hasPart
+```
+
+</LifecycleFlow>
+
+The static stack replaces a scalar global, enabling nested components. Each collector is independent
+
+<NoteBox>
+
+The static stack is the only shared state
+
+</NoteBox>
+
+## Capture API
+
+<ApiMethod name="captureMain">
+
+<ApiSignature>
+
+```php
+public function captureMain(callable $render): void
+```
+
+</ApiSignature>
+
+Buffers the closure output as the main part. Pushes this collector onto the static stack before execution and pops after.
+
+<ApiParam name="$render" type="callable" required>
+
+Closure receiving the collector instance.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="part">
+
+<ApiSignature>
+
+```php
+public function part(string $name, callable $render): void
+```
+
+</ApiSignature>
+
+Alias for capturePart(). Buffers the closure output and stores it under the given part name.
+
+<ApiParam name="$name" type="string" required>
+
+Part identifier used by the component template.
+
+</ApiParam>
+
+<ApiParam name="$render" type="callable" required>
+
+Closure that outputs the part content.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="capturePart">
+
+<ApiSignature>
+
+```php
+public function capturePart(string $name, callable $render): void
+```
+
+</ApiSignature>
+
+Buffers the closure output and stores it under the given part name.
+
+<ApiParam name="$name" type="string" required>
+
+Part identifier used by the component template.
+
+</ApiParam>
+
+<ApiParam name="$render" type="callable" required>
+
+Closure that outputs the part content.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Query API
+
+<ApiMethod name="getMain">
+
+<ApiSignature>
+
+```php
+public function getMain(): string
+```
+
+</ApiSignature>
+
+Returns the output captured outside any named part() calls.
+
+</ApiMethod>
+
+<ApiMethod name="getPart">
+
+<ApiSignature>
+
+```php
+public function getPart(string $name, string $default = ''): string
+```
+
+</ApiSignature>
+
+Returns captured HTML for a named part, or $default if absent.
+
+<ApiParam name="$name" type="string" required>
+
+Part identifier to retrieve.
+
+</ApiParam>
+
+<ApiParam name="$default" type="string">
+
+Fallback HTML when the part is absent.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="hasPart">
+
+<ApiSignature>
+
+```php
+public function hasPart(string $name): bool
+```
+
+</ApiSignature>
+
+Returns true when the named part was captured.
+
+<ApiParam name="$name" type="string" required>
+
+Part identifier to check.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Stack Management
+
+<ApiMethod name="current">
+
+<ApiSignature>
+
+```php
+public static function current(): ?self
+```
+
+</ApiSignature>
+
+Returns the top of the static stack, or null when no component is rendering.
+
+</ApiMethod>
+
+<ApiMethod name="push">
+
+<ApiSignature>
+
+```php
+public static function push(self $collector): void
+```
+
+</ApiSignature>
+
+Pushes a collector onto the static stack. Used by componentWithParts() to keep the collector active during template rendering.
+
+<ApiParam name="$collector" type="self" required>
+
+Collector instance to push.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="pop">
+
+<ApiSignature>
+
+```php
+public static function pop(): void
+```
+
+</ApiSignature>
+
+Pops the top collector from the static stack. Must be paired with push().
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="resetRequest">
+
+<ApiSignature>
+
+```php
+public static function resetRequest(): void
+```
+
+</ApiSignature>
+
+Clears the static collector stack between requests in worker mode. #AI:resetRequest
+
+Under normal flow captureMain() pushes then pops, so the stack is empty
+between renders. If a component closure throws, the matching pop() never
+runs and a stale collector lingers in the process — this drops it so the
+next request starts with an empty stack.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\View\ComponentCollector
+role: part capture engine
+layer: view
+lifecycle: instantiated per componentWithParts() call, pushed onto static stack during capture
+owns: mainPart, namedParts
+flow: componentWithParts() -> new ComponentCollector() -> captureMain() -> capturePart() -> getMain()/getPart()/hasPart()
+entry_points:
+  - captureMain
+  - capturePart
+  - getMain
+  - getPart
+  - hasPart
+  - current
+invariants:
+  - Stack tracks nested components in LIFO order
+  - Each collector has isolated mainPart and namedParts
+  - No global mutable state beyond the static stack
+side_effects:
+  - Mutates static stack during captureMain
+  - Uses output buffering for all capture methods
+non_goals:
+  - Does not validate part names against a schema
+  - Does not compile or cache parts
+  - Does not handle layout wrapping
+```
+</AiContext>

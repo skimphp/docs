@@ -1,0 +1,292 @@
+---
+title: DevView
+description: "Standalone template renderer for dev tools — zero framework dependencies, supports layouts, slots, and partial includes."
+---
+
+<ApiBadge type="dev" />
+<ApiBadge type="debug" />
+<ApiBadge type="template" />
+<ApiBadge type="renderer" />
+<ApiBadge type="standalone" />
+
+`DevView` is a minimal, self-contained template renderer for dev tool HTML output. It supports layouts, named slots, and partial includes with the same API patterns as `Skim\View\Template`, but has zero dependencies on any framework module — ensuring it works even when the view system, config, or profiler is broken.
+
+```txt
+Symbol: Skim\Dev\DevView
+Source: src/Dev/DevView.php
+Lifecycle: instantiated per render() call, stateless between calls
+Fallback: throws RuntimeException when template file is missing
+Test seam: call render() with data arrays, assert HTML output
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+echo DevView::render('error_page', [
+    'exception' => $e,
+    'context'   => $code_lines,
+]);
+```
+</CodeExample>
+
+<WarningBox>
+
+Throws RuntimeException if template file not found — ErrorPage::render() must catch this and fall back to inline HTML
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+render($template, $data)
+→ new DevView(path, data)
+→ renderFile($template)
+→ resolve .php
+→ extract data
+→ ob_start + include
+→ layout declared? → capture content slot
+→ render layout file
+→ return HTML
+```
+
+</LifecycleFlow>
+
+Deliberately duplicates ~60 lines from Skim\View\Template to eliminate any dependency on the framework's view system. This ensures the error page renders even when the view system itself throws.
+
+## Rendering
+
+<ApiMethod name="render">
+
+<ApiSignature>
+
+```php
+public static function render(string $template, array $data = []): string
+```
+
+</ApiSignature>
+
+Renders a template file with data extracted as locals. When the template declares a layout, wraps output in the layout with slot access. Returns the final HTML string.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to src/dev/views/, no .php extension needed.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Key-value pairs extracted as local variables inside the template.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+If the template .php file does not exist in src/dev/views/.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="renderFile">
+
+<ApiSignature>
+
+```php
+public function renderFile(string $template): string
+```
+
+</ApiSignature>
+
+Renders a single template file by resolving the .php extension, extracting data as local variables, and including the file within an output buffer.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to views root, no extension.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+If the template file does not exist.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Template API
+
+<ApiMethod name="include">
+
+<ApiSignature>
+
+```php
+public function include(string $template, array $extra = []): string
+```
+
+</ApiSignature>
+
+Renders a partial template within the current data context. The partial does not inherit the parent's layout.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to src/dev/views/, no extension.
+
+</ApiParam>
+
+<ApiParam name="$extra" type="array">
+
+Additional data merged for this partial only.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Layout System
+
+<ApiMethod name="layout">
+
+<ApiSignature>
+
+```php
+public function layout(string $name): void
+```
+
+</ApiSignature>
+
+Declares the layout template to wrap this template's output. Must be called before any output.
+
+<ApiParam name="$name" type="string" required>
+
+Layout template path relative to src/dev/views/, no extension.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="start">
+
+<ApiSignature>
+
+```php
+public function start(string $name): void
+```
+
+</ApiSignature>
+
+Starts capturing output into a named slot. Must be paired with end().
+
+<ApiParam name="$name" type="string" required>
+
+Slot identifier used by the layout to retrieve content.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="end">
+
+<ApiSignature>
+
+```php
+public function end(): void
+```
+
+</ApiSignature>
+
+Ends the slot capture started by start(). Stores captured output in the named slot.
+
+<ApiThrows type="\LogicException">
+
+If called without a matching start().
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="slot">
+
+<ApiSignature>
+
+```php
+public function slot(string $name): string
+```
+
+</ApiSignature>
+
+Returns captured slot content for use inside layout files. Returns empty string if the slot was never captured.
+
+<ApiParam name="$name" type="string" required>
+
+Slot identifier matching a previous start()/end() pair.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="shortPath">
+
+<ApiSignature>
+
+```php
+public static function shortPath(string $file): string
+```
+
+</ApiSignature>
+
+Strips the project root from a file path, falling back to basename. #AI:short_path
+
+Used by dev tool templates to display readable file locations.
+
+</ApiMethod>
+
+<ApiMethod name="valueClass">
+
+<ApiSignature>
+
+```php
+public static function valueClass(string $type): string
+```
+
+</ApiSignature>
+
+Returns a CSS class name representing a PHP value type. #AI:value_class
+
+Used by dev tool templates to color-code argument values in stack frames.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\DevView
+role: standalone template renderer
+layer: dev
+lifecycle: instantiated per render() call, stateless between calls
+owns: viewsPath, data, layoutName, slots, activeSlot
+flow: DevView::render($template, $data) → new DevView() → renderFile() → layout? → render layout → return HTML
+entry_points:
+  - render
+  - include
+  - layout
+  - start
+  - end
+  - slot
+invariants:
+  - render() is the only static entry point
+  - templates live in src/dev/views/
+  - data is extracted as local variables
+  - layout() must be called before output
+  - start()/end() must be paired
+  - include() does not inherit parent layout
+side_effects:
+  - uses ob_start/ob_get_clean for rendering and slot capture
+  - extract() creates local variables
+non_goals:
+  - Does not integrate with profiler
+  - Does not support fragment extraction
+  - Does not compile or cache templates
+  - Does not escape output
+```
+</AiContext>

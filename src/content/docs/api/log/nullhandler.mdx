@@ -1,0 +1,77 @@
+---
+title: NullHandler
+description: "Log handler that discards all entries — used in tests and null-channel config."
+---
+
+<ApiBadge type="handler" />
+<ApiBadge type="log" />
+<ApiBadge type="null-object" />
+<ApiBadge type="testing" />
+
+`NullHandler` implements `LogHandler` by discarding every write. It is the fallback when no file handler is configured and the default in test environments.
+
+```txt
+Symbol: Skim\Log\NullHandler
+Source: src/Log/NullHandler.php
+Lifecycle: stateless, no resources opened
+Test seam: inject via Log::setHandler()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Log::setHandler(new NullHandler());
+Log::error('this goes nowhere'); // profiler still sees it
+```
+</CodeExample>
+
+## Contract Implementation
+
+<ApiMethod name="write">
+
+<ApiSignature>
+
+```php
+public function write(string $level, string $message, array $context): void
+```
+
+</ApiSignature>
+
+Accepts the log entry and discards it. No I/O, no exceptions.
+
+<ApiParam name="$level" type="string" required>
+
+RFC 5424 severity level string.
+
+</ApiParam>
+
+<ApiParam name="$message" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$context" type="array" required>
+
+Arbitrary metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Log\NullHandler
+role: null log handler
+layer: log
+lifecycle: stateless, no resources opened
+owns: nothing
+entry_points:
+  - write
+invariants:
+  - write() never throws
+  - write() produces no output
+non_goals:
+  - Does not persist log data
+  - Does not filter by level
+```
+</AiContext>

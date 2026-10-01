@@ -3,46 +3,75 @@ title: Middleware
 description: Understand middleware implementation and execution order in SKIM.
 ---
 
-SKIM middleware utilizes an onion-style execution model, where each middleware layer wraps around the next, allowing you to intercept and modify the request before it reaches your controller, and the response before it is sent back.
+SKIM middleware uses an onion-style execution model: each layer wraps the next, letting you intercept the request before it reaches the controller and the response before it is sent.
 
-### The Middleware Interface
+### The Middleware Contract
 
-Every middleware class in SKIM must implement a single method:
+Every middleware implements `Skim\Core\Middleware` — a single `handle` method:
 
 ```php
-interface MiddlewareInterface {
-    public function handle(Request $request, Response $response, callable $next): mixed;
+namespace Skim\Core;
+
+interface Middleware {
+    public function handle(Request $req, Response $res, callable $next): mixed;
 }
 ```
 
-*   `$request`: The current Request instance.
-*   `$response`: The current Response instance.
+*   `$req`: The current Request instance.
+*   `$res`: The current Response instance.
 *   `$next`: A callable triggering the next layer in the pipeline.
+
+To short-circuit, simply return a response without calling `$next` — the controller never runs.
 
 ### Example Middleware
 
-Here is a simple middleware that checks for a maintenance mode flag:
+A middleware that checks for a maintenance mode flag:
 
 ```php
-class MaintenanceMiddleware implements MiddlewareInterface {
-    public function handle(Request $request, Response $response, callable $next): mixed {
+namespace App\Middleware;
+
+use Skim\Core\Middleware;
+use Skim\Core\Request;
+use Skim\Core\Response;
+
+final class MaintenanceMiddleware implements Middleware {
+    public function handle(Request $req, Response $res, callable $next): mixed {
         if (config('app.maintenance')) {
-            return Response::json(['error' => 'Service Unavailable'], 503);
+            return $res->status(503)->json(['error' => 'Service Unavailable']);
         }
-        return $next($request, $response);
+        return $next($req, $res);
     }
 }
+```
+
+### Registering Middleware
+
+Middleware is referenced by **class name**, not string aliases.
+
+```php
+// global — runs on every HTTP request
+$app->use(App\Middleware\CorsMiddleware::class);
+
+// route-level — fluent call on the route entry
+$app->router->get('/dashboard', [HomeController::class, 'dashboard'])
+    ->middleware(AuthMiddleware::class);
+
+// group-level — third argument of Router::group()
+$app->router->group('/admin', function (Router $r): void {
+    // ...
+}, middleware: [AuthMiddleware::class, AdminMiddleware::class]);
 ```
 
 ### Execution Order
 
 SKIM executes middleware in a strict, predictable order:
-1.  **Global Middleware**: Applied to every HTTP request, run in the order they are defined in `config/app.php`.
-2.  **Route-Group Middleware**: Applied to route groups, executed from outermost group to innermost group.
-3.  **Route-Level Middleware**: Applied to individual route definitions, executed last before entering the controller handler.
+1.  **Global middleware** — every HTTP request, in registration order. Put `Cors` first so OPTIONS preflights never reach auth checks.
+2.  **Group middleware** — outermost group to innermost.
+3.  **Route middleware** — last, right before the controller handler.
 
 ### Built-in Middleware
 
-*   `cors`: Applied globally by default to handle Cross-Origin Resource Sharing.
-*   `RateLimit`: Implements a sliding window rate limiter backed by Redis.
-*   `ToolbarMiddleware`: Injects the developer debug toolbar into HTML-only responses automatically.
+*   `Skim\Middleware\Cors` — Cross-Origin Resource Sharing headers.
+*   `Skim\Middleware\RateLimit` — sliding-window rate limiter backed by Redis.
+*   `Skim\Middleware\ToolbarMiddleware` — injects the developer debug toolbar into HTML responses when `app.debug` is on.
+*   Extensions ship their own — e.g. `Skim\Auth\Middleware\AuthMiddleware`, `GuestMiddleware`, `VerifiedMiddleware`, `LoginRateLimit` from `skim/auth`.

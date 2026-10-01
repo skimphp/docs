@@ -1,0 +1,212 @@
+---
+title: validate
+description: "Zero-dependency validation engine with built-in rules, custom rule registration, and mass-assignment protection."
+---
+
+<ApiBadge type="validation" />
+<ApiBadge type="engine" />
+<ApiBadge type="zero-deps" />
+<ApiBadge type="mass-assignment-safe" />
+
+`validate` is SKIM's built-in validation engine. It declares expected data shapes via `make()`, runs rules via `check()`, and returns a `result` with errors and validated data. Undeclared fields are silently dropped from `validated()`.
+
+```txt
+Symbol: Skim\Validation\Validate
+Source: src/Validation/Validate.php
+Lifecycle: instantiated per-validation via make(), check() runs synchronously
+Fallback: n/a — own implementation
+Test seam: call make() and check() directly, register custom rules via extend()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$result = Validate::make([
+    'email' => ['required', 'email'],
+    'age'   => ['required', 'int', 'min:18'],
+])->check($req->post());
+
+if (!$result->ok) {
+    return $res->status(422)->json(['errors' => $result->errors()]);
+}
+User::create($result->validated());
+```
+</CodeExample>
+
+<WarningBox>
+
+Unknown rule names silently pass — typos in rule names go undetected
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Validate::make([...])
+-> extend() for custom rules
+-> check($req->post())
+-> foreach field -> foreach rule -> applyRule()
+-> new Result(errors, validated)
+-> controller branches on ok
+```
+
+</LifecycleFlow>
+
+Own implementation with zero external dependencies. Uses Skim\Helpers\Filter for type checking. Custom rules are instance-scoped via extend() — safe for long-lived FrankenPHP processes.
+
+<NoteBox>
+
+Rules accept both array syntax `['required', 'email']` and pipe syntax `'required|email'`. The `:field` placeholder in custom rule messages is replaced with the actual field name. Custom rules are instance-scoped — register via extend() on the validator instance.
+
+</NoteBox>
+
+## Validation API
+
+<ApiMethod name="make">
+
+<ApiSignature>
+
+```php
+public static function make(array $rules): static
+```
+
+</ApiSignature>
+
+Factory that declares the field-to-rules map and returns a validator instance.
+
+<ApiParam name="$rules" type="array" required>
+
+Map of field name to rule array or pipe-delimited string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="check">
+
+<ApiSignature>
+
+```php
+public function check(array $data): result
+```
+
+</ApiSignature>
+
+Runs all declared rules against $data. Returns a result where ok is false if any field failed any rule. Only declared fields appear in validated().
+
+<ApiParam name="$data" type="array" required>
+
+Input data to validate, typically $req-&gt;post().
+
+</ApiParam>
+
+</ApiMethod>
+
+## Custom Rules
+
+<ApiMethod name="extend">
+
+<ApiSignature>
+
+```php
+public function extend(string $name, callable $fn, string $message = 'Invalid.'): static
+```
+
+</ApiSignature>
+
+Registers a custom rule on this validator instance. Returns $this for fluent chaining. The callback receives the field value and returns true on pass or false on fail.
+
+<ApiParam name="$name" type="string" required>
+
+Rule name used in rule lists.
+
+</ApiParam>
+
+<ApiParam name="$fn" type="callable" required>
+
+Receives value, returns true on pass or false on fail.
+
+</ApiParam>
+
+<ApiParam name="$message" type="string">
+
+Default error message. Use :field as placeholder for field name.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Validate::make([...])
+    ->extend('even', fn($v) => (int)$v % 2 === 0, ':field must be even')
+    ->check($data);
+```
+</CodeExample>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(array $rules)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+## Internal
+
+<ApiMethod name="cast">
+
+<ApiSignature>
+
+```php
+private function cast(array $ruleNames, mixed $value): mixed
+```
+
+</ApiSignature>
+
+Casts validated values to their PHP types based on declared rules. Returns typed value for int, float, bool, email rules
+
+<ApiParam name="$ruleNames" type="array" required>
+
+Flat list of rule name strings for the field.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+The raw value from input data.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Validation\Validate
+role: validation engine
+layer: validation
+lifecycle: instantiated per-validation via make(), check() runs synchronously
+owns: customRules instance property
+flow: Validate::make($rules) -> extend() (optional) -> check($data) -> applyRule() per field per rule -> new Result($errors, $validated)
+entry_points:
+  - make
+  - check
+  - extend
+invariants:
+  - Fields not in make() are excluded from validated()
+  - Optional fields absent from data pass without error
+  - Unknown custom rules silently pass
+  - Custom rules are instance-scoped via extend() — safe for FrankenPHP worker mode
+non_goals:
+  - Does not sanitize input
+  - Does not handle file upload validation
+  - Does not provide localized error messages
+```
+</AiContext>

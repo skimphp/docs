@@ -1,0 +1,194 @@
+---
+title: IdeCommand
+description: "CLI command that generates .ide-helper.php with typed model property stubs for IDE autocomplete."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="ide" />
+<ApiBadge type="code-generation" />
+
+`IdeCommand` implements the `php skim ide:generate` CLI command. It discovers model classes in app/Models, reads their database schema (from cache or DESCRIBE queries), and generates typed property stubs in `.skim/ide-helper.php` for IDE autocomplete.
+
+```txt
+Symbol: Skim\Cli\Commands\IdeCommand
+Source: src/Cli/Commands/IdeCommand.php
+Lifecycle: instantiated by kernel, handle() called once per invocation
+Fallback: models that fail reflection or schema reads are silently skipped
+Test seam: instantiate directly, call setInput() with test args, then handle()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim ide:generate
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> discoverModels() globs app/Models
+-> for each model: getColumns() via Model::schema()
+-> stub() generates typed properties
+-> buildOutput() assembles PHP source
+-> file_put_contents(.skim/ide-helper.php)
+```
+
+</LifecycleFlow>
+
+Output file is committed to git so IDEs can use it without running the app. The generated file uses @generated annotation to signal it should not be edited.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Discovers models, reads schema, and writes .ide-helper.php. Only supports the 'generate' sub-command.
+
+</ApiMethod>
+
+## Model Discovery
+
+<ApiMethod name="discoverModels">
+
+<ApiSignature>
+
+```php
+private function discoverModels(): array
+```
+
+</ApiSignature>
+
+Scans app/Models for PHP files and returns fully-qualified class names that are loadable.
+
+</ApiMethod>
+
+## Schema Reading
+
+<ApiMethod name="getColumns">
+
+<ApiSignature>
+
+```php
+private function getColumns(string $class): array
+```
+
+</ApiSignature>
+
+Reads column metadata from a model's schema() method. Returns empty array on failure.
+
+<ApiParam name="$class" type="string" required>
+
+Fully-qualified model class name.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="mapType">
+
+<ApiSignature>
+
+```php
+private function mapType(string $sqlType): string
+```
+
+</ApiSignature>
+
+Maps SQL column types to PHP scalar types (int, float, bool, string).
+
+<ApiParam name="$sqlType" type="string" required>
+
+Raw SQL type string from DESCRIBE.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Code Generation
+
+<ApiMethod name="buildOutput">
+
+<ApiSignature>
+
+```php
+private function buildOutput(array $classes): string
+```
+
+</ApiSignature>
+
+Builds the PHP source for .ide-helper.php from discovered model classes.
+
+<ApiParam name="$classes" type="array" required>
+
+Fully-qualified model class names.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="stub">
+
+<ApiSignature>
+
+```php
+private function stub(string $fqn, string $short, array $cols): string
+```
+
+</ApiSignature>
+
+Generates a PHP class stub with typed properties for one model.
+
+<ApiParam name="$fqn" type="string" required>
+
+Fully-qualified class name.
+
+</ApiParam>
+
+<ApiParam name="$short" type="string" required>
+
+Short class name.
+
+</ApiParam>
+
+<ApiParam name="$cols" type="array" required>
+
+Column metadata with name, type, null keys.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\IdeCommand
+role: CLI IDE helper generator
+layer: cli
+lifecycle: instantiated by kernel, handle() called once per invocation
+owns: nothing — reads schema and writes generated file
+flow: IdeCommand::handle() -> discoverModels() -> for each model: getColumns() -> stub() -> buildOutput() -> file_put_contents()
+entry_points:
+  - handle
+invariants:
+  - output file is auto-generated — never edit manually
+  - re-run after every migration
+  - schema cache is used when warm
+side_effects:
+  - writes .skim/ide-helper.php
+  - may trigger DESCRIBE queries if schema cache is cold
+non_goals:
+  - Does not generate method stubs
+  - Does not generate relation hints
+  - Does not validate model correctness
+```
+</AiContext>

@@ -1,0 +1,173 @@
+---
+title: pipeline
+description: "Middleware chain builder and executor using the onion model."
+---
+
+<ApiBadge type="pipeline" />
+<ApiBadge type="middleware" />
+<ApiBadge type="onion-model" />
+
+`Skim\Core\Pipeline` builds a composed callable from an ordered list of middleware entries and a terminal handler. The list is reversed internally so execution follows FIFO order: first-registered = first to run.
+
+```txt
+Symbol: Skim\Core\Pipeline
+Source: src/Core/Pipeline.php
+Lifecycle: Fresh pipeline instance per request — no mutable state is retained between calls.
+Test seam: Instantiate pipeline directly
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$res = (new Pipeline())->run(
+    $req, $res,
+    middlewares: [Cors::class, AuthMiddleware::class],
+    core: fn(Request $req, Response $res) => $controller->handle($req, $res),
+);
+```
+</CodeExample>
+
+## Architecture
+
+The pipeline is stateless — all three methods are pure functions of their inputs. The `resolve()` method does not use the DI container
+
+## Execution
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(Request $req, Response $res, array $middlewares, callable $core): mixed
+```
+
+</ApiSignature>
+
+Resolves and chains middlewares, invokes the composed chain, and returns the terminal or short-circuit response.
+
+<ApiParam name="$req" type="request" required>
+
+Incoming request
+
+</ApiParam>
+
+<ApiParam name="$res" type="response" required>
+
+Mutable response
+
+</ApiParam>
+
+<ApiParam name="$middlewares" type="array" required>
+
+Ordered list of class-string, instance, or factory-array entries
+
+</ApiParam>
+
+<ApiParam name="$core" type="callable" required>
+
+Terminal handler, signature (request, response): mixed
+
+</ApiParam>
+
+</ApiMethod>
+
+## Internals
+
+<ApiMethod name="build">
+
+<ApiSignature>
+
+```php
+private function build(array $middlewares, callable $core): callable
+```
+
+</ApiSignature>
+
+Reverses the middleware list and wraps $core with each resolved instance from innermost to outermost.
+
+<ApiParam name="$middlewares" type="array" required>
+
+Ordered middleware entries
+
+</ApiParam>
+
+<ApiParam name="$core" type="callable" required>
+
+Terminal handler
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="resolve">
+
+<ApiSignature>
+
+```php
+private function resolve(string|array|Middleware $entry): middleware
+```
+
+</ApiSignature>
+
+Normalizes a middleware entry to a concrete middleware instance. Accepts instances (returned as-is), class-strings (instantiated via new), and factory arrays ['class' =&gt; ..., 'args' =&gt; [...]].
+
+<ApiParam name="$entry" type="string" required>
+
+Entry in one of three supported formats
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="resetInstanceCache">
+
+<ApiSignature>
+
+```php
+public static function resetInstanceCache(): void
+```
+
+</ApiSignature>
+
+Clears the middleware singleton cache. Called between requests in worker mode.
+
+Middleware instances should be stateless; clearing the cache prevents
+request-scoped state from leaking across requests while still allowing
+process-lifetime caching to be rebuilt lazily.
+
+</ApiMethod>
+
+<ApiMethod name="recordPipelineTrace">
+
+<ApiSignature>
+
+```php
+public function recordPipelineTrace(Skim\Core\Request $req, array $middlewares): void
+```
+
+</ApiSignature>
+
+Emits one timeline event summarising the middleware stack for this request. #AI:record_pipeline_trace
+
+Called at the top of run() so the trace always carries a 'middleware_ran' event
+with the full class list (in execution order) and a synthetic marker identifying
+the innermost entry. Read by the error page's Request panel and the toolbar.
+
+No-op when request_trace is disabled — never throws.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Core\Pipeline
+role: middleware pipeline
+layer: core
+lifecycle: Fresh pipeline instance per request — no mutable state is retained between calls.
+flow: run($req, $res, $middlewares, $core) -> build($middlewares, $core) -> resolve() each entry -> reversed closure chain -> invoke chain($req, $res)
+invariants:
+  - middleware list is reversed internally for correct onion order
+  - short-circuit skips $core entirely
+  - resolve() supports instance, class-string, and factory-array formats
+```
+</AiContext>

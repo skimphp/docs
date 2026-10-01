@@ -1,0 +1,65 @@
+---
+title: CapabilityVocabulary
+description: "Canonical map of recognized extension capability slugs to human-readable descriptions."
+---
+
+<ApiBadge type="vocabulary" />
+<ApiBadge type="extension" />
+<ApiBadge type="static" />
+
+`CapabilityVocabulary` defines the canonical set of capability slugs that SKIM extensions can declare. It provides a lookup method and a constant map for display or validation purposes.
+
+```txt
+Symbol: Skim\Ext\CapabilityVocabulary
+Source: src/Ext/CapabilityVocabulary.php
+Lifecycle: stateless, all data in class constant
+Test seam: none needed — pure constant lookup
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+CapabilityVocabulary::isKnown('auth');        // true
+CapabilityVocabulary::TERMS['rate-limiting'];  // 'request rate limiting'
+```
+</CodeExample>
+
+## Lookup API
+
+<ApiMethod name="isKnown">
+
+<ApiSignature>
+
+```php
+public static function isKnown(string $capability): bool
+```
+
+</ApiSignature>
+
+Returns true when the given capability slug is present in the TERMS constant.
+
+<ApiParam name="$capability" type="string" required>
+
+Capability slug to test, e.g. 'auth' or 'rate-limiting'.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Ext\CapabilityVocabulary
+role: capability vocabulary
+layer: ext
+lifecycle: stateless, all data in class constant
+owns: TERMS constant
+flow: isKnown($slug) -> array_key_exists($slug, TERMS)
+entry_points:
+  - isKnown
+invariants:
+  - TERMS is immutable
+  - isKnown() never throws
+non_goals:
+  - Does not enforce capability validity
+  - Does not resolve capability providers
+```
+</AiContext>

@@ -1,0 +1,170 @@
+---
+title: TaggedRedisDriver
+description: "Tag-scoped proxy over RedisDriver for grouped cache invalidation via Redis sets."
+---
+
+<ApiBadge type="proxy" />
+<ApiBadge type="cache" />
+<ApiBadge type="redis" />
+<ApiBadge type="tags" />
+<ApiBadge type="bulk-invalidation" />
+
+`Skim\Cache\TaggedRedisDriver` is a proxy returned by `Cache::tags()`. It wraps the RedisDriver and adds tag membership tracking via Redis sets. On `set()`, the key is SADD'd to each tag's set. On `flush()`, all member keys are deleted along with the tag sets themselves.
+
+```txt
+Symbol: Skim\Cache\TaggedRedisDriver
+Source: src/Cache/TaggedRedisDriver.php
+Lifecycle: created per Cache::tags() call, no persistent state beyond Redis sets
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Cache::tags(['users'])->set('user:42:profile', $data, 3600);
+Cache::tags(['users'])->flush(); // Deletes user:42:profile and all tagged keys
+```
+</CodeExample>
+
+<WarningBox>
+
+flush() is destructive — removes all keys associated with any constructor tag
+
+</WarningBox>
+
+<WarningBox>
+
+Requires live Redis connection
+
+</WarningBox>
+
+## Architecture
+
+Each tag maps to a Redis set at key `{prefix}tag:{tag_name}`. The set members are the full prefixed cache keys. flush() uses SMEMBERS + DEL, which is acceptable for tag-scoped invalidation at application scale.
+
+<NoteBox>
+
+Why Redis sets: O(1) membership check, atomic SADD, natural TTL via separate key expiry. This class does NOT implement the driver interface — it's a proxy with a reduced API (set, get, flush only).
+
+</NoteBox>
+
+## Read API
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Delegates directly to the underlying RedisDriver. Tags do not affect reads.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback returned on miss.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Write API
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value, ?int $ttl = null): bool
+```
+
+</ApiSignature>
+
+Adds the prefixed key to each tag's Redis set via SADD, then delegates the write to the underlying RedisDriver.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to persist.
+
+</ApiParam>
+
+<ApiParam name="$ttl" type="?int">
+
+TTL in seconds, or null for no expiry.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Invalidation
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public function flush(): bool
+```
+
+</ApiSignature>
+
+For each constructor tag, reads all member keys from the Redis set via SMEMBERS, deletes them, then deletes the tag set itself.
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Cache::tags(['users', 'posts'])->flush(); // All keys tagged 'users' OR 'posts'
+```
+</CodeExample>
+
+<WarningBox>
+
+Destructive — removes all keys associated with any constructor tag
+
+</WarningBox>
+
+<WarningBox>
+
+Deletes the tag sets themselves
+
+</WarningBox>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(Skim\Cache\RedisDriver $driver, Redis $redis, string $prefix, array $tags)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cache\TaggedRedisDriver
+role: tag-scoped cache proxy
+layer: cache
+lifecycle: created per Cache::tags() call, no persistent state beyond Redis sets
+invariants:
+  - set() adds key to all tag sets before writing
+  - get() delegates to driver without tag awareness
+  - flush() deletes member keys then tag sets
+```
+</AiContext>

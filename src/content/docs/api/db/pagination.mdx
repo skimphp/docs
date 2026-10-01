@@ -1,0 +1,107 @@
+---
+title: pagination
+description: "Immutable result object for paginated queries with computed page navigation properties."
+---
+
+<ApiBadge type="value-object" />
+<ApiBadge type="pagination" />
+<ApiBadge type="immutable" />
+
+`pagination` is an immutable value object returned by `QueryScope::paginate()`. It holds the current page of hydrated model instances, total count, and provides computed navigation properties via PHP 8.4 property hooks.
+
+```txt
+Symbol: Skim\Db\Pagination
+Source: src/Db/Pagination.php
+Lifecycle: created by QueryScope::paginate(), consumed by controllers and views
+Fallback: none
+Test seam: construct directly with known values
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$page = User::where(['status' => 'active'])->paginate(page: 2, per_page: 20);
+// $page->items, $page->total, $page->pages, $page->hasNext, $page->hasPrev
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+QueryScope::paginate(page, per_page)
+-> count() for total
+-> limit/per_page + offset calculation
+-> all() for items
+-> new Pagination(...)
+```
+
+</LifecycleFlow>
+
+Pure value object — no DB access, no side effects. Property hooks keep the API clean without storing redundant computed fields.
+
+<NoteBox>
+
+PHP 8.5 clone-with syntax can create modified copies if needed.
+
+</NoteBox>
+
+## Constructor
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(array $items, int $total, int $perPage, int $current)
+```
+
+</ApiSignature>
+
+Stores the page of results and pagination metadata. All properties are readonly.
+
+<ApiParam name="$items" type="array" required>
+
+Hydrated model instances for the current page.
+
+</ApiParam>
+
+<ApiParam name="$total" type="int" required>
+
+Total matching rows across all pages.
+
+</ApiParam>
+
+<ApiParam name="$perPage" type="int" required>
+
+Number of items per page.
+
+</ApiParam>
+
+<ApiParam name="$current" type="int" required>
+
+Current page number (1-indexed).
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\Pagination
+role: pagination value object
+layer: db
+lifecycle: created by QueryScope::paginate(), consumed by controllers and views
+owns: items array
+flow: QueryScope::paginate() -> count() + all() -> new Pagination(items, total, per_page, current)
+entry_points:
+  - __construct
+invariants:
+  - all constructor properties are readonly
+  - pages/hasNext/hasPrev are computed, not stored
+  - per_page is clamped to min 1 for division safety
+non_goals:
+  - Does not execute queries — QueryScope handles that
+  - Does not render HTML pagination controls
+```
+</AiContext>

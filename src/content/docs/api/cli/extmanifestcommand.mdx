@@ -1,0 +1,78 @@
+---
+title: ExtManifestCommand
+description: "CLI command that generates skim.json manifest from an extension class for distribution."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="extension" />
+<ApiBadge type="manifest" />
+
+`ExtManifestCommand` implements the `php skim ext:manifest` CLI command. It takes a fully-qualified extension class name, validates it extends `extension`, and generates `skim.json` at the project root via `ExtManifest::generate()`.
+
+```txt
+Symbol: Skim\Cli\Commands\ExtManifestCommand
+Source: src/Cli/Commands/ExtManifestCommand.php
+Lifecycle: instantiated by kernel, handle() called once per invocation
+Fallback: prints usage error when argument is missing or not a valid extension class
+Test seam: instantiate directly, call setInput() with test args, then handle()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim ext:manifest app\extensions\my_extension
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> arg(0) class name
+-> validate class_exists + is_subclass_of(extension)
+-> ExtManifest::generate(new $class(), basePath('skim.json'))
+-> print success
+```
+
+</LifecycleFlow>
+
+Thin CLI wrapper over ExtManifest::generate(). All manifest logic lives in ExtManifest.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Generates skim.json from the given extension class. Validates the argument is a class extending extension, then delegates to ExtManifest::generate().
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\ExtManifestCommand
+role: CLI manifest generator
+layer: cli
+lifecycle: instantiated by kernel, handle() called once per invocation
+owns: nothing — delegates to ExtManifest
+flow: ExtManifestCommand::handle() -> validate arg(0) is extension subclass -> ExtManifest::generate() -> write skim.json
+entry_points:
+  - handle
+invariants:
+  - argument must be a class extending extension
+  - skim.json is written to basePath()
+side_effects:
+  - writes skim.json to basePath()
+non_goals:
+  - Does not validate manifest content
+  - Does not publish to a registry
+```
+</AiContext>

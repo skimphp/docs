@@ -1,0 +1,345 @@
+---
+title: template
+description: "Template context object providing include, layout, and slot system for PHP views."
+---
+
+<ApiBadge type="template" />
+<ApiBadge type="layout" />
+<ApiBadge type="slots" />
+<ApiBadge type="partials" />
+
+`template` is the context object available as `$this` inside every PHP view file. It provides the layout system (layout/start/end/slot) and partial inclusion (include). Layout execution runs the child template first to capture slots, then renders the layout.
+
+```txt
+Symbol: Skim\View\Template
+Source: src/View/Template.php
+Lifecycle: instantiated by View::render() per render call, used as $this inside templates
+Fallback: defaultLayout applied when template does not call layout()
+Test seam: instantiate directly with a views path and data array
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// Inside a template file:
+$this->layout('layouts/main');
+$this->start('sidebar');
+echo '<nav>...</nav>';
+$this->end();
+<h1><?= e($title) ?></h1>
+```
+</CodeExample>
+
+<WarningBox>
+
+end() without matching start() throws LogicException
+
+</WarningBox>
+
+<WarningBox>
+
+extract() with EXTR_SKIP means data keys cannot override existing local variables
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+View::render() -> new Template(path, data, defaultLayout)
+-> renderFile($template)
+-> resolve .html/.php
+-> extract data
+-> ob_start + include
+-> layout declared? -> capture content slot
+-> render layout file
+-> return HTML
+```
+
+</LifecycleFlow>
+
+The layout system uses a two-pass approach: child template runs first to capture slots, then the layout renders with access to those slots. This avoids the need for output buffering the entire page.
+
+<NoteBox>
+
+The layout receives all captured slots from the child template. The 'content' slot is auto-populated with any non-slot output from the child.
+
+</NoteBox>
+
+## Template API
+
+<ApiMethod name="include">
+
+<ApiSignature>
+
+```php
+public function include(string $template, array $extra = []): string
+```
+
+</ApiSignature>
+
+Renders a partial template within the current data context. The partial does not inherit the parent's layout.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to views root, no extension needed.
+
+</ApiParam>
+
+<ApiParam name="$extra" type="array">
+
+Additional data merged for this partial only.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Layout System
+
+<ApiMethod name="layout">
+
+<ApiSignature>
+
+```php
+public function layout(string $name): void
+```
+
+</ApiSignature>
+
+Declares the layout to wrap this template. Must be called before any output.
+
+<ApiParam name="$name" type="string" required>
+
+Layout template path relative to views root.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="start">
+
+<ApiSignature>
+
+```php
+public function start(string $name): void
+```
+
+</ApiSignature>
+
+Starts capturing output into a named slot. Must be paired with end().
+
+<ApiParam name="$name" type="string" required>
+
+Slot identifier used by the layout to retrieve content.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="end">
+
+<ApiSignature>
+
+```php
+public function end(): void
+```
+
+</ApiSignature>
+
+Ends the slot capture started by start(). Stores captured output in the named slot.
+
+<ApiThrows type="\LogicException">
+
+If called without a matching start().
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="section">
+
+<ApiSignature>
+
+```php
+public function section(string $name): void
+```
+
+</ApiSignature>
+
+Alias for start() — provides a familiar section() API for Laravel/Symfony developers.
+
+<ApiParam name="$name" type="string" required>
+
+Slot identifier used by the layout to retrieve content.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="endSection">
+
+<ApiSignature>
+
+```php
+public function endSection(): void
+```
+
+</ApiSignature>
+
+Alias for end() — provides a familiar endSection() API for Laravel/Symfony developers.
+
+<ApiThrows type="\LogicException">
+
+If called without a matching section().
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="block">
+
+<ApiSignature>
+
+```php
+public function block(string $name, string $default = ''): string
+```
+
+</ApiSignature>
+
+Returns captured slot content. Returns $default if the slot was never captured. Use hasSection() to check existence.
+
+<ApiParam name="$name" type="string" required>
+
+Slot identifier matching a previous start() call.
+
+</ApiParam>
+
+<ApiParam name="$default" type="string">
+
+Default value returned when slot is not captured.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="hasSection">
+
+<ApiSignature>
+
+```php
+public function hasSection(string $name): bool
+```
+
+</ApiSignature>
+
+Checks if a named slot was captured by a previous start()/end() pair.
+
+<ApiParam name="$name" type="string" required>
+
+Slot identifier to check.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="slot">
+
+<ApiSignature>
+
+```php
+public function slot(string $name, string $default = ''): string
+```
+
+</ApiSignature>
+
+Backward compatibility alias for block(). Deprecated — use block() instead.
+
+<ApiParam name="$name" type="string" required>
+
+Slot identifier matching a previous start() call.
+
+</ApiParam>
+
+<ApiParam name="$default" type="string">
+
+Default value returned when slot is not captured.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Rendering
+
+<ApiMethod name="renderFile">
+
+<ApiSignature>
+
+```php
+public function renderFile(string $template): string
+```
+
+</ApiSignature>
+
+Renders a template file, resolves .html/.php extension, extracts data as local variables, and applies the layout system.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to views root.
+
+</ApiParam>
+
+<ApiThrows type="ViewException">
+
+If the template file is not found.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $viewsPath, array $data, ?string $defaultLayout, bool $fragmentMode)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\View\Template
+role: template context and layout engine
+layer: view
+lifecycle: instantiated by View::render() per render call, used as $this inside templates
+owns: slots array, layoutName, activeSlot state
+flow: View::render() -> new Template() -> renderFile() -> include $file -> layout? -> render layout -> return HTML
+entry_points:
+  - include
+  - layout
+  - start
+  - end
+  - section
+  - endSection
+  - block
+  - hasSection
+  - slot
+  - renderFile
+invariants:
+  - start() must be paired with end()
+  - Non-slot output becomes the 'content' slot automatically
+  - include() does not inherit the parent's layout
+  - .html extension is tried before .php
+side_effects:
+  - Uses ob_start/ob_get_clean for slot capture and template rendering
+  - extract() creates local variables in renderFile scope
+non_goals:
+  - Does not handle fragment extraction (done by view class)
+  - Does not compile or cache templates
+  - Does not escape output (use e() in templates)
+```
+</AiContext>

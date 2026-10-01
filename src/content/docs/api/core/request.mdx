@@ -1,0 +1,542 @@
+---
+title: request
+description: "HTTP request abstraction wrapping superglobals with typed accessors for query, POST, JSON, headers, files, and route params."
+---
+
+<ApiBadge type="request" />
+<ApiBadge type="http" />
+<ApiBadge type="value-object" />
+<ApiBadge type="superglobal-wrapper" />
+
+`Skim\Core\Request` wraps PHP superglobals into a typed, testable object. It is injected by the container into controllers and middleware — never instantiated manually in application code. The same instance is shared across the entire request lifecycle.
+
+```txt
+Symbol: Skim\Core\Request
+Source: src/Core/Request.php
+Lifecycle: created once by App::run() via fromGlobals(), shared across middleware and controller
+Test seam: Request::make() fabricates requests from explicit arrays without superglobals
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+public function store(Request $req, Response $res): mixed {
+    $email = $req->post('email');
+    $data  = $req->json();
+    return $res->json(['ip' => $req->ip()]);
+}
+```
+</CodeExample>
+
+<WarningBox>
+
+X-Forwarded-For is trusted without proxy validation — do not use ip() as a security boundary
+
+</WarningBox>
+
+<WarningBox>
+
+Mutations to $_GET after fromGlobals() are not reflected
+
+</WarningBox>
+
+## Architecture
+
+The request is a value object created once per HTTP cycle. Route params are injected after dispatch by the framework. The make() factory delegates to request_factory for test fabrication.
+
+<NoteBox>
+
+Wraps $_GET, $_POST, $_SERVER, $_FILES, $_COOKIE, and php://input. Never access superglobals directly in app code.
+
+</NoteBox>
+
+## Construction
+
+<ApiMethod name="fromGlobals">
+
+<ApiSignature>
+
+```php
+public static function fromGlobals(): static
+```
+
+</ApiSignature>
+
+Creates a request from PHP superglobals. Called once by App::run(). Reads superglobals at call time.
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// Called internally by App::run()
+$req = Request::fromGlobals();
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="make">
+
+<ApiSignature>
+
+```php
+public static function make(mixed ...$args): static
+```
+
+</ApiSignature>
+
+Fabricates a request from explicit arrays for testing. Delegates to RequestFactory::make().
+
+<ApiParam name="$args" type="mixed">
+
+Arguments forwarded to RequestFactory::make().
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$req = Request::make('POST', '/users', headers: ['Content-Type' => 'application/json'], rawBody: '{"name":"John"}');
+```
+</CodeExample>
+
+<NoteBox>
+
+For test use only — not for production request creation.
+
+</NoteBox>
+
+</ApiMethod>
+
+## Input Access
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns a query string value from $_GET. Does not fall through to POST or JSON.
+
+<ApiParam name="$key" type="string" required>
+
+Query parameter name.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when the key is absent.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="post">
+
+<ApiSignature>
+
+```php
+public function post(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns a POST body value from $_POST. Does not include JSON body or query string.
+
+<ApiParam name="$key" type="string" required>
+
+POST field name.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when the key is absent.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="input">
+
+<ApiSignature>
+
+```php
+public function input(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Searches GET first, then POST. Returns the first match.
+
+<ApiParam name="$key" type="string" required>
+
+Field name to search.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when absent from both sources.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="json">
+
+<ApiSignature>
+
+```php
+public function json(): array
+```
+
+</ApiSignature>
+
+Parses the JSON body on first call and caches the result. Returns empty array when Content-Type is not application/json or body is invalid JSON.
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$data = $req->json(); // ['name' => 'John', 'age' => 30]
+```
+</CodeExample>
+
+<NoteBox>
+
+Never throws on malformed JSON. Safe to call multiple times per request.
+
+</NoteBox>
+
+</ApiMethod>
+
+<ApiMethod name="file">
+
+<ApiSignature>
+
+```php
+public function file(string $key): ?array
+```
+
+</ApiSignature>
+
+Returns the uploaded file array from $_FILES, or null if absent or no file uploaded.
+
+<ApiParam name="$key" type="string" required>
+
+File input field name.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Headers & IP
+
+<ApiMethod name="header">
+
+<ApiSignature>
+
+```php
+public function header(string $name): ?string
+```
+
+</ApiSignature>
+
+Returns a request header value. Name is case-insensitive. Normalizes to $_SERVER HTTP_ format.
+
+<ApiParam name="$name" type="string" required>
+
+Header name (case-insensitive).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="ip">
+
+<ApiSignature>
+
+```php
+public function ip(): string
+```
+
+</ApiSignature>
+
+Returns the client IP. Reads X-Forwarded-For first, falls back to REMOTE_ADDR.
+
+<WarningBox>
+
+Does not validate X-Forwarded-For against trusted proxies — not a security boundary
+
+</WarningBox>
+
+</ApiMethod>
+
+## URL & Method
+
+<ApiMethod name="method">
+
+<ApiSignature>
+
+```php
+public function method(): string
+```
+
+</ApiSignature>
+
+Returns the HTTP method, always uppercase.
+
+</ApiMethod>
+
+<ApiMethod name="path">
+
+<ApiSignature>
+
+```php
+public function path(): string
+```
+
+</ApiSignature>
+
+Returns the request path without query string.
+
+</ApiMethod>
+
+<ApiMethod name="url">
+
+<ApiSignature>
+
+```php
+public function url(): string
+```
+
+</ApiSignature>
+
+Returns the full URL including scheme and host.
+
+</ApiMethod>
+
+## Detection Helpers
+
+<ApiMethod name="isHypermedia">
+
+<ApiSignature>
+
+```php
+public function isHypermedia(?string $library = null): bool
+```
+
+</ApiSignature>
+
+Detects hypermedia library from configured headers. Returns true for ANY known library when $library is null, or for a specific library when specified.
+
+<ApiParam name="$library" type="string">
+
+Specific library to check ('htmx', 'datastar', 'turbo'). If null, checks any known library.
+
+</ApiParam>
+
+<NoteBox>
+
+Headers are configured in config/realtime.php. Users can add custom libraries via config.
+
+</NoteBox>
+
+</ApiMethod>
+
+<ApiMethod name="isJson">
+
+<ApiSignature>
+
+```php
+public function isJson(): bool
+```
+
+</ApiSignature>
+
+Returns true when Accept header contains application/json.
+
+</ApiMethod>
+
+<ApiMethod name="isAjax">
+
+<ApiSignature>
+
+```php
+public function isAjax(): bool
+```
+
+</ApiSignature>
+
+Returns true when X-Requested-With is XMLHttpRequest.
+
+</ApiMethod>
+
+<ApiMethod name="isCli">
+
+<ApiSignature>
+
+```php
+public function isCli(): bool
+```
+
+</ApiSignature>
+
+Returns true when running via PHP CLI.
+
+</ApiMethod>
+
+## Route Params
+
+<ApiMethod name="setRouteParams">
+
+<ApiSignature>
+
+```php
+public function setRouteParams(array $params): void
+```
+
+</ApiSignature>
+
+Injects route parameters after dispatch. Called by framework, never by application code.
+
+<ApiParam name="$params" type="array" required>
+
+Route parameter key-value pairs.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="param">
+
+<ApiSignature>
+
+```php
+public function param(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns a route segment value. Type casting is applied by the router before injection.
+
+<ApiParam name="$key" type="string" required>
+
+Route parameter name.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when the param is absent.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="allParams">
+
+<ApiSignature>
+
+```php
+public function allParams(): array
+```
+
+</ApiSignature>
+
+Returns all route parameters as a flat key-value array.
+
+</ApiMethod>
+
+## Raw Access
+
+<ApiMethod name="cookie">
+
+<ApiSignature>
+
+```php
+public function cookie(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns a cookie value from $_COOKIE.
+
+<ApiParam name="$key" type="string" required>
+
+Cookie name.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when absent.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="raw">
+
+<ApiSignature>
+
+```php
+public function raw(): string
+```
+
+</ApiSignature>
+
+Returns the raw php://input body. Useful for non-form payloads.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(array $query, array $post, array $server, array $cookies, array $files, string $rawBody)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Core\Request
+role: HTTP request value object
+layer: core
+lifecycle: created once by App::run() via fromGlobals(), shared across middleware and controller
+owns: route_params, json_body cache
+flow: App::run() -> Request::fromGlobals() -> middleware pipeline -> controller(Request $req)
+entry_points:
+  - fromGlobals
+  - make
+  - get
+  - post
+  - input
+  - json
+  - file
+  - header
+  - ip
+  - method
+  - path
+invariants:
+  - fromGlobals() reads superglobals at call time
+  - json() parses once and caches
+  - header() is case-insensitive
+  - ip() reads X-Forwarded-For first
+  - method() always returns uppercase
+  - setRouteParams() is called by framework after dispatch
+side_effects:
+  - json() caches parsed body on first call
+  - setRouteParams() mutates internal state
+non_goals:
+  - Does not validate input
+  - Does not sanitize data
+  - Does not handle file uploads beyond $_FILES passthrough
+```
+</AiContext>

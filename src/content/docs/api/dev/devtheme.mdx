@@ -1,0 +1,110 @@
+---
+title: DevTheme
+description: "Shared CSS design system for dev tool HTML output — dark theme tokens, component classes, and toolbar styles."
+---
+
+<ApiBadge type="dev" />
+<ApiBadge type="debug" />
+<ApiBadge type="css" />
+<ApiBadge type="theme" />
+<ApiBadge type="design-system" />
+
+`DevTheme` provides the shared CSS design system used by all dev tool renderers (error page, toolbar, future debug panels). It returns CSS strings for embedding in `<style>` blocks — no external .css files needed.
+
+```txt
+Symbol: Skim\Dev\DevTheme
+Source: src/Dev/DevTheme.php
+Lifecycle: stateless — returns static CSS strings on each call
+Fallback: none — pure string output
+Test seam: assert css() and toolbarCss() contain expected selectors and custom properties
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// Inside a dev tool template:
+<style><?= DevTheme::css() ?></style>
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+called by templates
+returns static CSS string
+embedded in <style> block
+```
+
+</LifecycleFlow>
+
+Keeps CSS co-located with PHP dev tools for zero-config deployment. The toolbar uses --tb- prefixed variables to avoid conflicts with user page CSS.
+
+## CSS Providers
+
+<ApiMethod name="css">
+
+<ApiSignature>
+
+```php
+public static function css(): string
+```
+
+</ApiSignature>
+
+Returns the complete shared CSS for full-page dev tools — custom properties, base reset, scrollbar, and shared component classes (kv-grid, badges, buttons, code-box, tabs, toast).
+
+</ApiMethod>
+
+<ApiMethod name="toolbarCss">
+
+<ApiSignature>
+
+```php
+public static function toolbarCss(): string
+```
+
+</ApiSignature>
+
+Returns toolbar-scoped CSS with --tb- prefixed variables and #skim-tb selectors to prevent style leakage into the host page.
+
+</ApiMethod>
+
+## Utilities
+
+<ApiMethod name="iconFont">
+
+<ApiSignature>
+
+```php
+public static function iconFont(): string
+```
+
+</ApiSignature>
+
+Returns the Tabler Icons webfont CDN &lt;link&gt; tag used by both error page and toolbar.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\DevTheme
+role: CSS design system provider
+layer: dev
+lifecycle: stateless — returns static CSS strings on each call
+owns: none — stateless
+flow: DevTheme::css() → CSS string
+entry_points:
+  - css
+  - toolbarCss
+  - iconFont
+invariants:
+  - css() returns unprefixed selectors for standalone pages
+  - toolbarCss() returns #skim-tb-scoped selectors
+  - both use the same color palette
+non_goals:
+  - Does not load external CSS files
+  - Does not integrate with the Vite asset pipeline
+  - Does not compile or minify CSS
+```
+</AiContext>

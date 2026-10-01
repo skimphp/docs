@@ -1,0 +1,117 @@
+---
+title: ProjectScanner
+description: "Walks configured scan paths, runs ClassExtractor on each .php file, and returns a flat ExtractedClass[] collection."
+---
+
+<ApiBadge type="extractor" />
+<ApiBadge type="scanner" />
+<ApiBadge type="docs" />
+<ApiBadge type="recursive" />
+
+`ProjectScanner` is the top-level entry point for the docs extraction pipeline. It walks directories, finds .php files, and delegates extraction to `ClassExtractor`. Supports both config-driven and explicit path scanning.
+
+```txt
+Symbol: Skim\Dev\Docs\Extractor\ProjectScanner
+Source: src/Dev/Docs/Extractor/ProjectScanner.php
+Lifecycle: instantiated per-use by commands, extractor created once in constructor
+Fallback: non-directory paths silently skipped
+Test seam: instantiate directly
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$scanner = new ProjectScanner();
+$classes = $scanner->scan();               // uses config scan_paths
+$classes = $scanner->scanPaths(['/app']); // explicit paths
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+scan()
+-> read config scan_paths
+-> iterate paths
+-> phpFiles() recursive
+-> extractor.extract()
+-> collect non-null results
+```
+
+</LifecycleFlow>
+
+No framework dependencies beyond the config() helper.
+
+## Scanning
+
+<ApiMethod name="scan">
+
+<ApiSignature>
+
+```php
+public function scan(): array
+```
+
+</ApiSignature>
+
+Reads scanPaths from config/docs.php, recursively finds all .php files in each path, runs ClassExtractor on each, and returns a flat ExtractedClass[] with nulls discarded.
+
+</ApiMethod>
+
+<ApiMethod name="scanPaths">
+
+<ApiSignature>
+
+```php
+public function scanPaths(array $paths): array
+```
+
+</ApiSignature>
+
+Scans the given explicit paths instead of config scan_paths. Same null-discard behaviour as scan(). Used by commands that override paths via --source flag.
+
+<ApiParam name="$paths" type="string[]" required>
+
+Directories to scan recursively for .php files.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct()
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Extractor\ProjectScanner
+role: project-wide scanner
+layer: dev
+lifecycle: instantiated per-use by commands, extractor created once in constructor
+owns: ClassExtractor instance
+flow: scan() -> config scan_paths -> phpFiles() -> extractor.extract() -> ExtractedClass[]
+entry_points:
+  - scan
+  - scanPaths
+config_reads:
+  - docs.scan_paths
+invariants:
+  - non-directory paths silently skipped
+  - null extractions silently discarded
+  - recursive .php file discovery
+non_goals:
+  - Does not write output files
+  - Does not validate annotations
+```
+</AiContext>

@@ -1,0 +1,141 @@
+---
+title: HttpResponse
+description: "Immutable value object for HTTP responses with status, body, headers, and JSON parsing."
+---
+
+<ApiBadge type="value-object" />
+<ApiBadge type="http" />
+<ApiBadge type="immutable" />
+
+`HttpResponse` is an immutable value object returned by all `client` HTTP methods. It wraps status code, body, and headers without throwing on non-2xx responses.
+
+```txt
+Symbol: Skim\Http\HttpResponse
+Source: src/Http/HttpResponse.php
+Lifecycle: created by Client::send() or fromStream()
+Test seam: construct directly with known values
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$resp = $http->get('https://api.example.com/users');
+if ($resp->ok()) {
+    $users = $resp->json();
+}
+```
+</CodeExample>
+
+## Construction
+
+<ApiMethod name="fromStream">
+
+<ApiSignature>
+
+```php
+public static function fromStream(string $body, array $meta): static
+```
+
+</ApiSignature>
+
+Parses PHP stream $http_response_header meta array into status code and headers, returns a new HttpResponse.
+
+<ApiParam name="$body" type="string" required>
+
+Raw response body string.
+
+</ApiParam>
+
+<ApiParam name="$meta" type="array" required>
+
+The $http_response_header array from PHP stream context.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Accessors
+
+<ApiMethod name="json">
+
+<ApiSignature>
+
+```php
+public function json(): array
+```
+
+</ApiSignature>
+
+Decodes the response body as JSON. Returns an empty array when the body is not valid JSON.
+
+</ApiMethod>
+
+<ApiMethod name="ok">
+
+<ApiSignature>
+
+```php
+public function ok(): bool
+```
+
+</ApiSignature>
+
+Returns true when the status code is in the 2xx range.
+
+</ApiMethod>
+
+<ApiMethod name="header">
+
+<ApiSignature>
+
+```php
+public function header(string $name): ?string
+```
+
+</ApiSignature>
+
+Returns the value of a named response header, or null if the header is not present.
+
+<ApiParam name="$name" type="string" required>
+
+Case-sensitive header name to look up.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(int $status, string $body, array $headers)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Http\HttpResponse
+role: HTTP response value object
+layer: http
+lifecycle: created by Client::send() or fromStream()
+owns: response data
+flow: Client::send() -> HttpResponse::fromStream() -> immutable value object
+entry_points:
+  - fromStream
+  - json
+  - ok
+  - header
+invariants:
+  - Never throws on non-2xx status
+  - json() returns empty array on invalid JSON
+non_goals:
+  - Does not validate status codes
+  - Does not retry requests
+  - Does not follow redirects
+```
+</AiContext>

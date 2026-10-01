@@ -1,0 +1,257 @@
+---
+title: ExtInstallCommand
+description: "CLI command that installs a SKIM extension package with composer, config publishing, and atomic migrations."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="extension" />
+<ApiBadge type="installer" />
+<ApiBadge type="atomic-migrations" />
+
+`ExtInstallCommand` implements the `php skim ext:install` CLI command. It runs the full installation pipeline: preflight DB check, composer require, extension discovery, config publishing, atomic migration execution (with rollback on failure), and post-install hints.
+
+```txt
+Symbol: Skim\Cli\Commands\ExtInstallCommand
+Source: src/Cli/Commands/ExtInstallCommand.php
+Lifecycle: instantiated by kernel, handle() called once per invocation
+Fallback: migration failure triggers automatic rollback of all migrations applied in this session
+Test seam: constructor accepts ExtRegistry and ExtMigrator test doubles
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim ext:install skim/auth
+php skim ext:install auth --prefix=myapp_ --no-interaction
+```
+</CodeExample>
+
+<WarningBox>
+
+Migration failure rolls back all migrations applied in this session
+
+</WarningBox>
+
+<WarningBox>
+
+composer require modifies vendor/ and composer.json
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> resolvePackage(arg(0))
+-> preflight() checks PHP+DB
+-> composerRequire(package)
+-> registry->refresh()
+-> registry->find(package)
+-> publishConfig(extension)
+-> tablePrefix()
+-> writeTablePrefix()
+-> migrator->run()
+-> on failure: rollbackSession()
+-> printEnvAdditions()
+-> printPostInstall()
+```
+
+</LifecycleFlow>
+
+Constructor injection of ExtRegistry and ExtMigrator enables full test isolation without filesystem or database side-effects.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Runs the full extension installation pipeline: resolve package, preflight, composer require, discover, publish config, run migrations atomically, print hints.
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim ext:install skim/auth --prefix=myapp_
+```
+</CodeExample>
+
+<WarningBox>
+
+Migration failure triggers rollback of all migrations applied in this session
+
+</WarningBox>
+
+</ApiMethod>
+
+## Installation Pipeline
+
+<ApiMethod name="resolvePackage">
+
+<ApiSignature>
+
+```php
+private function resolvePackage(string $name): string
+```
+
+</ApiSignature>
+
+Normalizes short names to vendor/package format. Empty input returns empty string.
+
+<ApiParam name="$name" type="string" required>
+
+Raw package name from CLI arg.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="preflight">
+
+<ApiSignature>
+
+```php
+private function preflight(): bool
+```
+
+</ApiSignature>
+
+Verifies PHP &gt;= 8.5 and database connectivity before proceeding with installation.
+
+</ApiMethod>
+
+<ApiMethod name="composerRequire">
+
+<ApiSignature>
+
+```php
+private function composerRequire(string $package, bool $noInteraction): array
+```
+
+</ApiSignature>
+
+Runs composer require as a subprocess. Streams output to TTY when interactive. Returns exit code and captured output.
+
+<ApiParam name="$package" type="string" required>
+
+Composer package name.
+
+</ApiParam>
+
+<ApiParam name="$noInteraction" type="bool" required>
+
+Suppress interactive prompts.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="printEnvAdditions">
+
+<ApiSignature>
+
+```php
+private function printEnvAdditions(array $extension): void
+```
+
+</ApiSignature>
+
+Prints missing .env keys that the extension requires.
+
+</ApiMethod>
+
+<ApiMethod name="printPostInstall">
+
+<ApiSignature>
+
+```php
+private function printPostInstall(array $extension): void
+```
+
+</ApiSignature>
+
+Prints post-install next steps from extension metadata.
+
+</ApiMethod>
+
+## Configuration
+
+<ApiMethod name="publishConfig">
+
+<ApiSignature>
+
+```php
+private function publishConfig(array $extension): ?string
+```
+
+</ApiSignature>
+
+Copies extension config file to the project config directory. Skips if config already exists.
+
+<ApiParam name="$extension" type="array" required>
+
+Extension metadata from registry.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="tablePrefix">
+
+<ApiSignature>
+
+```php
+private function tablePrefix(bool $noInteraction): string
+```
+
+</ApiSignature>
+
+Resolves table prefix from --prefix flag, non-interactive default, or interactive prompt.
+
+</ApiMethod>
+
+<ApiMethod name="writeTablePrefix">
+
+<ApiSignature>
+
+```php
+private function writeTablePrefix(string $configPath, string $prefix): void
+```
+
+</ApiSignature>
+
+Writes the table_prefix value into the published config file.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\ExtInstallCommand
+role: CLI extension installer
+layer: cli
+lifecycle: instantiated by kernel, handle() called once per invocation
+owns: nothing — delegates to ExtRegistry and ExtMigrator
+flow: ExtInstallCommand::handle() -> resolvePackage() -> preflight() -> composerRequire() -> registry->refresh() -> registry->find() -> publishConfig() -> migrator->run() -> print hints
+entry_points:
+  - handle
+invariants:
+  - short package names are prefixed with skim/
+  - migrations are atomic — all or nothing
+  - config is not overwritten if it already exists
+side_effects:
+  - Runs composer require subprocess
+  - Copies config files
+  - Runs database migrations
+  - Writes to .env hints on stdout
+non_goals:
+  - Does not manage extension updates
+  - Does not uninstall extensions
+  - Does not validate extension compatibility
+```
+</AiContext>

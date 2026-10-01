@@ -1,0 +1,163 @@
+---
+title: QueueCommand
+description: "CLI dispatcher for queue operations — work, status, flush, and restart."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="queue" />
+<ApiBadge type="worker" />
+<ApiBadge type="destructive" />
+
+`QueueCommand` implements the `php skim queue:*` family of CLI commands. It dispatches to work (start worker), status (show pending counts), flush (remove pending jobs), and restart (signal workers to stop) sub-commands.
+
+```txt
+Symbol: Skim\Cli\Commands\QueueCommand
+Source: src/Cli/Commands/QueueCommand.php
+Lifecycle: instantiated by kernel, handle() called once per invocation
+Fallback: unknown sub-commands print an error and return exit code 1
+Test seam: instantiate directly, call setInput() with test args, then handle()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim queue:work [queue] [--sleep=3] [--max-jobs=0]
+php skim queue:status
+php skim queue:flush [queue]
+php skim queue:restart
+```
+</CodeExample>
+
+<WarningBox>
+
+flush destroys all pending jobs in the specified queue
+
+</WarningBox>
+
+<WarningBox>
+
+work blocks the terminal until stopped
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> arg(0) sub-command
+-> match: work -> new Worker() -> worker->work()
+status -> Queue::size()
+flush -> Queue::flush()
+restart -> Queue::redis()->set(restart key)
+```
+
+</LifecycleFlow>
+
+Thin CLI wrapper over queue and worker classes. The work sub-command is the only blocking operation — all others return immediately.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Dispatches to work, status, flush, or restart sub-commands. Defaults to work.
+
+</ApiMethod>
+
+## Sub-commands
+
+<ApiMethod name="work">
+
+<ApiSignature>
+
+```php
+private function work(): int
+```
+
+</ApiSignature>
+
+Starts a long-lived queue worker that blocks on Redis BRPOP. Processes jobs until stopped by signal, max-jobs, or restart signal.
+
+</ApiMethod>
+
+<ApiMethod name="status">
+
+<ApiSignature>
+
+```php
+private function status(): int
+```
+
+</ApiSignature>
+
+Displays pending job count per queue in an ASCII table.
+
+</ApiMethod>
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+private function flush(): int
+```
+
+</ApiSignature>
+
+Removes all pending jobs from the specified queue.
+
+<WarningBox>
+
+Destroys all pending jobs in the queue — already-processing jobs are not affected
+
+</WarningBox>
+
+</ApiMethod>
+
+<ApiMethod name="restart">
+
+<ApiSignature>
+
+```php
+private function restart(): int
+```
+
+</ApiSignature>
+
+Sends a restart signal to all running workers via a Redis timestamp key. Workers stop after completing their current job.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\QueueCommand
+role: CLI queue manager
+layer: cli
+lifecycle: instantiated by kernel, handle() called once per invocation
+owns: nothing — delegates to queue and worker classes
+flow: QueueCommand::handle() -> arg(0) sub-command -> match: work/status/flush/restart -> queue/worker methods
+entry_points:
+  - handle
+invariants:
+  - work blocks until worker stops
+  - flush destroys pending jobs
+  - restart sets a Redis timestamp checked by workers
+side_effects:
+  - work starts a blocking worker process
+  - flush deletes Redis queue keys
+  - restart writes Redis restart timestamp
+non_goals:
+  - Does not manage job priorities
+  - Does not implement dead-letter queues
+  - Does not handle job scheduling
+```
+</AiContext>

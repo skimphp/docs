@@ -1,0 +1,103 @@
+---
+title: migration
+description: "Abstract base class for SQL-first database migrations with up/down contract."
+---
+
+<ApiBadge type="abstract" />
+<ApiBadge type="migration" />
+<ApiBadge type="sql-first" />
+
+`migration` is the abstract base for all database migrations. Each migration file returns an anonymous class extending this base, implementing `up()` and `down()` with raw SQL strings. The migrator tracks applied migrations by filename in the `_migrations` table.
+
+```txt
+Symbol: Skim\Db\Migration
+Source: src/Db/Migration.php
+Lifecycle: instantiated by Migrator::loadAll() via require, filename assigned from basename
+Fallback: none
+Test seam: run via migrator against test_db() SQLite :memory: connection
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return new class extends Migration {
+    public function up(): string {
+        return "CREATE TABLE posts (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255))";
+    }
+    public function down(): string { return "DROP TABLE IF EXISTS posts"; }
+};
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Migrator::loadAll() requires migration file
+-> migration instance created
+-> filename assigned from basename
+-> migrator calls up() or down()
+-> SQL string returned
+-> Migrator executes via MigrationExecutor
+```
+
+</LifecycleFlow>
+
+SQL-first design avoids the impedance mismatch of fluent schema builders. What you write is exactly what runs on the database.
+
+<NoteBox>
+
+File naming convention is YYYY_MM_DD_HHMMSS_description.php for deterministic sort order.
+
+</NoteBox>
+
+## Migration Contract
+
+<ApiMethod name="up">
+
+<ApiSignature>
+
+```php
+abstract public function up(): string|array|callable
+```
+
+</ApiSignature>
+
+Returns raw SQL, an array of SQL statements, or a callable receiving PDO to execute when migrating forward.
+
+</ApiMethod>
+
+<ApiMethod name="down">
+
+<ApiSignature>
+
+```php
+public function down(): string|array|callable
+```
+
+</ApiSignature>
+
+Returns raw SQL, an array, or a callable to reverse up(). Used by migrate:down and migrate:fresh. Optional — base default throws when $reversible is false.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\Migration
+role: migration base class
+layer: db
+lifecycle: instantiated by Migrator::loadAll() via require, filename assigned from basename
+owns: nothing
+flow: migrator requires file -> migration instance -> up()/down() returns SQL -> migrator executes
+entry_points:
+  - up
+  - down
+invariants:
+  - up() and down() must return valid SQL strings
+  - filename is set by migrator, never manually
+  - down() must exactly reverse up()
+non_goals:
+  - Does not execute SQL — migrator handles execution
+  - Does not track state — _migrations table handles that
+```
+</AiContext>

@@ -1,0 +1,65 @@
+---
+title: McpInstallCommand
+description: "CLI command that downloads the platform-native skim-mcp binary from GitHub Releases into .skim/bin/."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="mcp" />
+<ApiBadge type="installer" />
+<ApiBadge type="github-releases" />
+
+`McpInstallCommand` detects the host OS/architecture, downloads the matching `skim-mcp` release asset from the skim_mcp repository, and installs it to `.skim/bin/skim-mcp` with executable permissions.
+
+```txt
+Symbol: Skim\Dev\Docs\Commands\McpInstallCommand
+Source: src/Dev/Docs/Commands/McpInstallCommand.php
+Lifecycle: instantiated by CLI router per invocation
+Fallback: returns 1 on unsupported platform, network failure, or empty download
+Test seam: instantiate directly, call setInput(), then handle()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim mcp:install
+php skim mcp:install --force
+```
+</CodeExample>
+
+## 
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Detects platform, downloads binary, writes to .skim/bin/skim-mcp. #AI:handle
+
+Skips download if binary already exists unless --force is passed.
+Returns 1 on network or write failure.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Commands\McpInstallCommand
+role: MCP binary installer
+layer: dev
+lifecycle: instantiated by CLI router per invocation
+owns: .skim/bin/skim-mcp binary lifecycle
+flow: handle() -> check existing binary -> detectPlatform -> download(asset url) -> rename+chmod -> report size
+entry_points:
+  - handle
+invariants:
+  - never overwrites existing binary without --force
+  - binary lands in .skim/bin
+side_effects:
+  - network download from GitHub Releases
+  - writes .skim/bin/skim-mcp
+  - chmod
+```
+</AiContext>

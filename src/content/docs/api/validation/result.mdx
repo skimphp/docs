@@ -1,0 +1,117 @@
+---
+title: result
+description: "Immutable validation result with ok (virtual property), errors(), and validated() accessors."
+---
+
+<ApiBadge type="validation" />
+<ApiBadge type="result" />
+<ApiBadge type="immutable" />
+<ApiBadge type="value-object" />
+<ApiBadge type="property-hooks" />
+
+`result` is the immutable value object returned by `Validate::check()`. It carries both the error map and the validated data subset, providing the three accessors controllers need: `ok` (virtual property), `errors()`, and `validated()`.
+
+```txt
+Symbol: Skim\Validation\Result
+Source: src/Validation/Result.php
+Lifecycle: created by Validate::check(), consumed by controller in the same request
+Fallback: n/a — pure value object
+Test seam: construct directly with known arrays
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$result = Validate::make([...])->check($req->post());
+if (!$result->ok) {
+    return $res->status(422)->json(['errors' => $result->errors()]);
+}
+$user = User::create($result->validated());
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Validate::check() runs rules
+-> new Result(errors, validated)
+-> controller reads ok
+-> branches on result
+```
+
+</LifecycleFlow>
+
+Kept as a pure value object — no behavior beyond accessors. The validate class is responsible for populating both arrays correctly. Uses PHP 8.4+ property hooks for the virtual ok property.
+
+<NoteBox>
+
+validated() silently drops undeclared fields, providing mass-assignment safety without explicit guarded lists. The ok property is virtual — computed from errors array via property hook.
+
+</NoteBox>
+
+## Result API
+
+<ApiMethod name="errors">
+
+<ApiSignature>
+
+```php
+public function errors(): array
+```
+
+</ApiSignature>
+
+Returns the field-to-messages error map. Shape matches the standard 422 JSON response format.
+
+</ApiMethod>
+
+<ApiMethod name="validated">
+
+<ApiSignature>
+
+```php
+public function validated(): array
+```
+
+</ApiSignature>
+
+Returns only the fields declared in validation rules. Undeclared fields are silently dropped.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(array $errors, array $validated)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Validation\Result
+role: validation result value object
+layer: validation
+lifecycle: created by Validate::check(), consumed by controller in the same request
+owns: errors array, validated array
+flow: Validate::check() -> new Result($errors, $validated) -> controller reads ok/errors/validated
+entry_points:
+  - ok
+  - errors
+  - validated
+invariants:
+  - ok returns true only when errors array is empty
+  - validated() contains only fields declared in the rules
+  - errors() shape matches 422 JSON response format
+non_goals:
+  - Does not run validation
+  - Does not format error messages for display
+```
+</AiContext>

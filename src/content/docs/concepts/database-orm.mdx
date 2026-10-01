@@ -1,55 +1,101 @@
 ---
 title: Database & ORM
-description: Work with raw queries, the query builder, and Active Record ORM in SKIM.
+description: Raw SQL templates with query_gen placeholders, and Active Record ORM in SKIM.
 ---
 
-SKIM provides a database toolkit spanning three distinct layers: raw SQL, a fluent Query Builder, and an Active Record ORM.
+SKIM provides a database toolkit in two layers: a raw SQL template engine (`query_gen`) and an Active Record ORM. All parameters are bound — never interpolate user input into a query string.
 
-### 1. Raw Queries
+### 1. Raw Queries — query_gen
 
-For ultimate performance and transparency, use `Db::` facade direct queries:
+`Db::` methods accept SQL templates with `%placeholder%` markers plus `:named` parameters:
 
 ```php
-$users = Db::all("SELECT * FROM users WHERE active = ?", [1]);
-$user = Db::row("SELECT * FROM users WHERE id = ?", [3]);
+$users = Db::all("SELECT * FROM users WHERE active = :active", ['active' => 1]);
+$user  = Db::row("SELECT * FROM users WHERE id = :id", ['id' => 3]);
 $count = Db::val("SELECT COUNT(*) FROM users");
 ```
 
-### 2. Query Builder
+`Db::query()` returns rows for `SELECT`, `rowCount` for DML — or the interpolated SQL string with `debug: true` (query never executes).
 
-Construct queries programmatically using a fluent interface with automatic parameter binding:
+### Conditional Clauses — `%where%`, `%set%`, `%values%`
+
+Template placeholders expand from the params array:
 
 ```php
-$users = Db::table('users')
-    ->where('active', '=', 1)
-    ->where_null('deleted_at')
-    ->order_by('created_at', 'DESC')
-    ->get();
+// %where% builds AND-conditions; removed entirely when empty or all-null
+$users = Db::all(
+    "SELECT * FROM users %where% ORDER BY created_at DESC %limit%",
+    [
+        'where'  => ['active = :active', 'city = :city'],
+        ':active' => 1,
+        ':city'   => $city,
+        'limit'   => 50,
+    ],
+);
+
+// %set% builds the SET list — null values are SKIPPED, not written
+Db::query(
+    "UPDATE users %set% WHERE id = :id",
+    ['set' => ['name' => $name, 'email' => $email], 'id' => $id],
+);
 ```
+
+*   `%where%` absent + populated `where` array → `WHERE` injected automatically.
+*   `%where%` present + empty/all-null conditions → clause removed silently.
+*   `null` inside `%set%` → column skipped. To write a real `NULL`, use `Db::null()`.
+*   `or`/`and` keys nest into `(a AND b) OR (c AND d)` groupings.
+
+### 2. The `Db::null()` Sentinel
+
+<NoteBox>
+To explicitly persist SQL `NULL` in `%set%` or `->update()` payloads, use the sentinel — plain `null` means "skip this column":
+
+```php
+Db::query("UPDATE users %set% WHERE id = :id", [
+    'set' => ['suspended_at' => Db::null()],
+    'id'  => 1,
+]);
+```
+</NoteBox>
 
 ### 3. Active Record ORM
 
-Extend `Model` (or `MerryModel`) to interact with your tables as objects:
+Extend `Model` to work with tables as objects:
 
 ```php
+namespace App\Models;
+
+use Skim\Db\Model;
+
 class User extends Model {
     protected static string $table = 'users';
 }
 
-// Fetch and update
-$user = User::find(1);
+// Fetch and update — dirty tracking updates only changed columns
+$user = User::find(1);        // null when missing — never throws
+$user = User::findOrFail(1);  // throws NotFoundException
 $user->email = 'new@example.com';
-$user->save();
+$user->save();                // INSERT without PK, UPDATE with PK
 ```
 
-<NoteBox>
-**The `Db::null()` Sentinel**
+Property hooks run on every assignment; `id`/`created_at`/`updated_at` use asymmetric visibility — writable only inside the model. `$guarded` columns are never mass-assigned.
 
-When updating columns to `NULL` via the Query Builder or Active Record, SQL parameters can easily trip up simple binding libraries. In SKIM, if you need to explicitly bind and persist a literal SQL `NULL` value, use the `Db::null()` sentinel.
+### Merry ORM — Relations
+
+`MerryModel` adds relations (defined in static arrays, no annotations) and eager loading via `with()` — it takes an already-fetched model collection:
 
 ```php
-Db::table('users')
-    ->where('id', '=', 1)
-    ->update(['suspended_at' => Db::null()]);
+class User extends MerryModel {
+    protected static string $table = 'users';
+    // protected static array $relations = ['posts' => ...];
+}
+
+$users = User::all("SELECT * FROM users WHERE active = :a", [':a' => 1]);
+$users = User::with($users, 'posts.comments'); // dot notation for depth
 ```
-</NoteBox>
+
+`attach()`/`detach()`/`sync()` are available on many-to-many relations.
+
+<Warning>
+After migrations, invalidate the cached schema: `Cache::flush('schema:')`.
+</Warning>

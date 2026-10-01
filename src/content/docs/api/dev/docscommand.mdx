@@ -1,0 +1,115 @@
+---
+title: DocsCommand
+description: "Umbrella CLI command that runs the full docs generation pipeline (extract → llm → site) with optional watch mode."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="docs" />
+<ApiBadge type="pipeline" />
+<ApiBadge type="watch-mode" />
+
+`DocsCommand` chains the three sub-commands (extract, llm, site) into a single invocation. With `--watch`, it polls source directories every 2 seconds and triggers a full rebuild when any .php file mtime changes.
+
+```txt
+Symbol: Skim\Dev\Docs\Commands\DocsCommand
+Source: src/Dev/Docs/Commands/DocsCommand.php
+Lifecycle: instantiated by CLI router, runs synchronously, exits with pipeline status
+Fallback: none — stops on first sub-command failure
+Test seam: instantiate directly with setInput() to inject flags
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim docs                              # one-shot full build
+php skim docs --watch                      # rebuild on .php file change
+php skim docs --source=app --output=build  # custom paths
+```
+</CodeExample>
+
+<WarningBox>
+
+Watch mode runs indefinitely until interrupted
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> --watch flag?
+-> build() runs extract → llm → site
+-> watchMode() polls mtimeHash every 2s
+```
+
+</LifecycleFlow>
+
+Delegates all work to sub-commands
+
+## Pipeline
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Dispatches to watch mode when --watch flag is set, otherwise runs a one-shot full build pipeline.
+
+</ApiMethod>
+
+## Watch Mode
+
+<ApiMethod name="mtimeHash">
+
+<ApiSignature>
+
+```php
+private function mtimeHash(array $paths): string
+```
+
+</ApiSignature>
+
+Computes an md5 hash of sorted file:mtimes pairs across all .php files in the given directories. Used to detect any file change between polling intervals.
+
+<ApiParam name="$paths" type="string[]" required>
+
+Directories to scan recursively for .php files.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Commands\DocsCommand
+role: CLI pipeline orchestrator
+layer: dev
+lifecycle: instantiated by CLI router, runs synchronously, exits with pipeline status
+owns: sub-command instances
+flow: handle() -> --watch? -> watchMode() | build() -> [extract, llm, site]
+entry_points:
+  - handle
+config_reads:
+  - docs.scan_paths
+  - docs.output.json
+  - docs.output.llm_md
+  - docs.output.mdx_dir
+invariants:
+  - pipeline stops on first non-zero exit
+  - watch mode loops until Ctrl+C
+  - mtimeHash is deterministic for identical file states
+side_effects:
+  - writes llm.json
+  - llm.md
+  - and MDX files to configured output paths
+non_goals:
+  - Does not perform incremental builds
+  - Does not parallelize sub-commands
+```
+</AiContext>

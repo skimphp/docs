@@ -1,0 +1,141 @@
+---
+title: AuthFake
+description: "In-memory auth double that always reports authenticated with a given user object."
+---
+
+<ApiBadge type="testing" />
+<ApiBadge type="fake" />
+<ApiBadge type="auth" />
+<ApiBadge type="double" />
+
+`AuthFake` is a minimal test double for the auth service. It always reports the user as authenticated and returns the injected user object directly.
+
+```txt
+Symbol: Skim\Testing\AuthFake
+Source: src/Testing/AuthFake.php
+Lifecycle: instantiated per-test, bound into the container via App::bind()
+Fallback: n/a — test-only class
+Test seam: bind into container via $app->bind('auth', fn() => new AuthFake($user))
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$fake = new AuthFake(User::find(1));
+$app->bind('auth', fn() => $fake);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+new AuthFake($user)
+-> bind to container
+-> controller calls Auth::check() -> true
+```
+
+</LifecycleFlow>
+
+Intentionally minimal — only the methods the auth middleware and controllers call.
+
+<NoteBox>
+
+The user object must have an `id` property for id() to return non-null.
+
+</NoteBox>
+
+## Auth API
+
+<ApiMethod name="user">
+
+<ApiSignature>
+
+```php
+public function user(): object
+```
+
+</ApiSignature>
+
+Returns the injected user object as-is.
+
+</ApiMethod>
+
+<ApiMethod name="check">
+
+<ApiSignature>
+
+```php
+public function check(): bool
+```
+
+</ApiSignature>
+
+Always returns true to simulate authenticated state.
+
+</ApiMethod>
+
+<ApiMethod name="guest">
+
+<ApiSignature>
+
+```php
+public function guest(): bool
+```
+
+</ApiSignature>
+
+Always returns false to simulate authenticated state.
+
+</ApiMethod>
+
+<ApiMethod name="id">
+
+<ApiSignature>
+
+```php
+public function id(): mixed
+```
+
+</ApiSignature>
+
+Returns the user's id property, or null if not set.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(object $user)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Testing\AuthFake
+role: test double (auth)
+layer: testing
+lifecycle: instantiated per-test, bound into the container via App::bind()
+owns: injected user object reference
+flow: test -> AuthFake::check() -> true
+entry_points:
+  - user
+  - check
+  - guest
+  - id
+invariants:
+  - check() always returns true
+  - guest() always returns false
+  - user() returns the injected object
+non_goals:
+  - Does not validate credentials
+  - Does not interact with session or database
+```
+</AiContext>

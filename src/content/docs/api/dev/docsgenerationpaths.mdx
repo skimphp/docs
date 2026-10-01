@@ -1,0 +1,192 @@
+---
+title: DocsGenerationPaths
+description: "Resolves CLI --source and --output flag overrides against config/docs.php defaults for docs generation paths."
+---
+
+<ApiBadge type="value" />
+<ApiBadge type="docs" />
+<ApiBadge type="paths" />
+<ApiBadge type="cli" />
+
+`DocsGenerationPaths` encapsulates the resolution logic for docs generation file paths. It merges CLI flag overrides with config/docs.php defaults, handling relative-to-absolute path resolution.
+
+```txt
+Symbol: Skim\Dev\Docs\Value\DocsGenerationPaths
+Source: src/Dev/Docs/Value/DocsGenerationPaths.php
+Lifecycle: instantiated per-command via fromFlags(), immutable after construction
+Fallback: falls back to config/docs.php values when flags are absent
+Test seam: instantiate directly with constructor args
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$paths = DocsGenerationPaths::fromFlags($this->flags);
+$json  = $paths->jsonPath();
+$scan  = $paths->scanPaths();
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+fromFlags()
+-> extract source/output from flags
+-> construct
+-> resolve paths on demand with config fallback
+```
+
+</LifecycleFlow>
+
+Immutable value object — all resolution happens on access, not at construction time.
+
+## Construction
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(?string $sourceDir = null, ?string $outputDir = null)
+```
+
+</ApiSignature>
+
+Stores optional CLI source/output overrides. Null values preserve config/docs.php defaults.
+
+<ApiParam name="$sourceDir" type="?string">
+
+Override for docs.scan_paths; null preserves config default.
+
+</ApiParam>
+
+<ApiParam name="$outputDir" type="?string">
+
+Override for all output paths; null preserves config defaults.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="fromFlags">
+
+<ApiSignature>
+
+```php
+public static function fromFlags(array $flags): self
+```
+
+</ApiSignature>
+
+Builds a DocsGenerationPaths from CLI flags, reading 'source' and 'output' keys. Empty strings are treated as null.
+
+<ApiParam name="$flags" type="array" required>
+
+CLI flags array from command.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Path Resolution
+
+<ApiMethod name="scanPaths">
+
+<ApiSignature>
+
+```php
+public function scanPaths(): array
+```
+
+</ApiSignature>
+
+Returns the explicit source override as a single-element array, or falls back to config('docs.scan_paths'). Relative paths resolve from basePath().
+
+</ApiMethod>
+
+<ApiMethod name="hasSourceOverride">
+
+<ApiSignature>
+
+```php
+public function hasSourceOverride(): bool
+```
+
+</ApiSignature>
+
+Returns true when --source was supplied, indicating the caller should use scanPaths() instead of the default config scan.
+
+</ApiMethod>
+
+<ApiMethod name="jsonPath">
+
+<ApiSignature>
+
+```php
+public function jsonPath(): string
+```
+
+</ApiSignature>
+
+Returns the llm.json output path. When --output is set, returns DIR/llm.json
+
+</ApiMethod>
+
+<ApiMethod name="llmMdPath">
+
+<ApiSignature>
+
+```php
+public function llmMdPath(): string
+```
+
+</ApiSignature>
+
+Returns the llm.md output path. When --output is set, returns DIR/llm.md
+
+</ApiMethod>
+
+<ApiMethod name="mdxDir">
+
+<ApiSignature>
+
+```php
+public function mdxDir(): string
+```
+
+</ApiSignature>
+
+Returns the MDX output directory. When --output is set, returns the resolved output dir
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Value\DocsGenerationPaths
+role: path resolver value object
+layer: dev
+lifecycle: instantiated per-command via fromFlags(), immutable after construction
+owns: source_dir, outputDir overrides
+flow: fromFlags(flags) -> new self(source, output) -> scanPaths/json_path/llmMdPath/mdx_dir -> config fallback
+entry_points:
+  - fromFlags
+  - scanPaths
+  - hasSourceOverride
+  - json_path
+  - llmMdPath
+  - mdx_dir
+config_reads:
+  - docs.scan_paths
+  - docs.output.json
+  - docs.output.llm_md
+  - docs.output.mdx_dir
+invariants:
+  - null flags preserve config defaults
+  - relative paths resolve from basePath()
+  - empty string flags treated as null
+non_goals:
+  - Does not create directories
+  - Does not validate that paths exist on disk
+```
+</AiContext>

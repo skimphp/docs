@@ -1,0 +1,84 @@
+---
+title: DocsLlmCommand
+description: "CLI command that reads llm.json and writes a compact llm.md Markdown file for LLM context windows."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="docs" />
+<ApiBadge type="markdown" />
+<ApiBadge type="llm" />
+
+`DocsLlmCommand` converts the structured llm.json into a single grouped Markdown file (llm.md) that fits within LLM context windows. Optionally prepends the framework-level llm.md for full API context.
+
+```txt
+Symbol: Skim\Dev\Docs\Commands\DocsLlmCommand
+Source: src/Dev/Docs/Commands/DocsLlmCommand.php
+Lifecycle: instantiated by CLI router or DocsCommand, runs synchronously
+Fallback: none — returns 1 when llm.json is missing or write fails
+Test seam: instantiate directly with setInput() to inject flags
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim docs:llm
+php skim docs:llm --output=build/docs
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> resolve paths
+-> JsonEmitter.load(llm.json)
+-> optionally load framework llm.md
+-> LlmMdEmitter.emit()
+-> llm.md written
+```
+
+</LifecycleFlow>
+
+Requires docs:extract to have been run first
+
+## Pipeline
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Loads llm.json, optionally prepends framework context, and writes llm.md. Returns 1 when llm.json is missing or write fails.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Commands\DocsLlmCommand
+role: CLI markdown emitter
+layer: dev
+lifecycle: instantiated by CLI router or DocsCommand, runs synchronously
+owns: JsonEmitter, LlmMdEmitter instances
+flow: handle() -> JsonEmitter.load() -> LlmMdEmitter.emit() -> llm.md
+entry_points:
+  - handle
+config_reads:
+  - docs.output.json
+  - docs.output.llm_md
+  - docs.include_framework_context
+invariants:
+  - fails with clear message when llm.json does not exist
+  - framework context prepended only when config flag is true
+side_effects:
+  - writes llm.md to configured or overridden output path
+non_goals:
+  - Does not generate MDX
+  - Does not run extraction
+```
+</AiContext>

@@ -1,0 +1,1174 @@
+---
+title: app
+description: "Singleton container and HTTP kernel combining a scoped key-value store, DI container with auto-wiring, and middleware pipeline."
+---
+
+<ApiBadge type="singleton" />
+<ApiBadge type="container" />
+<ApiBadge type="kernel" />
+<ApiBadge type="di" />
+<ApiBadge type="middleware" />
+<ApiBadge type="scoped-store" />
+
+`Skim\Core\App` is the central application kernel. It combines three responsibilities in one singleton: a scoped key-value store (sys/app/user), a dependency injection container with factory bindings and reflection auto-wiring, and an HTTP kernel with a middleware pipeline. Extensions register services and middleware through `withExtensionContext()` during the boot phase.
+
+```txt
+Symbol: Skim\Core\App
+Source: src/Core/App.php
+Lifecycle: singleton, created on first `instance()` call, booted lazily via `ensureBooted()` in `run()` or `dispatch()`, frozen before request dispatch
+Fallback: none — app is the root
+Test seam: testInstance() for isolated containers without env/config loading
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$app = App::instance();
+$app->router->get('/', [HomeController::class, 'index']);
+$app->run();
+```
+</CodeExample>
+
+<WarningBox>
+
+`run()` installs a global exception handler and is not re-entrant
+
+</WarningBox>
+
+<WarningBox>
+
+`freeze()` is irreversible for the instance lifetime
+
+</WarningBox>
+
+<WarningBox>
+
+sys.* writes throw LogicException in production after first set
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+App::instance()
+-> run()
+-> ensureBooted()
+-> boot() [view layout + router + pipeline + extensionManager::discover + register]
+-> profiler/RequestTrace enable (if debug)
+-> bootExtensions()
+-> freeze()
+-> Request::fromGlobals()
+-> dispatch()
+-> Pipeline::run()
+-> callHandler()
+-> Response::send()
+```
+
+</LifecycleFlow>
+
+The app class is intentionally a god object combining container, kernel, and store. This keeps the framework surface area small — one class to learn, one singleton to pass around. Extensions interact with app exclusively through `withExtensionContext()` during boot, then the app freezes to prevent further mutation.
+
+<NoteBox>
+
+The constructor is private — always use `instance()` or `testInstance()`. Cloning resets resolved singletons and user scope but preserves bindings and sys/app data.
+
+</NoteBox>
+
+## Driver Model
+
+<div class="driver-grid">
+  <ScopeBox name="sys">
+    Framework internals (router, extensions). Write-once in production, mutable in debug.
+  </ScopeBox>
+  <ScopeBox name="app" mutable>
+    Config values from config/*.php or testInstance(). Falls back to Config::get on read.
+  </ScopeBox>
+  <ScopeBox name="user" mutable>
+    Per-request mutable state. Cleared on clone.
+  </ScopeBox>
+</div>
+
+## Lifecycle
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+private function __construct(private readonly string $root)
+```
+
+</ApiSignature>
+
+Private constructor enforces singleton access via instance(). Stores the project root for .env and config path resolution.
+
+<ApiParam name="$root" type="string" required>
+
+Project root directory.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="instance">
+
+<ApiSignature>
+
+```php
+public static function instance(): static
+```
+
+</ApiSignature>
+
+Returns the process-wide singleton. On first call, creates the instance with SKIM_ROOT (or auto-detected root) but does NOT call boot(). Boot is deferred to run() or dispatch() via ensureBooted(). Subsequent calls return the cached instance.
+
+</ApiMethod>
+
+<ApiMethod name="boot">
+
+<ApiSignature>
+
+```php
+public function boot(): void
+```
+
+</ApiSignature>
+
+Initializes framework subsystems in strict dependency order: view layout → router → pipeline → extension discovery and registration. Idempotent — subsequent calls after the first are no-ops. Profiler and RequestTrace are NOT enabled here
+
+</ApiMethod>
+
+<ApiMethod name="ensureBooted">
+
+<ApiSignature>
+
+```php
+private function ensureBooted(): void
+```
+
+</ApiSignature>
+
+Calls boot() if not yet booted. Called from run() and dispatch() to guarantee the framework is initialised before any request handling occurs.
+
+</ApiMethod>
+
+<ApiMethod name="isDebugMode">
+
+<ApiSignature>
+
+```php
+public function isDebugMode(): bool
+```
+
+</ApiSignature>
+
+Returns whether debug mode is enabled.
+
+</ApiMethod>
+
+<ApiMethod name="beginRequest">
+
+<ApiSignature>
+
+```php
+public function beginRequest(): void
+```
+
+</ApiSignature>
+
+Begins a request in worker mode — enables profiler and RequestTrace if debug. Separated from run() so the worker entrypoint can call it once per request without re-running the full boot sequence.
+
+</ApiMethod>
+
+<ApiMethod name="endRequest">
+
+<ApiSignature>
+
+```php
+public function endRequest(): void
+```
+
+</ApiSignature>
+
+Ends a request in worker mode — resets per-request state. Clears user scope and request-scoped DI bindings, then runs the global WorkerReset orchestrator.
+
+</ApiMethod>
+
+<ApiMethod name="handleException">
+
+<ApiSignature>
+
+```php
+public function handleException(\Throwable $e): void
+```
+
+</ApiSignature>
+
+Handles an uncaught exception. Used by the global exception handler installed in run(). Renders debug error page when debugMode is true, otherwise returns 500.
+
+<ApiParam name="$e" type="\Throwable" required>
+
+The uncaught exception to handle.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(): void
+```
+
+</ApiSignature>
+
+Executes the full HTTP request cycle: calls ensureBooted(), enables profiler and RequestTrace (if debug), installs a global exception handler, boots extensions, freezes the app, builds the request from PHP globals, dispatches through the middleware pipeline, records request traces, and sends the response. Called once per request from public/index.php.
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// public/index.php
+require __DIR__ . '/../vendor/autoload.php';
+App::instance()->run();
+```
+</CodeExample>
+
+<WarningBox>
+
+Not re-entrant
+
+</WarningBox>
+
+<WarningBox>
+
+Installs a global exception handler that persists for the process lifetime
+
+</WarningBox>
+
+<WarningBox>
+
+In production, 500 errors return a bare 'Internal Server Error' string
+
+</WarningBox>
+
+</ApiMethod>
+
+<ApiMethod name="shutdown">
+
+<ApiSignature>
+
+```php
+public function shutdown(): void
+```
+
+</ApiSignature>
+
+Shuts down process-scoped resources before the worker exits. Closes all pooled database connections and clears the cache facade.
+
+</ApiMethod>
+
+<ApiMethod name="assertMutable">
+
+<ApiSignature>
+
+```php
+private function assertMutable(string $action): void
+```
+
+</ApiSignature>
+
+Throws LogicException if the app is frozen, preventing post-boot mutation. Logs the violation with the active extension name for diagnostics.
+
+<ApiParam name="$action" type="string" required>
+
+Human-readable action name included in the error message and log.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+If the app is frozen.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Scoped Store
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Stores a value in the scope determined by the key prefix. Keys prefixed `sys.` go to the immutable-after-boot sys scope, `app.` to config scope, `user.` or bare keys to per-request scope. In production (non-debug), sys.* keys throw LogicException on duplicate writes.
+
+<ApiParam name="$key" type="string" required>
+
+Scoped key. Prefix determines target scope: sys.*, app.*, user.*, or bare (→ user).
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Value to store.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+When overwriting a sys.* key in production (app.debug === false).
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Reads from the scope matching the key prefix. For app.* keys, falls back to Config::get("app.&#123;$k&#125;") when the key is not set directly. Never throws — returns $default for missing keys.
+
+<ApiParam name="$key" type="string" required>
+
+Scoped key to read. Prefix determines source scope.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when the key is absent from the target scope.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="userScopeEmpty">
+
+<ApiSignature>
+
+```php
+public function userScopeEmpty(): bool
+```
+
+</ApiSignature>
+
+Returns true when the user scope contains no keys. Used by the leak detector to verify endRequest() cleared per-request state.
+
+</ApiMethod>
+
+## DI Container
+
+<ApiMethod name="bind">
+
+<ApiSignature>
+
+```php
+public function bind(string $abstract, callable|string $factory, ?int $priority = null, ?Lifetime $lifetime = null): void
+```
+
+</ApiSignature>
+
+Registers a factory callable for DI resolution. Clears the resolved singleton cache for the abstract so the new factory takes effect on the next make() call. Higher-priority bindings replace lower ones
+
+<ApiParam name="$abstract" type="string" required>
+
+Abstract type or identifier to bind. Typically a fully-qualified class name.
+
+</ApiParam>
+
+<ApiParam name="$factory" type="callable" required>
+
+Callable receiving the app instance, or a class name string for auto-wiring.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="?int">
+
+Binding priority (higher wins). Null uses the current extension context priority (default 100).
+
+</ApiParam>
+
+<ApiParam name="$lifetime" type="?lifetime">
+
+Binding lifetime. Null defaults to singleton; null is rejected when strict_di is enabled.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+If called after freeze().
+
+</ApiThrows>
+
+<ApiThrows type="\LogicException">
+
+If strict_di is enabled and no lifetime is provided.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="bindRequest">
+
+<ApiSignature>
+
+```php
+public function bindRequest(string $abstract, callable|string $factory, ?int $priority = null): void
+```
+
+</ApiSignature>
+
+Registers a request-scoped binding. Behaves like bind() but the resolved singleton is cleared from the container at the end of each request via endRequest().
+
+<ApiParam name="$abstract" type="string" required>
+
+Abstract type or identifier to bind.
+
+</ApiParam>
+
+<ApiParam name="$factory" type="callable" required>
+
+Callable receiving app, or class name for auto-wiring.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="?int">
+
+Binding priority (higher wins).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="bindTransient">
+
+<ApiSignature>
+
+```php
+public function bindTransient(string $abstract, callable|string $factory, ?int $priority = null): void
+```
+
+</ApiSignature>
+
+Registers a transient binding — built fresh on every make() call. Never cached in $resolved.
+
+<ApiParam name="$abstract" type="string" required>
+
+Abstract type or identifier to bind.
+
+</ApiParam>
+
+<ApiParam name="$factory" type="callable" required>
+
+Callable receiving app, or class name for auto-wiring.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="?int">
+
+Binding priority (higher wins).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="applyBinding">
+
+<ApiSignature>
+
+```php
+private function applyBinding(string $abstract, callable|string $factory, ?int $priority, Lifetime $lifetime): void
+```
+
+</ApiSignature>
+
+Performs the actual binding registration for a given lifetime. Shared by bind(), bindRequest() and bindTransient(). Keeps the strict-DI check out of the request/transient helpers so they are never blocked by app.strict_di.
+
+<ApiParam name="$abstract" type="string" required>
+
+Abstract type or identifier to bind.
+
+</ApiParam>
+
+<ApiParam name="$factory" type="callable" required>
+
+Callable receiving app, or class name for auto-wiring.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="?int">
+
+Binding priority (higher wins). Null uses current extension priority.
+
+</ApiParam>
+
+<ApiParam name="$lifetime" type="lifetime" required>
+
+Resolved lifetime to apply.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+If called after freeze().
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="decorate">
+
+<ApiSignature>
+
+```php
+public function decorate(string $abstract, callable $decorator, ?int $priority = null): void
+```
+
+</ApiSignature>
+
+Wraps a resolved service with a decorator factory. Decorators are applied in ascending priority order, then by registration order for equal priorities. Clears the resolved cache so the next make() call applies the full decoration chain.
+
+<ApiParam name="$abstract" type="string" required>
+
+Abstract type whose resolved instances should be decorated.
+
+</ApiParam>
+
+<ApiParam name="$decorator" type="callable" required>
+
+Receives ($service, $app) and returns the decorated service.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="?int">
+
+Decoration priority. Null uses the current extension context priority.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+If called after freeze().
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="make">
+
+<ApiSignature>
+
+```php
+public function make(string $abstract): mixed
+```
+
+</ApiSignature>
+
+Resolves an abstract to a singleton instance. Returns the cached singleton if already resolved. Otherwise invokes the registered factory (or auto-wires via reflection when no binding exists but the class is loadable), applies decorators in priority order, and caches the result.
+
+<ApiParam name="$abstract" type="string" required>
+
+Class name or identifier to resolve. Must have a binding or be an instantiable class.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$app->bind(Mailer::class, fn($app) => new SmtpMailer($app->get('app.mail')));
+$mailer = $app->make(Mailer::class); // singleton from here on
+```
+</CodeExample>
+
+<ApiThrows type="\RuntimeException">
+
+If no binding exists and the class cannot be auto-wired (missing constructor dependency with no binding or default).
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="makeTransient">
+
+<ApiSignature>
+
+```php
+public function makeTransient(string $abstract): mixed
+```
+
+</ApiSignature>
+
+Resolves a service fresh every time
+
+<ApiParam name="$abstract" type="string" required>
+
+Class name or identifier to resolve.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+If no binding exists and the class cannot be auto-wired.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="requestScopedServices">
+
+<ApiSignature>
+
+```php
+public function requestScopedServices(): array
+```
+
+</ApiSignature>
+
+Returns the list of abstracts registered with request lifetime. Used by the leak detector and tests to verify that request-scoped bindings are correctly tracked.
+
+</ApiMethod>
+
+<ApiMethod name="clearLifetimeMeta">
+
+<ApiSignature>
+
+```php
+private function clearLifetimeMeta(string $abstract): void
+```
+
+</ApiSignature>
+
+Clears resolved cache and all lifetime flags for an abstract. Centralizes lifetime transition so bind(), bindRequest(), and bindTransient() cannot leave stale requestScoped/transient flags behind when an abstract is rebound with a different lifetime.
+
+<ApiParam name="$abstract" type="string" required>
+
+Abstract whose lifetime metadata should be cleared.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="normalizeFactory">
+
+<ApiSignature>
+
+```php
+private function normalizeFactory(callable|string $factory): callable
+```
+
+</ApiSignature>
+
+Converts a string class name to an auto-wiring factory closure that calls build(). Passes callables through unchanged.
+
+<ApiParam name="$factory" type="callable" required>
+
+Class name string or callable.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="build">
+
+<ApiSignature>
+
+```php
+private function build(string $abstract): mixed
+```
+
+</ApiSignature>
+
+Instantiates a class via reflection auto-wiring. Resolves constructor dependencies recursively through make(). Uses default parameter values for scalar params without bindings.
+
+<ApiParam name="$abstract" type="string" required>
+
+Fully-qualified class name to instantiate.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+If a constructor parameter has no binding and no default value.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="applyDecorators">
+
+<ApiSignature>
+
+```php
+private function applyDecorators(string $abstract, mixed $service): mixed
+```
+
+</ApiSignature>
+
+Applies registered decorators to a resolved service in ascending priority order, then registration order. Returns the service unchanged when no decorators exist for the abstract.
+
+<ApiParam name="$abstract" type="string" required>
+
+Abstract type used to look up decorators.
+
+</ApiParam>
+
+<ApiParam name="$service" type="mixed" required>
+
+The resolved service to decorate.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Middleware
+
+<ApiMethod name="use">
+
+<ApiSignature>
+
+```php
+public function use(string $class, mixed ...$args): void
+```
+
+</ApiSignature>
+
+Registers a global middleware class applied to every HTTP request in registration order. Must be called before run() or freeze().
+
+<ApiParam name="$class" type="string" required>
+
+Middleware class name implementing the middleware interface.
+
+</ApiParam>
+
+<ApiParam name="$args" type="mixed">
+
+Constructor arguments passed to the middleware when instantiated.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+If called after freeze().
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="freeze">
+
+<ApiSignature>
+
+```php
+public function freeze(): void
+```
+
+</ApiSignature>
+
+Freezes all mutation points: service bindings, decorators, middleware registration, and route mutations. Called automatically by run() before dispatch. Irreversible for this instance.
+
+<WarningBox>
+
+Irreversible — no thaw() method exists. After freeze
+
+</WarningBox>
+
+<WarningBox>
+
+bind()
+
+</WarningBox>
+
+<WarningBox>
+
+decorate()
+
+</WarningBox>
+
+<WarningBox>
+
+use()
+
+</WarningBox>
+
+<WarningBox>
+
+and route registration all throw LogicException.
+
+</WarningBox>
+
+</ApiMethod>
+
+<ApiMethod name="isFrozen">
+
+<ApiSignature>
+
+```php
+public function isFrozen(): bool
+```
+
+</ApiSignature>
+
+Returns true after freeze() has been called.
+
+</ApiMethod>
+
+## Request Dispatch
+
+<ApiMethod name="emit">
+
+<ApiSignature>
+
+```php
+public function emit(mixed $result, Response $fallback): void
+```
+
+</ApiSignature>
+
+Emits a controller result through the response object. Normalises mixed return values into a proper HTTP response and sends it.
+
+<ApiParam name="$result" type="mixed" required>
+
+Controller return value.
+
+</ApiParam>
+
+<ApiParam name="$fallback" type="response" required>
+
+Response object used as fallback for non-response types.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="dispatch">
+
+<ApiSignature>
+
+```php
+public function dispatch(Request $req, Response $res, bool $skipMiddleware = false): response
+```
+
+</ApiSignature>
+
+Dispatches a request through the router and middleware pipeline without sending headers or body. Calls ensureBooted() first to guarantee the framework is initialised. Returns 404 for unmatched routes, 405 for method mismatches. Temporarily sets this instance as the global singleton during dispatch and restores the previous instance in a finally block.
+
+<ApiParam name="$req" type="request" required>
+
+The request to dispatch.
+
+</ApiParam>
+
+<ApiParam name="$res" type="response" required>
+
+The response object to populate.
+
+</ApiParam>
+
+<ApiParam name="$skipMiddleware" type="bool">
+
+When true, bypasses all global and route middleware. Useful for unit tests.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="callHandler">
+
+<ApiSignature>
+
+```php
+private function callHandler(array|callable $handler, Request $req, Response $res, array $params): mixed
+```
+
+</ApiSignature>
+
+Resolves controller handler arguments via DI and route params. For closures, passes request/response and route params directly. For class-based handlers, resolves the controller via make() and injects method dependencies by type-hint, matching route params by name.
+
+<ApiParam name="$handler" type="array" required>
+
+Route handler — either a closure or [class, method] array.
+
+</ApiParam>
+
+<ApiParam name="$req" type="request" required>
+
+Current request.
+
+</ApiParam>
+
+<ApiParam name="$res" type="response" required>
+
+Current response.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array" required>
+
+Route parameters matched by the router.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Extensions
+
+<ApiMethod name="withExtensionContext">
+
+<ApiSignature>
+
+```php
+public function withExtensionContext(string $name, int $priority, callable $callback): mixed
+```
+
+</ApiSignature>
+
+Temporarily sets the active extension name and priority so that bind(), decorate(), and similar calls inside $callback inherit the correct priority. The previous extension context is restored in a finally block, even if the callback throws.
+
+<ApiParam name="$name" type="string" required>
+
+Extension identifier used for diagnostics and assertMutable error messages.
+
+</ApiParam>
+
+<ApiParam name="$priority" type="int" required>
+
+Priority applied to registrations (bind, decorate) inside the callback.
+
+</ApiParam>
+
+<ApiParam name="$callback" type="callable" required>
+
+Executed with the extension context active. Return value is passed through.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$app->withExtensionContext('auth', 50, function() use ($app) {
+    $app->bind(AuthService::class, fn() => new JwtAuth());
+});
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="capabilities">
+
+<ApiSignature>
+
+```php
+public function capabilities(): array
+```
+
+</ApiSignature>
+
+Aggregates capability declarations from all loaded extensions into a flat map keyed by capability name. Each value includes `provided_by` (extension name) and any extension-declared details. First provider wins for duplicate capability names.
+
+<NoteBox>
+
+Safe to call before or after freeze — reads sys.extensions which is set during extension discovery.
+
+</NoteBox>
+
+</ApiMethod>
+
+<ApiMethod name="bootExtensions">
+
+<ApiSignature>
+
+```php
+public function bootExtensions(): void
+```
+
+</ApiSignature>
+
+Boots extensions once via the extension manager. Idempotent — subsequent calls after the first are no-ops.
+
+</ApiMethod>
+
+<ApiMethod name="currentExtensionPriority">
+
+<ApiSignature>
+
+```php
+private function currentExtensionPriority(): int
+```
+
+</ApiSignature>
+
+Returns the priority from the active extension context set by withExtensionContext(). Defaults to 100 when no context is active.
+
+</ApiMethod>
+
+## Testing
+
+<ApiMethod name="__clone">
+
+<ApiSignature>
+
+```php
+public function __clone()
+```
+
+</ApiSignature>
+
+Resets resolved singletons and user scope on clone. Preserves bindings, decorators, sys/app data, and middleware. Creates a fresh pipeline.
+
+</ApiMethod>
+
+<ApiMethod name="testInstance">
+
+<ApiSignature>
+
+```php
+public static function testInstance(array $config = []): static
+```
+
+</ApiSignature>
+
+Creates a fresh isolated container that skips .env and config/*.php loading. Config values are injected directly via the $config array. The returned instance has its own router, pipeline, and mutation guard but shares no state with App::instance().
+
+<ApiParam name="$config" type="array">
+
+Key-value pairs injected into app scope. Keys use dot notation without the app. prefix (e.g. 'db.driver' =&gt; 'memory').
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$app = App::testInstance(['db.driver' => 'memory', 'app.debug' => true]);
+$app->router->get('/test', fn() => 'ok');
+$res = $app->dispatch(Request::make('GET', '/test'), new Response());
+```
+</CodeExample>
+
+<NoteBox>
+
+Safe to call multiple times per test. Each call returns an independent instance.
+
+</NoteBox>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="snapshotBindings">
+
+<ApiSignature>
+
+```php
+public function snapshotBindings(): array
+```
+
+</ApiSignature>
+
+Returns a metadata array of every currently-registered binding. #AI:snapshot_bindings
+
+Used by ErrorPage::collectContainer() to render the "registered services"
+list in the Container panel. Captures [abstract, factory_kind, priority]
+triples; never the factory closure itself (closures don't survive var_export
+and would leak memory in the error page).
+
+</ApiMethod>
+
+<ApiMethod name="enableTracing">
+
+<ApiSignature>
+
+```php
+public function enableTracing(): void
+```
+
+</ApiSignature>
+
+Enables DI tracing — make() starts populating resolve_stack, failed_at, #AI:enable_tracing
+and partial_args so the error page can render the in-flight chain when
+a binding throws.
+
+Off by default to keep the hot path allocation-free. Should be turned on
+by the error handler before render(), not at request time, so normal
+requests pay nothing.
+
+</ApiMethod>
+
+<ApiMethod name="disableTracing">
+
+<ApiSignature>
+
+```php
+public function disableTracing(): void
+```
+
+</ApiSignature>
+
+Disables DI tracing and clears the captured state. #AI:disable_tracing
+
+Safe to call between requests — resets the trace fields so a leftover
+state from a previous request can't leak into a new one.
+
+</ApiMethod>
+
+<ApiMethod name="resolvedServices">
+
+<ApiSignature>
+
+```php
+public function resolvedServices(): array
+```
+
+</ApiSignature>
+
+Returns the list of abstracts that have been resolved during this request. #AI:resolved_services
+
+Mirrors Laravel's container-&gt;resolved() — used by the error page's
+Container tab to show which services have been instantiated and which
+are still pending. Exposes only the abstract names (not the instances
+themselves) so the list is safe to render.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Core\App
+role: application kernel and service container
+layer: core
+lifecycle: singleton, created on first `instance()` call, booted lazily via `ensureBooted()` in `run()` or `dispatch()`, frozen before request dispatch
+owns: singleton instance, DI bindings, resolved singletons, scoped store, middleware stack, router, pipeline, extension context
+flow: App::instance() -> run() -> ensureBooted() -> boot() [router -> extensions] -> profiler/RequestTrace -> bootExtensions() -> freeze() -> dispatch() -> pipeline -> callHandler() -> response
+entry_points:
+  - instance
+  - testInstance
+  - run
+  - dispatch
+config_reads:
+  - app.debug
+  - app.view.default_layout
+  - app.*
+invariants:
+  - instance() returns the same object for the process lifetime
+  - sys.* keys are write-once in production
+  - bind/decorate/use throw after freeze()
+  - make() caches singletons until the container is cloned
+side_effects:
+  - run() installs global exception handler and sends HTTP response
+  - freeze() permanently locks mutation
+  - set() may throw on sys.* overwrite in production
+  - boot() initialises router, pipeline, and extensions once
+non_goals:
+  - Does not handle HTTP transport (delegates to request/response)
+  - Does not manage database connections directly
+  - Does not serialize or persist state across requests
+```
+</AiContext>

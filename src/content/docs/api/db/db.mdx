@@ -1,0 +1,432 @@
+---
+title: db
+description: "Static facade for database operations using query_gen SQL templates with lazy connections and profiler integration."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="db" />
+<ApiBadge type="query_gen" />
+<ApiBadge type="lazy-connect" />
+<ApiBadge type="profiler" />
+
+`db` is the static entry point for all raw SQL operations. It uses query_gen `%placeholder%` templates processed by `QueryBuilder` (internal). Connections are lazy — PDO is created on first query, not on config load. All queries are recorded in the profiler when APP_DEBUG is enabled.
+
+```txt
+Symbol: Skim\Db\Db
+Source: src/Db/Db.php
+Lifecycle: static facade, connections resolved lazily on first query per named connection
+Fallback: none — missing connection config throws RuntimeException
+Test seam: test_db() for SQLite :memory:, reset() to clear connection pool
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$users = Db::all('SELECT * FROM users %where% %limit%', [
+    'where' => ['status = :status'], ':status' => 'active', 'limit' => 20,
+]);
+Db::transaction(fn() => Db::query('UPDATE accounts %set% WHERE id = :id', [
+    'set' => ['balance' => 100], ':id' => 1,
+]));
+```
+</CodeExample>
+
+<WarningBox>
+
+Always use transaction() for multi-table writes
+
+</WarningBox>
+
+<WarningBox>
+
+Always use limit on large tables with all()
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Db::query/val/row/all()
+-> QueryBuilder::build(sql, params)
+-> pdo(connection) auto-connects if needed
+-> PDO prepare + execute
+-> Profiler::db() records timing
+-> return rows/scalar/count
+```
+
+</LifecycleFlow>
+
+The facade keeps raw SQL as the primary interface. QueryBuilder handles %placeholder% substitution internally — it is not part of the public API.
+
+<NoteBox>
+
+The connection pool is process-local. Call reset() in test tearDown() to clear connections.
+
+</NoteBox>
+
+## Connection Management
+
+<ApiMethod name="connect">
+
+<ApiSignature>
+
+```php
+public static function connect(string $name, array $config): void
+```
+
+</ApiSignature>
+
+Registers and immediately opens a named PDO connection. The config array must contain driver, host/database, and optional port/charset/credentials.
+
+<ApiParam name="$name" type="string" required>
+
+Connection name used in all query methods.
+
+</ApiParam>
+
+<ApiParam name="$config" type="array" required>
+
+Driver config array from config/db.php.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="pdo">
+
+<ApiSignature>
+
+```php
+public static function pdo(string $connection = 'default'): \PDO
+```
+
+</ApiSignature>
+
+Returns the PDO instance for the named connection. Auto-connects from config/db.php on first access.
+
+<ApiParam name="$connection" type="string">
+
+Named connection. Default 'default'.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+When the named connection is not defined in config/db.php.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Query Execution
+
+<ApiMethod name="query">
+
+<ApiSignature>
+
+```php
+public static function query(string $sql, array $params = [], bool $debug = false, string $connection = 'default'): mixed
+```
+
+</ApiSignature>
+
+Executes a query_gen SQL template. Returns array of rows for SELECT, int rowCount for INSERT/UPDATE/DELETE. When $debug is true, returns the interpolated SQL string without executing.
+
+<ApiParam name="$sql" type="string" required>
+
+SQL template with %placeholders%.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Placeholder values and :named params.
+
+</ApiParam>
+
+<ApiParam name="$debug" type="bool">
+
+When true, returns interpolated SQL without executing.
+
+</ApiParam>
+
+<ApiParam name="$connection" type="string">
+
+Named DB connection.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="val">
+
+<ApiSignature>
+
+```php
+public static function val(string $sql, array $params = [], string $connection = 'default'): mixed
+```
+
+</ApiSignature>
+
+Returns a single scalar value from the first column of the first row. Returns null when no row matches.
+
+<ApiParam name="$sql" type="string" required>
+
+SQL template with %placeholders%.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Placeholder values and :named params.
+
+</ApiParam>
+
+<ApiParam name="$connection" type="string">
+
+Named DB connection.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="row">
+
+<ApiSignature>
+
+```php
+public static function row(string $sql, array $params = [], string $connection = 'default'): ?array
+```
+
+</ApiSignature>
+
+Returns a single row as an associative array. Returns null when no row matches — never throws.
+
+<ApiParam name="$sql" type="string" required>
+
+SQL template with %placeholders%.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Placeholder values and :named params.
+
+</ApiParam>
+
+<ApiParam name="$connection" type="string">
+
+Named DB connection.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="all">
+
+<ApiSignature>
+
+```php
+public static function all(string $sql, array $params = [], string $connection = 'default'): array
+```
+
+</ApiSignature>
+
+Returns all matching rows as an array. Returns empty array when no rows match — never null.
+
+<ApiParam name="$sql" type="string" required>
+
+SQL template with %placeholders%.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Placeholder values and :named params.
+
+</ApiParam>
+
+<ApiParam name="$connection" type="string">
+
+Named DB connection.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Transactions
+
+<ApiMethod name="transaction">
+
+<ApiSignature>
+
+```php
+public static function transaction(callable $fn, string $connection = 'default'): mixed
+```
+
+</ApiSignature>
+
+Wraps $fn in BEGIN/COMMIT. Auto-ROLLBACK on any Throwable. The original exception is rethrown after rollback — never swallowed.
+
+<ApiParam name="$fn" type="callable" required>
+
+Code to execute inside the transaction.
+
+</ApiParam>
+
+<ApiParam name="$connection" type="string">
+
+Named DB connection.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Db::transaction(function() {
+    Db::query('UPDATE accounts %set% WHERE id = :id', ['set' => ['balance' => 100], ':id' => 1]);
+    Db::query('UPDATE accounts %set% WHERE id = :id', ['set' => ['balance' => 200], ':id' => 2]);
+});
+```
+</CodeExample>
+
+<WarningBox>
+
+Always use for multi-table writes — partial writes corrupt data
+
+</WarningBox>
+
+</ApiMethod>
+
+## Utilities
+
+<ApiMethod name="null">
+
+<ApiSignature>
+
+```php
+public static function null(): NullMarker
+```
+
+</ApiSignature>
+
+Returns a NullMarker sentinel for use in %set% to force SET col = NULL. Plain null skips the column.
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Db::query('UPDATE users %set% WHERE id = :id', [
+    'set' => ['avatar' => Db::null()], ':id' => 5,
+]);
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears all pooled PDO connections. Forces re-connection from config on the next query.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="connectionCount">
+
+<ApiSignature>
+
+```php
+public static function connectionCount(): int
+```
+
+</ApiSignature>
+
+Returns the number of active pooled connections. #AI:connection_count
+
+</ApiMethod>
+
+<ApiMethod name="hasOpenTransaction">
+
+<ApiSignature>
+
+```php
+public static function hasOpenTransaction(): bool
+```
+
+</ApiSignature>
+
+Returns true if any pooled connection has an open transaction. #AI:has_open_transaction
+
+</ApiMethod>
+
+<ApiMethod name="rollbackAll">
+
+<ApiSignature>
+
+```php
+public static function rollbackAll(): void
+```
+
+</ApiSignature>
+
+Rolls back any open transactions on all pooled connections. #AI:rollback_all
+
+Safety net for worker mode: if a request exits with an uncommitted
+transaction, the next request must not inherit it. Called by
+WorkerReset::apply() between requests.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\Db
+role: static database facade
+layer: db
+lifecycle: static facade, connections resolved lazily on first query per named connection
+owns: PDO connection pool
+flow: Db::method() -> QueryBuilder::build() -> PDO prepare/execute -> Profiler::db()
+entry_points:
+  - query
+  - val
+  - row
+  - all
+  - transaction
+  - null
+  - pdo
+  - connect
+  - reset
+config_reads:
+  - db.default
+  - db.*.driver
+  - db.*.host
+  - db.*.port
+  - db.*.database
+  - db.*.charset
+  - db.*.user
+  - db.*.password
+invariants:
+  - connections are lazy — PDO created on first query
+  - query() returns rows for SELECT, rowCount for DML
+  - val() returns null on no match
+  - row() returns null on no match
+  - all() returns empty array on no match
+  - transaction() auto-rolls back on any Throwable
+side_effects:
+  - Profiler::db records every query
+  - connect() opens PDO connections
+  - reset() closes all pooled connections
+non_goals:
+  - Does not provide an ORM — use model for active record
+  - Does not handle migrations — use migrator
+  - QueryBuilder is internal, not public API
+```
+</AiContext>

@@ -1,0 +1,570 @@
+---
+title: filter
+description: "Input validation helper returning typed values or false — never null."
+---
+
+<ApiBadge type="helper" />
+<ApiBadge type="validation" />
+<ApiBadge type="filter" />
+<ApiBadge type="stateless" />
+
+`filter` validates and sanitizes user input. Every method returns the typed value on success or `false` on invalid input — never `null`. Use in controllers before passing data to models or queries.
+
+```txt
+Symbol: Skim\Helpers\Filter
+Source: src/Helpers/Filter.php
+Lifecycle: stateless — all methods are pure functions
+Fallback: none
+Test seam: test directly — no mocking needed
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$age   = Filter::int($req->post('age'), min: 18, max: 120);
+$email = Filter::email($req->post('email'));
+if ($age === false || $email === false) {
+    return $res->status(422)->json(['error' => 'Invalid input']);
+}
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+controller receives input
+-> Filter::method() validates
+-> typed value or false
+-> controller branches on false
+```
+
+</LifecycleFlow>
+
+Complements Validate::make() — filter is for single-value type checking, validate is for form-level rules with error messages.
+
+<NoteBox>
+
+Use Filter::int() for strict integer validation — it rejects float-like strings. Use Validate::make() for form-level validation with error messages.
+
+</NoteBox>
+
+## Numeric
+
+<ApiMethod name="int">
+
+<ApiSignature>
+
+```php
+public static function int(mixed $value, ?int $min = null, ?int $max = null): int|false
+```
+
+</ApiSignature>
+
+Returns int if $value is a valid integer string. Rejects floats (1.5), non-numeric strings, and values outside [$min, $max].
+
+<ApiParam name="$value" type="mixed" required>
+
+Input to validate.
+
+</ApiParam>
+
+<ApiParam name="$min" type="?int">
+
+Minimum allowed value (inclusive).
+
+</ApiParam>
+
+<ApiParam name="$max" type="?int">
+
+Maximum allowed value (inclusive).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="intPositive">
+
+<ApiSignature>
+
+```php
+public static function intPositive(mixed $value): int|false
+```
+
+</ApiSignature>
+
+Alias for int() with min:1.
+
+<ApiParam name="$value" type="mixed" required>
+
+Input to validate.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="intNatural">
+
+<ApiSignature>
+
+```php
+public static function intNatural(mixed $value): int|false
+```
+
+</ApiSignature>
+
+Alias for int() with min:0.
+
+<ApiParam name="$value" type="mixed" required>
+
+Input to validate.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="float">
+
+<ApiSignature>
+
+```php
+public static function float(mixed $value, ?float $min = null, ?float $max = null): float|false
+```
+
+</ApiSignature>
+
+Returns float if numeric, false otherwise. Optional min/max range check.
+
+<ApiParam name="$value" type="mixed" required>
+
+Input to validate.
+
+</ApiParam>
+
+<ApiParam name="$min" type="?float">
+
+Minimum allowed value.
+
+</ApiParam>
+
+<ApiParam name="$max" type="?float">
+
+Maximum allowed value.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Boolean
+
+<ApiMethod name="bool">
+
+<ApiSignature>
+
+```php
+public static function bool(mixed $value): bool
+```
+
+</ApiSignature>
+
+Converts truthy/falsy string representations to bool. Accepts '1','true','yes','on' → true
+
+<ApiParam name="$value" type="mixed" required>
+
+Input to convert.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Date & Time
+
+<ApiMethod name="date">
+
+<ApiSignature>
+
+```php
+public static function date(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Returns Y-m-d string for valid dates, false otherwise. Uses strtotime() for parsing.
+
+<ApiParam name="$value" type="mixed" required>
+
+Date string or timestamp.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="time">
+
+<ApiSignature>
+
+```php
+public static function time(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Returns H:i:s string for valid time strings, false otherwise.
+
+<ApiParam name="$value" type="mixed" required>
+
+Time string.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Network
+
+<ApiMethod name="ip">
+
+<ApiSignature>
+
+```php
+public static function ip(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Validates IPv4 or IPv6 address using FILTER_VALIDATE_IP.
+
+<ApiParam name="$value" type="mixed" required>
+
+IP address string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="domain">
+
+<ApiSignature>
+
+```php
+public static function domain(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Validates a domain name. Returns the host portion only (no scheme, no path).
+
+<ApiParam name="$value" type="mixed" required>
+
+Domain string.
+
+</ApiParam>
+
+</ApiMethod>
+
+## String Patterns
+
+<ApiMethod name="email">
+
+<ApiSignature>
+
+```php
+public static function email(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Validates and lowercases an email address using FILTER_VALIDATE_EMAIL.
+
+<ApiParam name="$value" type="mixed" required>
+
+Email string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="url">
+
+<ApiSignature>
+
+```php
+public static function url(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Validates a URL using FILTER_VALIDATE_URL.
+
+<ApiParam name="$value" type="mixed" required>
+
+URL string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="username">
+
+<ApiSignature>
+
+```php
+public static function username(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Validates against [a-zA-Z0-9_@.\-]+ pattern.
+
+<ApiParam name="$value" type="mixed" required>
+
+Username string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="password">
+
+<ApiSignature>
+
+```php
+public static function password(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Validates minimum 8-character password.
+
+<ApiParam name="$value" type="mixed" required>
+
+Password string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="slug">
+
+<ApiSignature>
+
+```php
+public static function slug(mixed $value): string|false
+```
+
+</ApiSignature>
+
+Validates against [a-z0-9\-]+ pattern.
+
+<ApiParam name="$value" type="mixed" required>
+
+Slug string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="regex">
+
+<ApiSignature>
+
+```php
+public static function regex(mixed $value, string $pattern): string|false
+```
+
+</ApiSignature>
+
+Validates a string against a custom PCRE pattern.
+
+<ApiParam name="$value" type="mixed" required>
+
+Input string.
+
+</ApiParam>
+
+<ApiParam name="$pattern" type="string" required>
+
+PCRE pattern.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Range & Enum
+
+<ApiMethod name="in">
+
+<ApiSignature>
+
+```php
+public static function in(mixed $value, array $allowed): mixed
+```
+
+</ApiSignature>
+
+Returns the value only if it is in the allowed list. Uses strict comparison.
+
+<ApiParam name="$value" type="mixed" required>
+
+Input to check.
+
+</ApiParam>
+
+<ApiParam name="$allowed" type="array" required>
+
+Whitelist of allowed values.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="range">
+
+<ApiSignature>
+
+```php
+public static function range(int|float $value, int|float $min, int|float $max): int|float|false
+```
+
+</ApiSignature>
+
+Returns the value only if it falls within [$min, $max] inclusive.
+
+<ApiParam name="$value" type="int" required>
+
+Input to check.
+
+</ApiParam>
+
+<ApiParam name="$min" type="int" required>
+
+Minimum (inclusive).
+
+</ApiParam>
+
+<ApiParam name="$max" type="int" required>
+
+Maximum (inclusive).
+
+</ApiParam>
+
+</ApiMethod>
+
+## Array Variants
+
+<ApiMethod name="arrInt">
+
+<ApiSignature>
+
+```php
+public static function arrInt(array $values, ?int $min = null, ?int $max = null): array
+```
+
+</ApiSignature>
+
+Filters an array, keeping only valid ints within optional range. Re-indexes the result.
+
+<ApiParam name="$values" type="array" required>
+
+Input values.
+
+</ApiParam>
+
+<ApiParam name="$min" type="?int">
+
+Minimum allowed value.
+
+</ApiParam>
+
+<ApiParam name="$max" type="?int">
+
+Maximum allowed value.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="arrIntPositive">
+
+<ApiSignature>
+
+```php
+public static function arrIntPositive(array $values): array
+```
+
+</ApiSignature>
+
+Filters an array, keeping only positive ints (min:1).
+
+<ApiParam name="$values" type="array" required>
+
+Input values.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="arrIn">
+
+<ApiSignature>
+
+```php
+public static function arrIn(array $values, array $allowed): array
+```
+
+</ApiSignature>
+
+Filters an array, keeping only values present in $allowed. Re-indexes the result.
+
+<ApiParam name="$values" type="array" required>
+
+Input values.
+
+</ApiParam>
+
+<ApiParam name="$allowed" type="array" required>
+
+Whitelist.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Helpers\Filter
+role: input validation helper
+layer: helpers
+lifecycle: stateless — all methods are pure functions
+owns: nothing
+flow: controller -> Filter::method(input) -> typed value or false -> model/query
+entry_points:
+  - int
+  - intPositive
+  - intNatural
+  - float
+  - bool
+  - date
+  - time
+  - ip
+  - domain
+  - email
+  - url
+  - username
+  - password
+  - slug
+  - regex
+  - in
+  - range
+  - arrInt
+  - arrIntPositive
+  - arrIn
+invariants:
+  - all methods return typed value or false, never null
+  - int() rejects floats
+  - email() lowercases output
+  - strict type checking with === false
+non_goals:
+  - Does not provide error messages — use Validate::make() for that
+  - Does not sanitize HTML — use e() for output escaping
+```
+</AiContext>

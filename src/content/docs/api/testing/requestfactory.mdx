@@ -1,0 +1,142 @@
+---
+title: RequestFactory
+description: "Factory that builds request objects from raw parameters with proper $_SERVER header mapping."
+---
+
+<ApiBadge type="testing" />
+<ApiBadge type="factory" />
+<ApiBadge type="request" />
+<ApiBadge type="infrastructure" />
+
+`RequestFactory` constructs `Skim\Core\Request` instances from raw parameters, handling the mapping from human-readable header names to PHP's `$_SERVER`-style keys.
+
+```txt
+Symbol: Skim\Testing\RequestFactory
+Source: src/Testing/RequestFactory.php
+Lifecycle: called per-request by PendingRequest::send()
+Fallback: n/a — test-only class
+Test seam: static factory, call directly to build custom requests
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$req = RequestFactory::make('POST', '/api/users', headers: ['Accept' => 'application/json']);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+PendingRequest builds headers/method/path
+-> RequestFactory::make()
+-> header mapping
+-> new Request(query, post, server, cookies, files, rawBody)
+```
+
+</LifecycleFlow>
+
+Isolates the $_SERVER header mapping logic so PendingRequest stays focused on dispatch configuration.
+
+<NoteBox>
+
+Content-Type and Content-Length are special cases in PHP's $_SERVER and do not use the HTTP_ prefix.
+
+</NoteBox>
+
+## Factory
+
+<ApiMethod name="make">
+
+<ApiSignature>
+
+```php
+public static function make(string $method = 'GET', string $path = '/', array $query = [], array $post = [], array $headers = [], string $rawBody = '', array $cookies = [], array $files = []): request
+```
+
+</ApiSignature>
+
+Builds a request object from raw parameters. Maps human-readable headers to $_SERVER-style keys with proper HTTP_ prefix handling.
+
+<ApiParam name="$method" type="string">
+
+HTTP method, defaults to GET.
+
+</ApiParam>
+
+<ApiParam name="$path" type="string">
+
+Request URI path, defaults to /.
+
+</ApiParam>
+
+<ApiParam name="$query" type="array">
+
+Query string parameters.
+
+</ApiParam>
+
+<ApiParam name="$post" type="array">
+
+Form-encoded body data.
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Human-readable headers auto-mapped to $_SERVER keys.
+
+</ApiParam>
+
+<ApiParam name="$rawBody" type="string">
+
+Raw request body for JSON or other content types.
+
+</ApiParam>
+
+<ApiParam name="$cookies" type="array">
+
+Cookie key-value pairs.
+
+</ApiParam>
+
+<ApiParam name="$files" type="array">
+
+Uploaded file entries.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$req = RequestFactory::make(
+    method: 'POST',
+    path: '/api/users',
+    json: [],
+    headers: ['Content-Type' => 'application/json'],
+    raw_body: '{"name":"John"}',
+);
+```
+</CodeExample>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Testing\RequestFactory
+role: test request factory
+layer: testing
+lifecycle: called per-request by PendingRequest::send()
+owns: nothing — pure factory
+flow: PendingRequest::send() -> RequestFactory::make() -> new Request(...)
+entry_points:
+  - make
+invariants:
+  - Content-Type and Content-Length map without HTTP_ prefix
+  - All other headers get HTTP_ prefix with uppercased underscores
+  - Method is always uppercased
+non_goals:
+  - Does not validate request data
+  - Does not run middleware or routing
+```
+</AiContext>

@@ -1,0 +1,108 @@
+---
+title: ExtractedClass
+description: "Readonly value object representing a single extracted class with all annotation metadata from @ai.* tags."
+---
+
+<ApiBadge type="value" />
+<ApiBadge type="readonly" />
+<ApiBadge type="docs" />
+<ApiBadge type="no-framework-deps" />
+
+`ExtractedClass` is the immutable data carrier between the AST extraction pipeline and all downstream emitters. It holds every annotation field extracted from a single PHP class file.
+
+```txt
+Symbol: Skim\Dev\Docs\Value\ExtractedClass
+Source: src/Dev/Docs/Value/ExtractedClass.php
+Lifecycle: created once by ClassExtractor, never mutated, serialized by emitters
+Fallback: toArray() falls back to namespace\className for symbol, className for title
+Test seam: instantiate directly with test data
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$class = $extractor->extract('/path/to/file.php');
+$array = $class->toArray();  // for json_encode
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+constructed by ClassExtractor
+-> held by ProjectScanner
+-> serialized by JsonEmitter.to_array()
+```
+
+</LifecycleFlow>
+
+No framework dependencies — plain PHP only.
+
+## Construction
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $className, string $namespace, string $file, ...)
+```
+
+</ApiSignature>
+
+Creates an immutable value object with all extracted annotation fields. All fields except className, namespace, and file default to empty strings or empty arrays.
+
+</ApiMethod>
+
+## Serialization
+
+<ApiMethod name="toArray">
+
+<ApiSignature>
+
+```php
+public function toArray(): array
+```
+
+</ApiSignature>
+
+Serializes to a plain associative array suitable for json_encode. Falls back to derived values for symbol, title, description, intro, and source_path when explicit values are empty.
+
+</ApiMethod>
+
+<ApiMethod name="annotatedMethodCount">
+
+<ApiSignature>
+
+```php
+public function annotatedMethodCount(): int
+```
+
+</ApiSignature>
+
+Returns the count of public methods that have at least one @ai.* tag across any annotation field.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Value\ExtractedClass
+role: data carrier
+layer: dev
+lifecycle: created once by ClassExtractor, never mutated, serialized by emitters
+owns: methods (ExtractedMethod[])
+flow: ClassExtractor -> new ExtractedClass(...) -> toArray() -> JsonEmitter
+entry_points:
+  - toArray
+  - annotatedMethodCount
+invariants:
+  - readonly — never mutated after construction
+  - methods array contains ExtractedMethod instances
+  - toArray() is JSON-safe
+non_goals:
+  - Does not extract itself
+  - Does not validate annotations
+  - Does not write output
+```
+</AiContext>

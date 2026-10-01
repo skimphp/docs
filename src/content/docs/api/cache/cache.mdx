@@ -1,0 +1,417 @@
+---
+title: cache
+description: "Static cache facade for configured drivers, fail-soft fallback, tag support, and test driver injection."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="cache" />
+<ApiBadge type="driver-backed" />
+<ApiBadge type="fail-soft" />
+
+Static entry point for cache operations. Resolves the configured driver on first use and reuses it for the process lifetime. Falls back to a secondary driver when the primary cannot be created.
+
+```txt
+Symbol: Skim\Cache\Cache
+Source: src/Cache/Cache.php
+Lifecycle: static facade, driver resolved on first cache call
+Drivers: array, file, redis
+Fallback: cache.fallback when cache.driver cannot be created
+Test seam: setDriver(), reset()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$user = Cache::remember("user:{$id}", 3600, fn() => User::find($id));
+Cache::flush('user:'); // Invalidate all user:* keys
+Cache::flushAll();    // Wipe everything
+```
+</CodeExample>
+
+<WarningBox>
+
+flushAll() clears the entire active cache backend
+
+</WarningBox>
+
+<WarningBox>
+
+flush() requires a non-empty prefix
+
+</WarningBox>
+
+<WarningBox>
+
+Prefer prefix-based invalidation such as flush('user:') in production
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Cache::remember() / get() / set() / has()
+-> driver()
+-> cached driver instance?
+-> resolveDriver()
+-> makeDriver(config cache.driver)
+-> on failure makeDriver(config cache.fallback)
+-> concrete driver operation
+-> Profiler::cache(...)
+```
+
+</LifecycleFlow>
+
+The facade keeps cache usage stable while backend selection remains in config/cache.php. The flush()/flushAll() split forces callers to explicitly choose between targeted and destructive invalidation.
+
+<NoteBox>
+
+The resolved driver is process-local. If tests change cache config at runtime, call reset() before the next cache operation.
+
+</NoteBox>
+
+## Driver Model
+
+<div class="driver-grid">
+  <ScopeBox name="array" mutable>
+    In-memory cache driver. Values exist only for the current process and are not persisted.
+  </ScopeBox>
+  <ScopeBox name="file" mutable>
+    Filesystem-backed cache driver. Values are persisted on disk.
+  </ScopeBox>
+  <ScopeBox name="redis" mutable>
+    Redis-backed cache driver. Required for tag-scoped cache operations through Cache::tags().
+  </ScopeBox>
+</div>
+
+## Read API
+
+<ApiMethod name="remember">
+
+<ApiSignature>
+
+```php
+public static function remember(string $key, int $ttl, callable $default): mixed
+```
+
+</ApiSignature>
+
+Returns the cached value when the key exists. On a miss, executes the callback, stores the returned value with the provided TTL, records the miss in profiler, and returns the computed value.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key. Use stable prefixes such as user:42 or posts:published so related entries can be invalidated by prefix.
+
+</ApiParam>
+
+<ApiParam name="$ttl" type="int" required>
+
+Time to live in seconds for the computed value.
+
+</ApiParam>
+
+<ApiParam name="$default" type="callable" required>
+
+Callback executed only when the key is missing or expired.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$posts = Cache::remember('posts:published', 3600, fn() => Post::published()->get());
+```
+</CodeExample>
+
+<NoteBox>
+
+Use remember() for expensive reads when recomputing the value on cache miss is safe and deterministic.
+
+</NoteBox>
+
+</ApiMethod>
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public static function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns the cached value for the key. If the key is missing or expired, returns $default. Each read records a profiler cache event with hit or miss status.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback value returned when the key is missing or expired.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public static function has(string $key): bool
+```
+
+</ApiSignature>
+
+Returns true when the active driver contains a non-expired value for the key.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Write API
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public static function set(string $key, mixed $value, ?int $ttl = null): bool
+```
+
+</ApiSignature>
+
+Stores a value in the active driver. When $ttl is null, the facade uses cache.ttl from config and falls back to 3600 seconds when that value is not set.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Value to store. Must be supported by the active driver.
+
+</ApiParam>
+
+<ApiParam name="$ttl" type="?int">
+
+Optional TTL in seconds. null means use the configured default TTL.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public static function delete(string $key): bool
+```
+
+</ApiSignature>
+
+Removes one exact cache key from the active driver and records the delete operation in profiler.
+
+<ApiParam name="$key" type="string" required>
+
+Exact cache key to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Invalidation
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public static function flush(string $prefix): bool
+```
+
+</ApiSignature>
+
+Removes keys that match the given prefix. The prefix is required — callers who want a full cache wipe must use flushAll().
+
+<ApiParam name="$prefix" type="string" required>
+
+Key prefix to match. Use a non-empty prefix like user: for safer invalidation.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Cache::flush('user:'); // Removes all user:* keys
+```
+</CodeExample>
+
+<WarningBox>
+
+Prefix is required. Trying to flush with an empty string triggers a PHP ArgumentCountError — use flushAll() instead.
+
+</WarningBox>
+
+</ApiMethod>
+
+<ApiMethod name="flushAll">
+
+<ApiSignature>
+
+```php
+public static function flushAll(): bool
+```
+
+</ApiSignature>
+
+Unconditionally wipes the entire cache backend by delegating to the driver's flushAll(). Records the operation in profiler.
+
+<WarningBox>
+
+Destroys all cached data across all application contexts sharing this driver
+
+</WarningBox>
+
+<WarningBox>
+
+Triggers immediate re-computation on next read
+
+</WarningBox>
+
+<WarningBox>
+
+Prefer flush('prefix:') in production
+
+</WarningBox>
+
+</ApiMethod>
+
+## Tag Operations
+
+<ApiMethod name="tags">
+
+<ApiSignature>
+
+```php
+public static function tags(array $tags): TaggedRedisDriver
+```
+
+</ApiSignature>
+
+Returns a Redis tag-scoped cache proxy for the given tags. Available only when the active driver is RedisDriver.
+
+<ApiParam name="$tags" type="array" required>
+
+Tag identifiers used to scope subsequent cache operations.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Cache::tags(['users'])->set('user:42:profile', $data, 3600);
+Cache::tags(['users'])->flush(); // All entries tagged 'users'
+```
+</CodeExample>
+
+<ApiThrows type="RuntimeException">
+
+Thrown when the active driver is not RedisDriver.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="setDriver">
+
+<ApiSignature>
+
+```php
+public static function setDriver(Driver $driver): void
+```
+
+</ApiSignature>
+
+Replaces the active driver instance directly. Use in tests to bypass config-based resolution and external services.
+
+<ApiParam name="$driver" type="driver" required>
+
+Driver implementation used for subsequent cache calls.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Cache::setDriver(new ArrayDriver());
+// ... run tests ...
+Cache::reset();
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears the cached driver instance. The next cache call resolves the driver again from config.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cache\Cache
+role: static cache facade
+layer: cache
+lifecycle: static facade, driver resolved on first cache call
+owns: driver instance cache
+flow: Cache::method() -> driver() -> resolveDriver() [primary -> fallback] -> concrete driver -> profiler
+entry_points:
+  - remember
+  - get
+  - set
+  - has
+  - delete
+  - flush
+  - flushAll
+  - tags
+config_reads:
+  - cache.driver
+  - cache.fallback
+  - cache.ttl
+  - cache.redis.*
+  - cache.prefix
+  - cache.file.path
+invariants:
+  - driver is resolved once and reused until reset() or setDriver()
+  - get() returns default on miss
+  - remember() computes and stores only on miss
+  - tags() requires RedisDriver
+  - flush() requires non-empty prefix
+side_effects:
+  - Profiler::cache records cache operations
+  - setDriver() replaces active driver
+  - reset() forces re-resolution
+non_goals:
+  - Does not expose backend-specific APIs except Redis tags
+  - Does not handle serialization
+  - Fallback protects app availability, not cache consistency guarantees
+```
+</AiContext>

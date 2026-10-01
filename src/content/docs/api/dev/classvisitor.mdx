@@ -1,0 +1,180 @@
+---
+title: ClassVisitor
+description: "Internal AST visitor that captures class-level and method-level @ai.* annotations from PHPDoc, inline comments, and detached #AI blocks."
+---
+
+<ApiBadge type="extractor" />
+<ApiBadge type="ast" />
+<ApiBadge type="visitor" />
+<ApiBadge type="internal" />
+
+`ClassVisitor` is the AST traversal engine used by `ClassExtractor`. It visits namespace and class nodes, merges annotations from three sources (PHPDoc, inline //, detached #AI blocks), and builds `ExtractedClass` and `ExtractedMethod` value objects.
+
+```txt
+Symbol: Skim\Dev\Docs\Extractor\ClassVisitor
+Source: src/Dev/Docs/Extractor/ClassVisitor.php
+Lifecycle: created per-file by ClassExtractor, single-use
+Fallback: none — captures first non-anonymous class only
+Test seam: use via ClassExtractor
+```
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+enterNode()
+-> namespace tracking
+-> Class_ detection
+-> PHPDoc or inline parse
+-> detached block merge
+-> method iteration
+-> extractMethod()
+-> build ExtractedClass
+```
+
+</LifecycleFlow>
+
+Not part of the public API — only instantiated by ClassExtractor.
+
+## Traversal
+
+<ApiMethod name="enterNode">
+
+<ApiSignature>
+
+```php
+public function enterNode(Node $node): null
+```
+
+</ApiSignature>
+
+Visits each AST node. Tracks namespace context and captures the first non-anonymous class with all its annotated methods. Merges tags from PHPDoc, inline comments, trailing comment #AI blocks, and detached #AI blocks.
+
+</ApiMethod>
+
+## Extraction
+
+<ApiMethod name="extractMethod">
+
+<ApiSignature>
+
+```php
+private function extractMethod(ClassMethod $method, string $owner, array $tags): ExtractedMethod
+```
+
+</ApiSignature>
+
+Builds an ExtractedMethod from a ClassMethod AST node and its merged annotation tags. Constructs the method signature string from AST type nodes.
+
+</ApiMethod>
+
+<ApiMethod name="parseDetachedBlocks">
+
+<ApiSignature>
+
+```php
+private function parseDetachedBlocks(): array
+```
+
+</ApiSignature>
+
+Reads the source file and parses all detached #AI blocks at the bottom into class-level and method-level tag arrays. Uses #AI:&#123;target&#125; headers to determine section boundaries.
+
+</ApiMethod>
+
+## Value Helpers
+
+<ApiMethod name="rawValue">
+
+<ApiSignature>
+
+```php
+private function rawValue(array $tags, string $key): mixed
+```
+
+</ApiSignature>
+
+Returns the raw tag value for a key, unwrapping single-element list arrays to their scalar value.
+
+</ApiMethod>
+
+<ApiMethod name="scalarValue">
+
+<ApiSignature>
+
+```php
+private function scalarValue(array $tags, string $key, string $default = ''): string
+```
+
+</ApiSignature>
+
+Returns a scalar string from tags with optional default fallback.
+
+</ApiMethod>
+
+<ApiMethod name="listValue">
+
+<ApiSignature>
+
+```php
+private function listValue(array $tags, string $key): array
+```
+
+</ApiSignature>
+
+Returns a list value from tags, parsing bracket-delimited strings when needed.
+
+</ApiMethod>
+
+<ApiMethod name="recordValue">
+
+<ApiSignature>
+
+```php
+private function recordValue(array $tags, string $key): array
+```
+
+</ApiSignature>
+
+Returns a record value from tags, parsing pipe-delimited record strings when needed.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(Skim\Dev\Docs\Extractor\AnnotationParser $annotations, string $file)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Extractor\ClassVisitor
+role: internal AST visitor
+layer: dev
+lifecycle: created per-file by ClassExtractor, single-use
+owns: result (ExtractedClass), fileLines cache
+flow: enterNode() -> detect Class_ -> parse PHPDoc/inline/detached -> merge tags -> build ExtractedClass + ExtractedMethod[]
+entry_points:
+  - enterNode
+invariants:
+  - captures only the first non-anonymous class
+  - anonymous classes skipped
+  - private methods included only when they carry annotations or detached blocks
+  - detached blocks override inline tags
+side_effects:
+  - sets $result property on class capture
+non_goals:
+  - Does not parse files directly
+  - Does not validate annotations
+  - Does not handle multiple classes per file
+```
+</AiContext>

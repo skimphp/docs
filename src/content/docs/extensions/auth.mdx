@@ -3,7 +3,7 @@ title: Auth Extension
 description: Complete authentication surface for SKIM Framework applications.
 ---
 
-The SKIM Auth extension handles the entire user authentication and authorization surface with zero boilerplate.
+The `skim/auth` extension handles the entire user authentication surface with zero boilerplate — registration, login, email verification, password reset, and social OAuth.
 
 ### Features
 
@@ -11,19 +11,59 @@ The SKIM Auth extension handles the entire user authentication and authorization
 *   **Email Verification**: Secure signature verification flow out of the box.
 *   **Password Reset**: Safe, token-based password reset pipeline.
 *   **Social Login (OAuth)**: One-click integration with Google, GitHub, and Facebook.
+*   **Remember Me**: Optional long-lived remember cookies.
+*   **Rate Limiting**: `LoginRateLimit` middleware guards the login POST route.
 
-### Basic Usage
+### Protecting Routes
 
-Protect your routes using the `auth` middleware:
-
-```php
-Router::group(['middleware' => 'auth'], function() {
-    Router::get('/dashboard', [DashboardController::class, 'index']);
-});
-```
-
-Retrieve the currently authenticated user in your controllers:
+Apply `AuthMiddleware` to routes or groups — middleware is referenced by class name:
 
 ```php
-$user = Auth::user();
+use Skim\Auth\Middleware\AuthMiddleware;
+use Skim\Auth\Middleware\VerifiedMiddleware;
+
+$app->router->get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(AuthMiddleware::class);
+
+$app->router->group('/admin', function (Skim\Core\Router $r): void {
+    $r->get('/users', [AdminController::class, 'users']);
+}, middleware: [AuthMiddleware::class, VerifiedMiddleware::class]);
 ```
+
+*   `AuthMiddleware` — requires a logged-in user.
+*   `VerifiedMiddleware` — requires a verified email.
+*   `GuestMiddleware` — redirects logged-in users away (login page).
+
+### Current User
+
+```php
+use Skim\Auth\Auth;
+
+$user = Auth::user();  // ?object — null when guest
+if (Auth::check()) { /* … */ }
+```
+
+### Configuration — `config/skim_auth.php`
+
+```php
+return [
+    'after_login'    => '/dashboard',
+    'after_logout'   => '/login',
+    'registration'   => 'open',      // 'closed' → /register routes are not registered (invite-only apps)
+    'verify_email'   => true,
+    'remember_me'    => true,
+    'remember_days'  => 30,
+    'ui' => [
+        'layout'    => null,
+        'published' => true,          // serve views from app/views/skim_auth/ (.html)
+    ],
+];
+```
+
+<Note>
+With `'registration' => 'closed'`, the `/register` routes are never registered and the router answers 404 — registration can then happen through your own invite flow.
+</Note>
+
+### Published Views
+
+With `ui.published => true`, auth pages render from `app/views/skim_auth/*.html` through the framework `Template` engine — so `$this->include()`, layouts, and slots work inside them exactly like in your own views.

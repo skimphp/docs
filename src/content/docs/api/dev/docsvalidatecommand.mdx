@@ -1,0 +1,84 @@
+---
+title: DocsValidateCommand
+description: "CLI command that reports @ai.* annotation coverage and fails the build when below the configured threshold."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="docs" />
+<ApiBadge type="validation" />
+<ApiBadge type="ci" />
+
+`DocsValidateCommand` scans all source files, counts public methods with at least one @ai.* annotation, and compares the ratio against a configurable threshold. Use in CI pipelines or pre-commit hooks to prevent annotation regressions.
+
+```txt
+Symbol: Skim\Dev\Docs\Commands\DocsValidateCommand
+Source: src/Dev/Docs/Commands/DocsValidateCommand.php
+Lifecycle: instantiated by CLI router, runs synchronously
+Fallback: none — returns 1 on scan failure or below-threshold coverage
+Test seam: instantiate directly
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim docs:validate
+# In .git/hooks/pre-push: php skim docs:validate || exit 1
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> ProjectScanner.scan()
+-> iterate methods
+-> count annotated
+-> compare threshold
+-> exit 0 or 1
+```
+
+</LifecycleFlow>
+
+Designed for CI gate usage — non-zero exit code blocks merges when coverage drops.
+
+## Pipeline
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Scans all source files, reports unannotated public methods in a table, and exits 1 when coverage is below the configured threshold.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Commands\DocsValidateCommand
+role: CI annotation gate
+layer: dev
+lifecycle: instantiated by CLI router, runs synchronously
+owns: ProjectScanner instance
+flow: handle() -> ProjectScanner.scan() -> count annotated vs total -> compare threshold -> exit code
+entry_points:
+  - handle
+config_reads:
+  - docs.validate.min_coverage
+  - docs.scan_paths
+invariants:
+  - a method is annotated if it has any @ai.* tag
+  - threshold defaults to 0.8 (80%)
+  - scan failure returns 1
+side_effects:
+  - prints table of unannotated methods to stdout
+non_goals:
+  - Does not fix missing annotations
+  - Does not generate docs
+```
+</AiContext>

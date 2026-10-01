@@ -153,6 +153,104 @@ Cold start overhead = `cold_avg − warm_avg`.
 
 ---
 
+## FrankenPHP: Worker vs Classic Mode
+
+Same containers benchmarked twice — once with the `frankenphp { worker }`
+directive (boot once, loop requests) and once in classic `php_server` mode
+(fresh PHP boot per request). Harness: `benchmarks/worker_bench`, classic
+variants run via `docker-compose.classic.yml` which mounts a plain Caddyfile
+and a per-framework `index.classic.php` over the same images.
+
+### Hello World — Requests per Second
+
+| Framework | Classic c=1 | Worker c=1 | Classic c=10 | Worker c=10 | Worker gain (c=10) |
+|-----------|-------------|------------|--------------|-------------|--------------------|
+| **SKIM** | 3,488 | **8,237** | 17,186 | **24,024** | **1.40×** |
+| Slim | 1,611 | 3,873 | 9,845 | 23,813 | 2.42× |
+| Leaf | 2,753 | 5,653 | ~12,209 † | 21,388 | ~1.75× |
+| Flight | 3,744 | 5,709 | 18,035 | 19,564 | 1.08× |
+| Symfony | 1,305 | 5,466 | 8,223 | 18,502 | 2.25× |
+| Laravel | 429 | 777 | 2,899 | 4,229 | 1.46× |
+| CodeIgniter 4 | 656 | 449 | 4,595 | 582 | 0.13× ‡ |
+
+### JSON Response — Requests per Second
+
+| Framework | Classic c=1 | Worker c=1 | Classic c=10 | Worker c=10 | Worker gain (c=10) |
+|-----------|-------------|------------|--------------|-------------|--------------------|
+| Leaf | 3,612 | 5,444 | 13,201 | **29,137** | **2.21×** |
+| Flight | 4,472 | 4,699 | 16,308 | 26,777 | 1.64× |
+| Slim | 1,679 | 5,090 | 8,787 | 26,505 | 3.02× |
+| Symfony | 1,814 | 3,814 | 7,355 | 25,347 | 3.45× |
+| **SKIM** | 4,063 | **6,618** | **18,190** | 22,443 | 1.23× |
+| Laravel | 363 | 613 | 2,221 | 5,269 | 2.37× |
+| CodeIgniter 4 | 530 | 567 | 4,378 | 508 | 0.12× ‡ |
+
+### Latency at c=10 (Hello World)
+
+| Framework | Classic p50 | Worker p50 | Classic p99 | Worker p99 |
+|-----------|-------------|------------|-------------|------------|
+| **SKIM** | 0.47 ms | **0.31 ms** | 18.3 ms | **4.9 ms** |
+| Slim | 0.87 ms | 0.31 ms | 7.9 ms | 4.4 ms |
+| Leaf | ~1.5 ms † | 0.35 ms | — | 6.4 ms |
+| Flight | 0.46 ms | 0.38 ms | 4.0 ms | 14.5 ms |
+| Symfony | 1.04 ms | 0.41 ms | 6.3 ms | 6.3 ms |
+| Laravel | 3.02 ms | 2.02 ms | 15.1 ms | 17.6 ms |
+| CodeIgniter 4 | 1.89 ms | 14.5 ms | 23.8 ms | 494 ms |
+
+† Leaf classic c=10 Hello World showed high variance in the suite run
+(4,439 RPS, p99 459 ms); standalone re-measurement gave ~10.3–12.2k RPS,
+p99 ~5.5 ms.
+
+‡ CI4 worker numbers are dominated by `Boot::bootWorker()` +
+`Services::reset()` per request — its worker bootstrap is heavier than a
+fresh classic boot, so classic wins. Worker mode is not universally faster.
+
+> **Environment:** FrankenPHP (`dunglas/frankenphp:php8.5`), wrk, 2 threads,
+> 15 s duration, c = 1 and 10. Docker on macOS (OrbStack), Apple Silicon.
+> SKIM = pinned `worker_mode` build.  
+> **Run date:** 2026-09-25. Reproduce:
+> `docker compose -f worker_bench/docker-compose.worker.yml run --rm bench php /app/worker_bench/wrk_worker_run.php [--classic]`
+
+---
+
+## nginx + PHP-FPM (no FrankenPHP)
+
+The traditional stack: one shared `php:8.5-fpm` pool (`pm.max_children = 20`,
+`pm.max_requests = 10000`, OPcache on) behind nginx, one port per framework
+(9301–9307). Framework source is mounted into the FPM container — fresh PHP
+boot per request, FastCGI IPC included. Harness:
+`benchmarks/worker_bench/docker-compose.fpm.yml`, run via
+`wrk_worker_run.php --fpm`.
+
+### Requests per Second
+
+| Framework | Hello c=1 | Hello c=10 | JSON c=1 | JSON c=10 | SQL c=1 | SQL c=10 |
+|-----------|-----------|------------|----------|-----------|---------|----------|
+| **SKIM** | 2,561 | 9,215 | **1,810** | 9,619 | 139 | 622 |
+| Flight | **3,192** | **12,918** | 1,700 | **10,961** | 135 | 638 |
+| Slim | 1,605 | 6,488 | 1,356 | 5,956 | 118 | 576 |
+| Symfony | 1,713 | 5,976 | 1,597 | 6,727 | 138 | 671 |
+| Leaf | 1,817 | 4,900 | 1,624 | 4,606 | **141** | **693** |
+| Laravel | 496 | 2,292 | 417 | 2,065 | 110 | 435 |
+| CodeIgniter 4 | 424 | 1,296 | 379 | 1,217 | 86 | 376 |
+
+The SQL endpoint is `PDO('pgsql:…')->query('SELECT 1')` — dominated by the
+database round-trip plus fresh PDO connect per request, so frameworks
+converge (~85–700 RPS regardless of routing speed). Hello/JSON keep
+framework overhead visible.
+
+Worker-mode comparison for the same code: SKIM goes 9,215 → 24,024 RPS
+(Hello, c=10) moving from FPM to FrankenPHP worker — roughly a 2.6× gain,
+driven by removing the per-request boot.
+
+> **Environment:** `php:8.5-fpm` + nginx, PostgreSQL 16, wrk, 2 threads,
+> 15 s duration, c = 1 and 10. Docker on macOS (OrbStack), Apple Silicon.  
+> **Run date:** 2026-09-25. Reproduce:
+> `docker compose -f worker_bench/docker-compose.fpm.yml up -d`, then
+> `docker compose -f worker_bench/docker-compose.worker.yml exec bench php /app/worker_bench/wrk_worker_run.php --fpm`
+
+---
+
 ## Benchmark Methodology
 
 All benchmarks run inside Docker (nginx + PHP-FPM) for consistent, reproducible results. The `skim_alpha` variant is a **managed** consumer project pinned to `dev-master`, using the same benchmark entry-point as other frameworks (closure routes, eager boot) so results are directly comparable.

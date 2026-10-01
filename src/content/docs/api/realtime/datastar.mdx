@@ -1,0 +1,225 @@
+---
+title: datastar
+description: "Datastar v1 SSE driver implementing ElementPatcher, SignalPatcher, and ScriptRunner."
+---
+
+<ApiBadge type="datastar" />
+<ApiBadge type="v1" />
+<ApiBadge type="realtime" />
+<ApiBadge type="dom-patching" />
+<ApiBadge type="signals" />
+
+`datastar` is the official Datastar v1 driver for SKIM. It emits `datastar-patch-elements` and `datastar-patch-signals` events over an injected SSE transport, enabling server-driven UI updates without hand-written JavaScript state.
+
+```txt
+Symbol: Skim\Realtime\Datastar
+Source: src/Realtime/Datastar.php
+Lifecycle: created per-stream by Response::stream() or container resolution
+Test seam: capture output with ob_start()/ob_get_clean() in tests
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return $res->stream(function(ElementPatcher $ds) {
+    $ds->patch('<div id="status">Active</div>', '#status', 'inner');
+    $ds->signals(['loading' => false]);
+});
+```
+</CodeExample>
+
+<WarningBox>
+
+run() executes arbitrary JavaScript in the browser — use sparingly and never with user-supplied input
+
+</WarningBox>
+
+## DOM Operations
+
+<ApiMethod name="patch">
+
+<ApiSignature>
+
+```php
+public function patch(string $html, string $selector = '', string $mode = 'morph'): static
+```
+
+</ApiSignature>
+
+Sends a datastar-patch-elements event with the given HTML fragment, selector, and mode. Each line of HTML is prefixed with 'data: elements' per the v1 protocol.
+
+<ApiParam name="$html" type="string" required>
+
+HTML fragment to patch into the DOM.
+
+</ApiParam>
+
+<ApiParam name="$selector" type="string">
+
+CSS selector of target element.
+
+</ApiParam>
+
+<ApiParam name="$mode" type="string">
+
+Patch mode: morph, inner, outer, prepend, append, before, after, replace.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="remove">
+
+<ApiSignature>
+
+```php
+public function remove(string $selector): static
+```
+
+</ApiSignature>
+
+Sends a datastar-patch-elements event with mode remove to delete matching elements.
+
+<ApiParam name="$selector" type="string" required>
+
+CSS selector of elements to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Signal Operations
+
+<ApiMethod name="signals">
+
+<ApiSignature>
+
+```php
+public function signals(array $signals, bool $onlyIfMissing = false): static
+```
+
+</ApiSignature>
+
+Sends a datastar-patch-signals event merging the given key-value pairs into reactive signals.
+
+<ApiParam name="$signals" type="array" required>
+
+Key-value pairs to merge.
+
+</ApiParam>
+
+<ApiParam name="$onlyIfMissing" type="bool">
+
+Only set signals that do not already exist.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Script Execution
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(string $js): static
+```
+
+</ApiSignature>
+
+Appends a &lt;script&gt; element to the body via datastar-patch-elements. The browser evaluates it and Datastar removes it.
+
+<ApiParam name="$js" type="string" required>
+
+JavaScript code to evaluate.
+
+</ApiParam>
+
+<WarningBox>
+
+Executes arbitrary JavaScript — never pass user input
+
+</WarningBox>
+
+</ApiMethod>
+
+## View Integration
+
+<ApiMethod name="viewFragment">
+
+<ApiSignature>
+
+```php
+public function viewFragment(string $template, array $data, string $fragment, string $selector = ''): static
+```
+
+</ApiSignature>
+
+Renders a named view fragment and patches it into the DOM in one call.
+
+<ApiParam name="$template" type="string" required>
+
+Template path.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array" required>
+
+Template variables.
+
+</ApiParam>
+
+<ApiParam name="$fragment" type="string" required>
+
+Fragment name.
+
+</ApiParam>
+
+<ApiParam name="$selector" type="string">
+
+CSS selector for patch target.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(Skim\Realtime\Sse $transport)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Realtime\Datastar
+role: Datastar v1 driver
+layer: realtime
+lifecycle: created per-stream by Response::stream() or container resolution
+owns: none — delegates to injected sse transport
+flow: controller -> res->stream(fn($ds) => $ds->patch(...)) -> Sse::send() -> echo SSE format -> flush()
+entry_points:
+  - patch
+  - remove
+  - signals
+  - run
+  - viewFragment
+invariants:
+  - Implements ElementPatcher, SignalPatcher, ScriptRunner
+  - Uses injected sse transport
+  - Emits v1 event names only
+side_effects:
+  - Writes to output buffer via injected sse transport
+non_goals:
+  - Does not manage Datastar client setup
+  - Does not handle WebSocket directly
+  - Does not validate HTML fragments
+```
+</AiContext>

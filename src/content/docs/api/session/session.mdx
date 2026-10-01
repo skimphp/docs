@@ -1,0 +1,352 @@
+---
+title: session
+description: "Static session facade with flash message support, lazy driver resolution, and test injection."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="session" />
+<ApiBadge type="flash" />
+<ApiBadge type="driver-backed" />
+
+`session` is the static entry point for session operations. It resolves the configured session driver on first use and adds flash message support on top of the raw driver API.
+
+```txt
+Symbol: Skim\Session\Session
+Source: src/Session/Session.php
+Lifecycle: static facade, driver resolved on first session call
+Drivers: file, redis
+Fallback: FileSessionDriver when app.session.driver is not 'redis'
+Test seam: setDriver(), reset()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Session::set('user_id', $user->id);
+Session::flash('notice', 'Profile updated');
+Session::regenerate(); // after login
+```
+</CodeExample>
+
+<WarningBox>
+
+flush() destroys all session data irreversibly
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Session::get/set/has/delete()
+-> start()
+-> started?
+-> driver()
+-> resolveDriver()
+-> match config app.session.driver
+-> FileSessionDriver or RedisSessionDriver
+```
+
+</LifecycleFlow>
+
+Wraps native session drivers to enable test injection and add flash message semantics.
+
+<NoteBox>
+
+Flash messages are consumed on first read via get(). Use flash() before redirect, get() on the next request to display.
+
+</NoteBox>
+
+## Read API
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public static function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns session value by key. Checks for a flash-prefixed key first
+
+<ApiParam name="$key" type="string" required>
+
+Session key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback when key is missing.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public static function has(string $key): bool
+```
+
+</ApiSignature>
+
+Returns true when the key or its flash variant (__flash__ prefix) exists.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="id">
+
+<ApiSignature>
+
+```php
+public static function id(): string
+```
+
+</ApiSignature>
+
+Returns the current session ID.
+
+</ApiMethod>
+
+## Write API
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public static function set(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Stores a value in the session for the current and future requests.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to persist.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public static function delete(string $key): void
+```
+
+</ApiSignature>
+
+Removes a key from the session. Does not remove the flash variant.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Flash Messages
+
+<ApiMethod name="flash">
+
+<ApiSignature>
+
+```php
+public static function flash(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Stores a flash value that is available on the current read and auto-deleted on the first get() call.
+
+<ApiParam name="$key" type="string" required>
+
+Flash key, read back via get() without prefix.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+One-time payload.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Session::flash('notice', 'Item saved successfully');
+// Next request: Session::get('notice') returns the message and deletes it
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Lifecycle
+
+<ApiMethod name="start">
+
+<ApiSignature>
+
+```php
+public static function start(): void
+```
+
+</ApiSignature>
+
+Boots the session driver. Idempotent — safe to call multiple times. Called automatically by get/set/has/delete.
+
+</ApiMethod>
+
+<ApiMethod name="regenerate">
+
+<ApiSignature>
+
+```php
+public static function regenerate(): void
+```
+
+</ApiSignature>
+
+Regenerates the session ID to prevent session fixation. Call after login/logout.
+
+</ApiMethod>
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public static function flush(): void
+```
+
+</ApiSignature>
+
+Destroys session data and resets the facade to unstarted state.
+
+<WarningBox>
+
+Irreversible — all session data including flash values is lost
+
+</WarningBox>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="resetRequest">
+
+<ApiSignature>
+
+```php
+public static function resetRequest(): void
+```
+
+</ApiSignature>
+
+Closes the active session and resets driver state between requests in worker mode.
+
+</ApiMethod>
+
+<ApiMethod name="setDriver">
+
+<ApiSignature>
+
+```php
+public static function setDriver(SessionDriver $driver): void
+```
+
+</ApiSignature>
+
+Replaces the active driver instance. Use in tests to bypass config-based resolution.
+
+<ApiParam name="$driver" type="SessionDriver" required>
+
+Mock or fake driver for testing.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Session::setDriver(new SessionFake());
+// ... run tests ...
+Session::reset();
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears the cached driver and resets to unstarted state. Forces re-resolution from config on next call.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Session\Session
+role: static session facade
+layer: session
+lifecycle: static facade, driver resolved on first session call
+owns: driver instance, started flag
+flow: Session::method() -> start() -> driver() -> resolveDriver() -> concrete driver
+entry_points:
+  - start
+  - get
+  - set
+  - has
+  - delete
+  - flash
+  - regenerate
+  - flush
+  - id
+config_reads:
+  - app.session.driver
+  - app.session.prefix
+  - app.session.lifetime
+  - cache.redis.host
+  - cache.redis.port
+  - cache.redis.password
+invariants:
+  - start() is idempotent
+  - flash values are auto-deleted on first get()
+  - has() checks both regular and flash keys
+  - driver is resolved once and reused until reset()
+side_effects:
+  - Auto-starts session on first get/set/has/delete
+  - setDriver() replaces active driver
+  - reset() forces re-resolution
+non_goals:
+  - Does not encrypt session data
+  - Does not handle session locking
+  - Flash is single-read only, not queued
+```
+</AiContext>

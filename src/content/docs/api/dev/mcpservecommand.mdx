@@ -1,0 +1,82 @@
+---
+title: McpServeCommand
+description: "CLI command that launches the stdio MCP server for LLM tool integration with Claude Code, Cursor, etc."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="mcp" />
+<ApiBadge type="stdio" />
+<ApiBadge type="llm" />
+
+`McpServeCommand` spawns the `skim-mcp` native binary as a child process communicating over stdio. It validates that llm.json and the binary exist before launching, and forwards the child's exit code.
+
+```txt
+Symbol: Skim\Dev\Docs\Commands\McpServeCommand
+Source: src/Dev/Docs/Commands/McpServeCommand.php
+Lifecycle: instantiated by CLI router, runs until stdin closes or Ctrl+C
+Fallback: none — returns 1 when prerequisites are missing
+Test seam: instantiate directly
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim mcp:serve
+# Wire in .claude/mcp_settings.json: "args": ["skim", "mcp:serve"]
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> check llm.json exists
+-> check skim-mcp binary exists
+-> passthru child process
+-> forward exit code
+```
+
+</LifecycleFlow>
+
+Transport-only launcher
+
+## Pipeline
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Validates prerequisites and spawns the MCP server as a child process over stdio. Returns 1 when llm.json or the server script is missing.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Commands\McpServeCommand
+role: MCP server launcher
+layer: dev
+lifecycle: instantiated by CLI router, runs until stdin closes or Ctrl+C
+owns: child process lifecycle
+flow: handle() -> validate llm.json -> validate skim-mcp binary -> passthru(skim-mcp --project-dir=BASE_PATH)
+entry_points:
+  - handle
+config_reads:
+  - docs.output.json
+invariants:
+  - requires llm.json to exist
+  - requires skim-mcp binary to exist
+  - forwards child exit code
+side_effects:
+  - spawns long-running child process on stdio
+non_goals:
+  - Does not implement MCP protocol logic
+  - Does not generate llm.json
+```
+</AiContext>

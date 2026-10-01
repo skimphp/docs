@@ -1,0 +1,265 @@
+---
+title: command
+description: "Abstract base class for CLI commands with arg/flag access, output helpers, and auto-configured metadata."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="abstract" />
+<ApiBadge type="base-class" />
+
+`command` is the abstract base class that all SKIM CLI commands extend. It provides positional arg access, flag access, output helper proxies (info, success, warn, error), and auto-configuration of name/group/description/usage from the registered command name.
+
+```txt
+Symbol: Skim\Cli\Command
+Source: src/Cli/Command.php
+Lifecycle: instantiated by kernel, setInput() called with parsed argv, then handle() invoked
+Fallback: configureForName() provides default descriptions and usage strings for built-in commands
+Test seam: instantiate subclass, call setInput() with test data, then handle()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+class GreetCommand extends Command {
+    public function handle(): int {
+        $name = $this->arg(0, 'World');
+        $this->info("Hello {$name}!");
+        return 0;
+    }
+}
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+kernel resolves command class
+-> new $class()
+-> configureForName($name)
+-> setInput($args, $flags)
+-> handle()
+-> return exit code
+```
+
+</LifecycleFlow>
+
+Abstract base class — never instantiated directly. Subclasses implement handle() and optionally override $name, $description, $group, $usage properties.
+
+## Metadata Access
+
+<ApiMethod name="getName">
+
+<ApiSignature>
+
+```php
+public function getName(): string
+```
+
+</ApiSignature>
+
+Returns the registered command name as set by configureForName().
+
+</ApiMethod>
+
+<ApiMethod name="getDescription">
+
+<ApiSignature>
+
+```php
+public function getDescription(): string
+```
+
+</ApiSignature>
+
+Returns the command description for help display.
+
+</ApiMethod>
+
+<ApiMethod name="getGroup">
+
+<ApiSignature>
+
+```php
+public function getGroup(): string
+```
+
+</ApiSignature>
+
+Returns the command group for categorized help listing.
+
+</ApiMethod>
+
+<ApiMethod name="getUsage">
+
+<ApiSignature>
+
+```php
+public function getUsage(): string
+```
+
+</ApiSignature>
+
+Returns the usage string for help display.
+
+</ApiMethod>
+
+## Configuration
+
+<ApiMethod name="configureForName">
+
+<ApiSignature>
+
+```php
+public function configureForName(string $name): void
+```
+
+</ApiSignature>
+
+Auto-fills name, group, description, and usage from the registered command name. Only sets values still at defaults — subclass property overrides are preserved.
+
+<ApiParam name="$name" type="string" required>
+
+Registered command name (e.g. 'migrate:down').
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="help">
+
+<ApiSignature>
+
+```php
+public function help(): void
+```
+
+</ApiSignature>
+
+Prints usage and description to the terminal via Cli:: output helpers.
+
+</ApiMethod>
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+abstract public function handle(): int
+```
+
+</ApiSignature>
+
+Implements the command logic. Must return a POSIX exit code (0 = success, 1+ = error).
+
+</ApiMethod>
+
+## Input Access
+
+<ApiMethod name="setInput">
+
+<ApiSignature>
+
+```php
+public function setInput(array $args, array $flags): void
+```
+
+</ApiSignature>
+
+Injects parsed argv args and flags. Called by the kernel before handle().
+
+<ApiParam name="$args" type="array" required>
+
+Positional arguments after the command name.
+
+</ApiParam>
+
+<ApiParam name="$flags" type="array" required>
+
+Parsed flags (--flag=value or --flag as true).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="arg">
+
+<ApiSignature>
+
+```php
+protected function arg(int $index, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns a positional argument by zero-based index, or $default if the index does not exist.
+
+<ApiParam name="$index" type="int" required>
+
+Zero-based argument position.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when the index does not exist.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="flag">
+
+<ApiSignature>
+
+```php
+protected function flag(string $name, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns a flag value. --flag=val returns 'val', --flag returns true, absent returns $default.
+
+<ApiParam name="$name" type="string" required>
+
+Flag name without leading dashes.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when the flag is absent.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Command
+role: CLI command base class
+layer: cli
+lifecycle: instantiated by kernel, setInput() called with parsed argv, then handle() invoked
+owns: args, flags, name, description, group, usage
+flow: kernel -> new Command() -> configureForName() -> setInput(args, flags) -> handle() -> exit code
+entry_points:
+  - handle
+  - setInput
+  - arg
+  - flag
+  - help
+invariants:
+  - handle() must return POSIX exit code
+  - args and flags are set by kernel before handle()
+  - configureForName() preserves subclass overrides
+side_effects:
+  - Output helpers write to STDOUT/STDERR via Cli::
+non_goals:
+  - Does not parse argv (see ArgvParser)
+  - Does not register commands (see kernel)
+  - Does not handle process signals
+```
+</AiContext>

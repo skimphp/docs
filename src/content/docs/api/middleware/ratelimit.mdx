@@ -1,0 +1,101 @@
+---
+title: RateLimit
+description: "Redis-backed sliding window rate limiter with fail-open fallback."
+---
+
+<ApiBadge type="middleware" />
+<ApiBadge type="rate-limit" />
+<ApiBadge type="redis" />
+<ApiBadge type="fail-open" />
+
+`RateLimit` uses a Redis sorted set sliding window to count requests per IP. When the limit is exceeded, it returns 429. When Redis is unavailable, it fails open and passes all requests through.
+
+```txt
+Symbol: Skim\Middleware\RateLimit
+Source: src/Middleware/RateLimit.php
+Lifecycle: registered per-route or per-group
+Fallback: passthrough (no rate limiting) when Redis is unreachable
+Test seam: mock Redis or test with Redis available
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$app->router->group('/api', function(Router $r) {
+    $r->get('/data', [api_controller::class, 'index']);
+}, middleware: [new RateLimit(limit: 100, window: 60)]);
+```
+</CodeExample>
+
+## Middleware
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(Request $req, Response $res, callable $next): mixed
+```
+
+</ApiSignature>
+
+Counts the request in a Redis sliding window per IP. Returns 429 when the limit is exceeded. Adds X-RateLimit-* headers. Falls open when Redis is unavailable.
+
+<ApiParam name="$req" type="request" required>
+
+Current HTTP request (IP extracted for key).
+
+</ApiParam>
+
+<ApiParam name="$res" type="response" required>
+
+Current HTTP response (headers added).
+
+</ApiParam>
+
+<ApiParam name="$next" type="callable" required>
+
+Next middleware or controller.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(int $limit, int $window, string $prefix)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Middleware\RateLimit
+role: rate limiting middleware
+layer: middleware
+lifecycle: registered per-route or per-group
+owns: Redis sorted set keys per IP
+flow: handle() -> redis() -> pipeline(zremrangebyscore, zadd, zcard, expire) -> count > limit? -> 429 : $next()
+entry_points:
+  - handle
+config_reads:
+  - cache.redis
+invariants:
+  - Sliding window prevents boundary burst
+  - Fail-open on Redis failure
+  - X-RateLimit-* headers on every response when Redis is available
+side_effects:
+  - Writes to Redis sorted set
+  - Adds X-RateLimit-* headers to response
+non_goals:
+  - Does not rate limit by user ID
+  - Does not support distributed rate limiting across servers without shared Redis
+  - Does not throttle — it blocks
+```
+</AiContext>

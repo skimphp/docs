@@ -1,0 +1,84 @@
+---
+title: DocsExtractCommand
+description: "CLI command that scans PHP source files, extracts @ai.* annotations via AST, and writes llm.json."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="docs" />
+<ApiBadge type="extraction" />
+<ApiBadge type="ast" />
+
+`DocsExtractCommand` is the first step in the docs pipeline. It uses `ProjectScanner` to walk source paths, runs `ClassExtractor` on each .php file, enriches the result with extension capability data from `ExtRegistry`, and writes the output to llm.json via `JsonEmitter`.
+
+```txt
+Symbol: Skim\Dev\Docs\Commands\DocsExtractCommand
+Source: src/Dev/Docs/Commands/DocsExtractCommand.php
+Lifecycle: instantiated by CLI router or DocsCommand, runs synchronously
+Fallback: none — returns 1 on scan or write failure
+Test seam: instantiate directly with setInput() to inject flags
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim docs:extract
+php skim docs:extract --source=app --output=build/docs
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> resolve paths from flags/config
+-> ProjectScanner.scan()
+-> ExtRegistry.installed()
+-> JsonEmitter.emit()
+-> llm.json written
+```
+
+</LifecycleFlow>
+
+Separates scanning, enrichment, and writing into distinct steps for clear error reporting.
+
+## Pipeline
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Scans source paths, extracts class annotations, enriches with extension data, and writes llm.json. Returns 1 when the source directory is missing or any step throws.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Commands\DocsExtractCommand
+role: CLI extraction command
+layer: dev
+lifecycle: instantiated by CLI router or DocsCommand, runs synchronously
+owns: ProjectScanner, JsonEmitter instances
+flow: handle() -> DocsGenerationPaths -> ProjectScanner -> ExtRegistry -> JsonEmitter -> llm.json
+entry_points:
+  - handle
+config_reads:
+  - docs.scan_paths
+  - docs.output.json
+invariants:
+  - scan failure returns 1 with error message
+  - write failure returns 1
+  - null classes are silently discarded by scanner
+side_effects:
+  - writes llm.json to configured or overridden output path
+non_goals:
+  - Does not generate MDX or Markdown
+  - Does not validate annotation coverage
+```
+</AiContext>

@@ -1,0 +1,226 @@
+---
+title: queue
+description: "Redis-backed job queue using LPUSH/BRPOP for O(1) operations and sorted sets for delayed jobs."
+---
+
+<ApiBadge type="queue" />
+<ApiBadge type="redis" />
+<ApiBadge type="static-facade" />
+<ApiBadge type="job-dispatch" />
+
+`queue` is the static facade for the Redis-backed job queue. Jobs are serialized and LPUSHed into Redis lists. Workers dequeue with BRPOP for blocking, latency-free operation. Delayed jobs use a sorted set keyed by executeAt timestamp and are promoted to the main list by the worker.
+
+```txt
+Symbol: Skim\Queue\Queue
+Source: src/Queue/Queue.php
+Lifecycle: static facade, Redis connection resolved lazily on first use from config
+Fallback: none — Redis connection failure throws
+Test seam: setRedis() to inject mock Redis, flush() to clear queues
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Queue::push(new SendEmailJob($user_id));
+Queue::push(new GenerateReportJob($id), queue: 'reports');
+Queue::pushMany([$job1, $job2], 'default');
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Queue::push(job)
+-> serializeJob(job, queue)
+-> job->delay() > 0 ? ZADD delayedKey : LPUSH skim:queue:$queue
+-> worker BRPOP
+-> deserialize()
+-> unserialize payload
+-> handle()
+```
+
+</LifecycleFlow>
+
+Static facade sharing the Redis connection with the cache subsystem via config. The connection is lazy — not opened until the first queue operation.
+
+## Enqueue
+
+<ApiMethod name="push">
+
+<ApiSignature>
+
+```php
+public static function push(Job $job, string $queue = 'default'): void
+```
+
+</ApiSignature>
+
+Pushes a job to the queue. Jobs with delay &gt; 0 go into a sorted set
+
+<ApiParam name="$job" type="job" required>
+
+Job instance to enqueue. Must be serializable.
+
+</ApiParam>
+
+<ApiParam name="$queue" type="string">
+
+Queue name for multi-queue support.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="pushMany">
+
+<ApiSignature>
+
+```php
+public static function pushMany(array $jobs, string $queue = 'default'): void
+```
+
+</ApiSignature>
+
+Pushes multiple jobs atomically via Redis pipeline. All jobs use the same queue. Does not support delayed jobs.
+
+<ApiParam name="$jobs" type="array" required>
+
+Array of job instances.
+
+</ApiParam>
+
+<ApiParam name="$queue" type="string">
+
+Queue name for all jobs.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Delayed Jobs
+
+<ApiMethod name="promoteDelayed">
+
+<ApiSignature>
+
+```php
+public static function promoteDelayed(): int
+```
+
+</ApiSignature>
+
+Moves due delayed jobs from the sorted set to their target queue. Called by worker on each loop iteration.
+
+</ApiMethod>
+
+## Queue Inspection
+
+<ApiMethod name="size">
+
+<ApiSignature>
+
+```php
+public static function size(string $queue = 'default'): int
+```
+
+</ApiSignature>
+
+Returns the approximate count of pending jobs in a queue via Redis LLEN.
+
+<ApiParam name="$queue" type="string">
+
+Queue name.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public static function flush(string $queue = 'default'): void
+```
+
+</ApiSignature>
+
+Removes all pending jobs from a queue by deleting the Redis key.
+
+<ApiParam name="$queue" type="string">
+
+Queue name to flush.
+
+</ApiParam>
+
+<WarningBox>
+
+Destroys all pending jobs in the queue — already-processing jobs are not affected
+
+</WarningBox>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="setRedis">
+
+<ApiSignature>
+
+```php
+public static function setRedis(\Redis $redis): void
+```
+
+</ApiSignature>
+
+Injects a mock Redis instance for testing. Bypasses config-based connection.
+
+<ApiParam name="$redis" type="\Redis" required>
+
+Mock or fake Redis instance.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Queue::setRedis($mock_redis);
+// ... run tests ...
+// reset in tearDown
+```
+</CodeExample>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Queue\Queue
+role: Redis job queue
+layer: queue
+lifecycle: static facade, Redis connection resolved lazily on first use from config
+owns: Redis connection cache
+flow: Queue::push(job) -> serializeJob() -> delay > 0 ? ZADD delayed : LPUSH queue -> worker BRPOP -> deserialize -> handle()
+entry_points:
+  - push
+  - pushMany
+  - promoteDelayed
+  - size
+  - flush
+config_reads:
+  - cache.redis.host
+  - cache.redis.port
+  - cache.redis.password
+invariants:
+  - jobs are serialized via PHP serialize() wrapped in JSON
+  - delayed jobs use sorted set
+  - promoteDelayed() moves due jobs to main list
+side_effects:
+  - writes to Redis lists and sorted sets
+  - setRedis() replaces active connection
+  - flush() deletes queue data
+non_goals:
+  - Does not implement job execution (see worker)
+  - Does not manage retry logic (see worker)
+  - Does not provide dead-letter queues
+```
+</AiContext>

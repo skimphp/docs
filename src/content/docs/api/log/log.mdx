@@ -1,0 +1,331 @@
+---
+title: log
+description: "Static log facade with RFC 5424 levels, lazy handler resolution, and profiler integration."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="log" />
+<ApiBadge type="profiler" />
+<ApiBadge type="lazy" />
+
+`log` is the static entry point for all application logging. It resolves the configured handler on first write and records every entry in the profiler for the debug toolbar.
+
+```txt
+Symbol: Skim\Log\Log
+Source: src/Log/Log.php
+Lifecycle: static facade, handler resolved on first log call
+Fallback: NullHandler when channel is unrecognized
+Test seam: setHandler(), reset()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Log::error('Payment failed', ['order_id' => $id, 'reason' => $e->getMessage()]);
+Log::info('User logged in', ['user_id' => $user->id]);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Log::error() / info() / etc.
+-> write()
+-> debug_backtrace for caller
+-> Profiler::log()
+-> handler()
+-> resolveHandler() if null
+-> handler->write()
+```
+
+</LifecycleFlow>
+
+## Log Levels
+
+<ApiMethod name="debug">
+
+<ApiSignature>
+
+```php
+public static function debug(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at debug level. Records in profiler and delegates to the active handler.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="info">
+
+<ApiSignature>
+
+```php
+public static function info(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at info level. Records in profiler and delegates to the active handler.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="notice">
+
+<ApiSignature>
+
+```php
+public static function notice(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at notice level.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="warning">
+
+<ApiSignature>
+
+```php
+public static function warning(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at warning level.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="error">
+
+<ApiSignature>
+
+```php
+public static function error(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at error level. Use for recoverable failures that need attention.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="critical">
+
+<ApiSignature>
+
+```php
+public static function critical(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at critical level. Use for application-level failures.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="alert">
+
+<ApiSignature>
+
+```php
+public static function alert(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at alert level. Use for conditions requiring immediate action.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="emergency">
+
+<ApiSignature>
+
+```php
+public static function emergency(string $msg, array $ctx = []): void
+```
+
+</ApiSignature>
+
+Logs a message at emergency level. Use for system-wide failures.
+
+<ApiParam name="$msg" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$ctx" type="array">
+
+Arbitrary context metadata.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="setHandler">
+
+<ApiSignature>
+
+```php
+public static function setHandler(LogHandler $handler): void
+```
+
+</ApiSignature>
+
+Replaces the active handler. Use in tests or to swap in Monolog for production channels.
+
+<ApiParam name="$handler" type="LogHandler" required>
+
+Custom handler implementation.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Log::setHandler(new NullHandler());
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears the cached handler. The next log call resolves the handler again from config.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Log\Log
+role: static log facade
+layer: log
+lifecycle: static facade, handler resolved on first log call
+owns: handler instance cache
+flow: Log::level() -> write() -> Profiler::log() -> handler()->write()
+entry_points:
+  - debug
+  - info
+  - notice
+  - warning
+  - error
+  - critical
+  - alert
+  - emergency
+config_reads:
+  - app.log.channel
+  - app.log.path
+  - app.log.level
+  - app.log.days
+invariants:
+  - handler is resolved once and reused until reset() or setHandler()
+  - every write records in Profiler::log
+  - unknown channels fall back to NullHandler
+side_effects:
+  - Profiler::log records every entry
+  - setHandler() replaces active handler
+  - reset() forces re-resolution
+non_goals:
+  - Does not support channels or named loggers
+  - Does not format messages beyond sprintf
+  - Does not send to external services directly
+```
+</AiContext>

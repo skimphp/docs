@@ -1,0 +1,125 @@
+---
+title: sse
+description: "Server-Sent Events helper for pushing data over long-lived HTTP connections."
+---
+
+<ApiBadge type="sse" />
+<ApiBadge type="streaming" />
+<ApiBadge type="realtime" />
+<ApiBadge type="push" />
+
+`sse` provides methods to send events, pings, and close signals over a Server-Sent Events stream. It is passed to the Response::stream() callback and handles SSE wire format and output flushing.
+
+```txt
+Symbol: Skim\Realtime\Sse
+Source: src/Realtime/Sse.php
+Lifecycle: created per-stream by Response::stream() callback
+Test seam: capture output with ob_start()/ob_get_clean() in tests
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return $res->stream(function(Sse $sse) {
+    $sse->send(['count' => 1], event: 'update');
+    sleep(1);
+    $sse->ping();
+    $sse->close();
+});
+```
+</CodeExample>
+
+## Stream API
+
+<ApiMethod name="send">
+
+<ApiSignature>
+
+```php
+public function send(mixed $data, ?string $event = null, ?string $id = null): void
+```
+
+</ApiSignature>
+
+Formats and sends one SSE event. Arrays are JSON-encoded. Named events allow client-side addEventListener. Flushes immediately.
+
+<ApiParam name="$data" type="mixed" required>
+
+Array (JSON-encoded) or string payload.
+
+</ApiParam>
+
+<ApiParam name="$event" type="?string">
+
+Optional event name for client addEventListener.
+
+</ApiParam>
+
+<ApiParam name="$id" type="?string">
+
+Optional event ID for Last-Event-ID tracking.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$sse->send(['user' => $name], event: 'joined', id: '42');
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Connection Management
+
+<ApiMethod name="ping">
+
+<ApiSignature>
+
+```php
+public function ping(): void
+```
+
+</ApiSignature>
+
+Sends an SSE comment line (`: ping`) to prevent idle proxy timeouts. Call every 15-30 seconds.
+
+</ApiMethod>
+
+<ApiMethod name="close">
+
+<ApiSignature>
+
+```php
+public function close(): void
+```
+
+</ApiSignature>
+
+Sends a final event named 'close' to signal stream end to the client.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Realtime\Sse
+role: SSE stream helper
+layer: realtime
+lifecycle: created per-stream by Response::stream() callback
+owns: output stream
+flow: controller -> res->stream(fn($sse) => $sse->send(...)) -> echo SSE format -> flush()
+entry_points:
+  - send
+  - ping
+  - close
+invariants:
+  - Output buffering must be disabled before use
+  - Each send() flushes immediately
+  - ping() sends SSE comment line
+side_effects:
+  - Writes to PHP output buffer
+  - Calls flush()
+non_goals:
+  - Does not manage connection lifecycle
+  - Does not handle reconnection
+  - Does not disable output buffering
+```
+</AiContext>

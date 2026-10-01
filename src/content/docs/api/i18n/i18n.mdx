@@ -1,0 +1,195 @@
+---
+title: i18n
+description: "Minimal i18n facade with PHP array files, dot-notation keys, pluralization, and custom loader support."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="i18n" />
+<ApiBadge type="translation" />
+<ApiBadge type="pluralization" />
+
+`i18n` provides translation lookup using PHP array files organized by locale. It supports dot-notation keys, pipe-based pluralization, :param interpolation, fallback locale, and custom loaders for alternative backends.
+
+```txt
+Symbol: Skim\I18n\I18n
+Source: src/I18n/I18n.php
+Lifecycle: static facade, translation files loaded on first access per locale
+Fallback: returns the key unchanged when no translation is found
+Test seam: setLoader(), reset()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+I18n::locale('fr');
+I18n::t('auth.login.title');              // lang/fr/auth.php['login']['title']
+I18n::t('items.count', ['count' => 3]);   // "3 items" (plural form)
+```
+</CodeExample>
+
+## Translation API
+
+<ApiMethod name="t">
+
+<ApiSignature>
+
+```php
+public static function t(string $key, array $params = []): string
+```
+
+</ApiSignature>
+
+Translates a dot-notation key using the active locale with fallback. Supports pipe-based pluralization when 'count' is in params, and :param interpolation. Returns the key unchanged on miss.
+
+<ApiParam name="$key" type="string" required>
+
+Dot-notation translation key, e.g. 'auth.login.title'.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Interpolation params (:name =&gt; value) and pluralization (count =&gt; int).
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+I18n::t('auth.welcome', ['name' => 'John']);  // "Welcome, John"
+I18n::t('items.count', ['count' => 1]);        // "1 item"
+I18n::t('items.count', ['count' => 5]);        // "5 items"
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Configuration
+
+<ApiMethod name="locale">
+
+<ApiSignature>
+
+```php
+public static function locale(string $locale): void
+```
+
+</ApiSignature>
+
+Sets the active locale used by all subsequent t() calls.
+
+<ApiParam name="$locale" type="string" required>
+
+Locale code, e.g. 'fr', 'es', 'de'.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="currentLocale">
+
+<ApiSignature>
+
+```php
+public static function currentLocale(): string
+```
+
+</ApiSignature>
+
+Returns the currently active locale string.
+
+</ApiMethod>
+
+<ApiMethod name="setPath">
+
+<ApiSignature>
+
+```php
+public static function setPath(string $path): void
+```
+
+</ApiSignature>
+
+Sets the base path to the lang/ directory containing locale subdirectories.
+
+<ApiParam name="$path" type="string" required>
+
+Absolute path to the lang directory.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="resetRequest">
+
+<ApiSignature>
+
+```php
+public static function resetRequest(): void
+```
+
+</ApiSignature>
+
+Resets the locale to fallback between requests in worker mode.
+
+</ApiMethod>
+
+<ApiMethod name="setLoader">
+
+<ApiSignature>
+
+```php
+public static function setLoader(callable $loader): void
+```
+
+</ApiSignature>
+
+Injects a custom translation loader that bypasses file-based loading. The callable receives (locale, key) and returns string or null.
+
+<ApiParam name="$loader" type="callable" required>
+
+Function(string $locale, string $key): ?string.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears all state: locale, fallback, loaded files, and custom loader. Use in test tearDown().
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\I18n\I18n
+role: static i18n facade
+layer: i18n
+lifecycle: static facade, translation files loaded on first access per locale
+owns: loaded translation cache
+flow: I18n::t(key) -> resolve(key, locale) -> resolve(key, fallback) -> key -> pluralize -> interpolate
+entry_points:
+  - t
+  - locale
+  - setLoader
+  - setPath
+invariants:
+  - t() never throws — returns key on miss
+  - Files are loaded once and cached per locale
+  - Custom loader bypasses file loading entirely
+side_effects:
+  - Loads PHP files from lang/ directory on first access
+non_goals:
+  - Does not support ICU plural rules
+  - Does not handle RTL layout
+  - Does not provide locale negotiation from Accept-Language
+```
+</AiContext>

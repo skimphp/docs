@@ -1,0 +1,639 @@
+---
+title: router
+description: "HTTP and CLI router wrapping nikic/fast-route with compiled regex dispatch, F3-compatible @param tokens, and route groups."
+---
+
+<ApiBadge type="router" />
+<ApiBadge type="fast-route" />
+<ApiBadge type="dispatch" />
+<ApiBadge type="named-routes" />
+<ApiBadge type="groups" />
+<ApiBadge type="cli" />
+
+`Skim\Core\Router` wraps nikic/fast-route to compile all routes into a single regex on first dispatch. It supports F3-compatible @param token syntax (@id, @id:int, @slug:str, @any), route groups with additive prefix and middleware, named routes for reverse URL generation, and CLI command routing.
+
+```txt
+Symbol: Skim\Core\Router
+Source: src/Core/Router.php
+Lifecycle: created during app boot, routes registered before freeze(), compiled on first dispatch
+Test seam: App::testInstance() creates a fresh router
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$router->get('/users/@id:int', [UserController::class, 'show'])
+       ->name('user.show')
+       ->middleware(AuthMiddleware::class);
+$router->map(['GET', 'HEAD'], '/ping', [health_controller::class, 'ping']);
+$router->group('/api/v1', function(Router $r) {
+    $r->get('/posts', [PostController::class, 'index']);
+}, middleware: [AuthMiddleware::class]);
+```
+</CodeExample>
+
+<WarningBox>
+
+Route registration after freeze() throws LogicException
+
+</WarningBox>
+
+<WarningBox>
+
+url() requires the app singleton to be available
+
+</WarningBox>
+
+## Architecture
+
+The router is intentionally a thin registration layer over fast-route. All @param token conversion happens at registration time. The compiled dispatcher is cached and invalidated on any route mutation. Groups use a stack to support arbitrary nesting depth.
+
+<NoteBox>
+
+Why fast-route over F3's router: compiles all routes into one regex, orders of magnitude faster than per-route string matching.
+
+</NoteBox>
+
+## Route Registration
+
+<ApiMethod name="setMutationGuard">
+
+<ApiSignature>
+
+```php
+public function setMutationGuard(callable $guard): void
+```
+
+</ApiSignature>
+
+Installs a callback that returns false when route mutation should be blocked.
+
+<ApiParam name="$guard" type="callable" required>
+
+Returns true when mutation is allowed.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="add">
+
+<ApiSignature>
+
+```php
+public function add(string|array $methods, string $pattern, array|callable $handler): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a route for one or more HTTP methods. Converts @param tokens, applies group prefix and middleware, invalidates the compiled dispatcher.
+
+<ApiParam name="$methods" type="string" required>
+
+HTTP method(s).
+
+</ApiParam>
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern with optional @param tokens.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$router->add(['GET', 'POST'], '/submit', [form_controller::class, 'handle']);
+```
+</CodeExample>
+
+<ApiThrows type="\LogicException">
+
+If the mutation guard blocks the call.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## HTTP Methods
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $pattern, array|callable $handler, array $middleware = []): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a GET route. Delegates to add().
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern with optional @param tokens.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<ApiParam name="$middleware" type="array">
+
+Route-level middleware classes.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="post">
+
+<ApiSignature>
+
+```php
+public function post(string $pattern, array|callable $handler, array $middleware = []): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a POST route. Delegates to add().
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern with optional @param tokens.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<ApiParam name="$middleware" type="array">
+
+Route-level middleware classes.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="put">
+
+<ApiSignature>
+
+```php
+public function put(string $pattern, array|callable $handler, array $middleware = []): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a PUT route. Delegates to add().
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<ApiParam name="$middleware" type="array">
+
+Route-level middleware.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="patch">
+
+<ApiSignature>
+
+```php
+public function patch(string $pattern, array|callable $handler, array $middleware = []): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a PATCH route. Delegates to add().
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<ApiParam name="$middleware" type="array">
+
+Route-level middleware.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $pattern, array|callable $handler, array $middleware = []): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a DELETE route. Delegates to add().
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<ApiParam name="$middleware" type="array">
+
+Route-level middleware.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="any">
+
+<ApiSignature>
+
+```php
+public function any(string $pattern, array|callable $handler, array $middleware = []): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a route for all HTTP methods (GET, POST, PUT, PATCH, DELETE).
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<ApiParam name="$middleware" type="array">
+
+Route-level middleware.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="map">
+
+<ApiSignature>
+
+```php
+public function map(string|array $methods, string $pattern, array|callable $handler): RouteEntry
+```
+
+</ApiSignature>
+
+Registers a route for one or more HTTP methods. Thin alias for add() — provides Slim/Laravel-style map() for compatibility with code that expects that convention.
+
+<ApiParam name="$methods" type="string" required>
+
+One HTTP method ('GET') or a list (['GET','POST']).
+
+</ApiParam>
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern with optional @param tokens.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Controller reference or closure.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$router->map(['GET', 'HEAD'], '/ping', [health_controller::class, 'ping']);
+```
+</CodeExample>
+
+<ApiThrows type="\LogicException">
+
+If the mutation guard blocks the call.
+
+</ApiThrows>
+
+<NoteBox>
+
+Prefer get()/post()/put()/patch()/delete() for single-method routes and any() for all-method routes. Use map() when the method set is dynamic or when mirroring Slim/Laravel-style code.
+
+</NoteBox>
+
+</ApiMethod>
+
+## Groups & Commands
+
+<ApiMethod name="group">
+
+<ApiSignature>
+
+```php
+public function group(string $prefix, callable $callback, array $middleware = []): void
+```
+
+</ApiSignature>
+
+Groups routes under a shared prefix and middleware stack. Groups nest additively.
+
+<ApiParam name="$prefix" type="string" required>
+
+URL prefix prepended to all routes in the group.
+
+</ApiParam>
+
+<ApiParam name="$callback" type="callable" required>
+
+Receives the router for route registration.
+
+</ApiParam>
+
+<ApiParam name="$middleware" type="array">
+
+Middleware classes applied to all group routes.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$router->group('/api/v1', function(Router $r) {
+    $r->get('/users', [UserController::class, 'index']);
+}, middleware: [AuthMiddleware::class]);
+```
+</CodeExample>
+
+<ApiThrows type="\LogicException">
+
+If the mutation guard blocks the call.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="command">
+
+<ApiSignature>
+
+```php
+public function command(string $name, array|callable $handler): void
+```
+
+</ApiSignature>
+
+Registers a CLI command route dispatched by bin/skim when argv[1] matches.
+
+<ApiParam name="$name" type="string" required>
+
+Command name.
+
+</ApiParam>
+
+<ApiParam name="$handler" type="array" required>
+
+Command handler.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+If the mutation guard blocks the call.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Named Routes
+
+<ApiMethod name="registerName">
+
+<ApiSignature>
+
+```php
+public function registerName(string $name, string $pattern): void
+```
+
+</ApiSignature>
+
+Registers a name-to-pattern mapping for reverse URL generation. Called by RouteEntry::name().
+
+<ApiParam name="$name" type="string" required>
+
+Route name.
+
+</ApiParam>
+
+<ApiParam name="$pattern" type="string" required>
+
+URL pattern with placeholders.
+
+</ApiParam>
+
+<ApiThrows type="\LogicException">
+
+If the mutation guard blocks the call.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="url">
+
+<ApiSignature>
+
+```php
+public static function url(string $name, array $params = []): string
+```
+
+</ApiSignature>
+
+Static entry point that resolves the router from the app singleton and generates a URL from a named route.
+
+<ApiParam name="$name" type="string" required>
+
+Registered route name.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Key-value pairs for route placeholders.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Router::url('user.show', ['id' => 5]) // → /users/5
+```
+</CodeExample>
+
+<ApiThrows type="\InvalidArgumentException">
+
+If name is not registered or params are missing.
+
+</ApiThrows>
+
+<ApiThrows type="\RuntimeException">
+
+If router is not available in container.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="buildUrl">
+
+<ApiSignature>
+
+```php
+public function buildUrl(string $name, array $params = []): string
+```
+
+</ApiSignature>
+
+Instance method that replaces &#123;param:regex&#125; segments with values from $params.
+
+<ApiParam name="$name" type="string" required>
+
+Registered route name.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+Key-value pairs for placeholders.
+
+</ApiParam>
+
+<ApiThrows type="\InvalidArgumentException">
+
+If name not found or params missing.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Dispatch
+
+<ApiMethod name="dispatch">
+
+<ApiSignature>
+
+```php
+public function dispatch(string $method, string $path): array|null|false
+```
+
+</ApiSignature>
+
+Compiles routes on first call, then dispatches method+path against the fast-route dispatcher. Returns route info on match, null on 404, false on 405.
+
+<ApiParam name="$method" type="string" required>
+
+HTTP method.
+
+</ApiParam>
+
+<ApiParam name="$path" type="string" required>
+
+Request path.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="dispatchCommand">
+
+<ApiSignature>
+
+```php
+public function dispatchCommand(string $name): array|null
+```
+
+</ApiSignature>
+
+Dispatches a CLI command by name. Returns handler info or null if not registered.
+
+<ApiParam name="$name" type="string" required>
+
+Command name from argv[1].
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Core\Router
+role: route registrar and dispatcher
+layer: core
+lifecycle: created during app boot, routes registered before freeze(), compiled on first dispatch
+owns: routes, named routes, CLI commands, group stack, compiled dispatcher, mutation guard
+flow: register routes -> compile() on first dispatch() -> fast-route regex match -> return handler/params/middleware
+entry_points:
+  - get
+  - post
+  - put
+  - patch
+  - delete
+  - any
+  - map
+  - add
+  - group
+  - command
+  - dispatch
+  - url
+invariants:
+  - routes compiled lazily on first dispatch()
+  - add() invalidates compiled dispatcher
+  - groups nest additively
+  - mutation guard blocks changes after freeze()
+  - @param tokens converted to fast-route regex
+side_effects:
+  - add() invalidates compiled dispatcher
+  - group() pushes/pops group stack
+  - compile() creates fast-route dispatcher
+non_goals:
+  - Does not handle middleware execution (delegated to pipeline)
+  - Does not resolve controller dependencies (delegated to App::callHandler)
+```
+</AiContext>

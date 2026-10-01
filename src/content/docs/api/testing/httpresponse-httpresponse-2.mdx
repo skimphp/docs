@@ -1,0 +1,414 @@
+---
+title: HttpResponse
+description: "Fluent assertion wrapper for HTTP test responses with status, JSON, header, and body assertions."
+---
+
+<ApiBadge type="testing" />
+<ApiBadge type="assertions" />
+<ApiBadge type="http" />
+<ApiBadge type="fluent" />
+
+`HttpResponse` wraps a `Skim\Core\Response` and provides fluent assertion methods powered by Pest's `expect()`. All `assert_*` methods return `$this` for chaining.
+
+```txt
+Symbol: Skim\Testing\HttpResponse
+Source: src/Testing/HttpResponse.php
+Lifecycle: returned by PendingRequest/HttpClient HTTP methods, used inline in test cases
+Fallback: n/a — test-only class
+Test seam: instantiate directly or receive from HttpClient methods
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$client->post('/api/users', json: ['name' => 'John'])
+    ->assertCreated()
+    ->assertJson(['name' => 'John']);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+PendingRequest::send() -> new HttpResponse($res)
+-> test calls assertOk()->assertJson([...])
+```
+
+</LifecycleFlow>
+
+Thin wrapper over core response — adds test assertion ergonomics without modifying response behavior.
+
+<NoteBox>
+
+assertJson() uses subset matching (toMatchArray), not exact equality.
+
+</NoteBox>
+
+## Status Assertions
+
+<ApiMethod name="assertStatus">
+
+<ApiSignature>
+
+```php
+public function assertStatus(int $code): static
+```
+
+</ApiSignature>
+
+Asserts the response status code matches the expected value. Throws on mismatch.
+
+<ApiParam name="$code" type="int" required>
+
+Expected HTTP status code.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="assertOk">
+
+<ApiSignature>
+
+```php
+public function assertOk(): static
+```
+
+</ApiSignature>
+
+Asserts 200 OK status.
+
+</ApiMethod>
+
+<ApiMethod name="assertCreated">
+
+<ApiSignature>
+
+```php
+public function assertCreated(): static
+```
+
+</ApiSignature>
+
+Asserts 201 Created status.
+
+</ApiMethod>
+
+<ApiMethod name="assertNoContent">
+
+<ApiSignature>
+
+```php
+public function assertNoContent(): static
+```
+
+</ApiSignature>
+
+Asserts 204 No Content status.
+
+</ApiMethod>
+
+<ApiMethod name="assertNotFound">
+
+<ApiSignature>
+
+```php
+public function assertNotFound(): static
+```
+
+</ApiSignature>
+
+Asserts 404 Not Found status.
+
+</ApiMethod>
+
+<ApiMethod name="assertUnauthorized">
+
+<ApiSignature>
+
+```php
+public function assertUnauthorized(): static
+```
+
+</ApiSignature>
+
+Asserts 401 Unauthorized status.
+
+</ApiMethod>
+
+<ApiMethod name="assertForbidden">
+
+<ApiSignature>
+
+```php
+public function assertForbidden(): static
+```
+
+</ApiSignature>
+
+Asserts 403 Forbidden status.
+
+</ApiMethod>
+
+<ApiMethod name="assertUnprocessable">
+
+<ApiSignature>
+
+```php
+public function assertUnprocessable(): static
+```
+
+</ApiSignature>
+
+Asserts 422 Unprocessable Entity status.
+
+</ApiMethod>
+
+<ApiMethod name="assertRedirect">
+
+<ApiSignature>
+
+```php
+public function assertRedirect(string $url): static
+```
+
+</ApiSignature>
+
+Asserts a redirect status and matching Location header.
+
+<ApiParam name="$url" type="string" required>
+
+Expected redirect target URL.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Content Assertions
+
+<ApiMethod name="assertJson">
+
+<ApiSignature>
+
+```php
+public function assertJson(array $data): static
+```
+
+</ApiSignature>
+
+Asserts the JSON body contains the expected data as a subset match.
+
+<ApiParam name="$data" type="array" required>
+
+Expected key-value pairs (subset match).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="assertHeader">
+
+<ApiSignature>
+
+```php
+public function assertHeader(string $key, string $value): static
+```
+
+</ApiSignature>
+
+Asserts a response header has the expected value.
+
+<ApiParam name="$key" type="string" required>
+
+Header name.
+
+</ApiParam>
+
+<ApiParam name="$value" type="string" required>
+
+Expected header value.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="assertContains">
+
+<ApiSignature>
+
+```php
+public function assertContains(string $text): static
+```
+
+</ApiSignature>
+
+Asserts the response body contains the given substring.
+
+<ApiParam name="$text" type="string" required>
+
+Substring expected in the body.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Accessors
+
+<ApiMethod name="status">
+
+<ApiSignature>
+
+```php
+public function status(): int
+```
+
+</ApiSignature>
+
+Returns the HTTP status code.
+
+</ApiMethod>
+
+<ApiMethod name="json">
+
+<ApiSignature>
+
+```php
+public function json(): array
+```
+
+</ApiSignature>
+
+Returns the decoded JSON body.
+
+</ApiMethod>
+
+<ApiMethod name="body">
+
+<ApiSignature>
+
+```php
+public function body(): string
+```
+
+</ApiSignature>
+
+Returns the raw response body.
+
+</ApiMethod>
+
+<ApiMethod name="header">
+
+<ApiSignature>
+
+```php
+public function header(string $key): ?string
+```
+
+</ApiSignature>
+
+Returns a specific header value or null.
+
+<ApiParam name="$key" type="string" required>
+
+Header name.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="isRedirect">
+
+<ApiSignature>
+
+```php
+public function isRedirect(): bool
+```
+
+</ApiSignature>
+
+Returns true for 3xx redirect status codes (301, 302, 303, 307, 308).
+
+</ApiMethod>
+
+## Debug
+
+<ApiMethod name="dump">
+
+<ApiSignature>
+
+```php
+public function dump(): static
+```
+
+</ApiSignature>
+
+Dumps the response body for debugging and returns $this for continued chaining.
+
+</ApiMethod>
+
+<ApiMethod name="dd">
+
+<ApiSignature>
+
+```php
+public function dd(): never
+```
+
+</ApiSignature>
+
+Dumps the response body and halts execution.
+
+<WarningBox>
+
+Halts PHP execution — use only during debugging
+
+</WarningBox>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(Skim\Core\Response $res)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Testing\HttpResponse
+role: test assertion wrapper
+layer: testing
+lifecycle: returned by PendingRequest/HttpClient HTTP methods, used inline in test cases
+owns: core response reference
+flow: HttpClient::get/post/etc() -> HttpResponse -> assert_*() -> Pest expect()
+entry_points:
+  - assertStatus
+  - assertOk
+  - assertCreated
+  - assertJson
+  - assertRedirect
+  - assertContains
+  - status
+  - json
+  - body
+  - header
+invariants:
+  - assert_* methods throw on failure via Pest expect()
+  - All assert_* methods return $this
+  - isRedirect() covers 301, 302, 303, 307, 308
+side_effects:
+  - dump() and dd() produce output
+  - assert_* methods throw on failure
+non_goals:
+  - Does not make HTTP requests
+  - Does not mock external services
+```
+</AiContext>

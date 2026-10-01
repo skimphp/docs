@@ -1,0 +1,231 @@
+---
+title: InteractiveMenu
+description: "Full-screen interactive terminal menu for CLI command discovery with keyboard navigation and live search."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="interactive" />
+<ApiBadge type="tui" />
+<ApiBadge type="keyboard-driven" />
+<ApiBadge type="ansi" />
+
+`InteractiveMenu` provides a full-screen, keyboard-driven terminal UI for browsing and selecting CLI commands. It supports collapsible command groups, live search with / or :, and ANSI-styled rendering. Returns null when not on a TTY.
+
+```txt
+Symbol: Skim\Cli\InteractiveMenu
+Source: src/Cli/InteractiveMenu.php
+Lifecycle: instantiated by kernel with command groups, run() enters event loop, returns selected command or null
+Fallback: returns null immediately when not connected to a TTY
+Test seam: not designed for automated testing — requires interactive TTY with raw mode
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$menu = new InteractiveMenu($groups);
+$selected = $menu->run(); // returns command name or null
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+run()
+-> isTty() check
+-> setupTty() raw mode
+-> register SIGINT handler
+-> render() initial frame
+-> loop: readKey() -> decodeKey() -> handleKey() -> render()
+-> on quit: clearMenu() -> restoreTty()
+-> return command name or null
+```
+
+</LifecycleFlow>
+
+The menu takes full control of the terminal in raw mode. TTY settings are saved and restored in a finally block to prevent terminal corruption even on exceptions.
+
+## Menu Execution
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(): ?string
+```
+
+</ApiSignature>
+
+Runs the interactive menu loop. Sets up raw TTY mode, renders frames, reads key input, and returns the selected command name or null on quit.
+
+</ApiMethod>
+
+## Key Handling
+
+<ApiMethod name="handleKey">
+
+<ApiSignature>
+
+```php
+private function handleKey(string $key): void
+```
+
+</ApiSignature>
+
+Dispatches a decoded key press to navigation (up/down/left/right/enter) or search logic.
+
+<ApiParam name="$key" type="string" required>
+
+Decoded key name (up, down, left, right, enter, esc, backspace, or single character).
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="readKey">
+
+<ApiSignature>
+
+```php
+private function readKey(): string
+```
+
+</ApiSignature>
+
+Reads raw key bytes from STDIN with a 100ms timeout using stream_select.
+
+</ApiMethod>
+
+<ApiMethod name="decodeKey">
+
+<ApiSignature>
+
+```php
+private function decodeKey(string $raw): string
+```
+
+</ApiSignature>
+
+Decodes raw terminal escape sequences into named key identifiers (up, down, left, right, enter, esc, backspace).
+
+<ApiParam name="$raw" type="string" required>
+
+Raw bytes from STDIN.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Rendering
+
+<ApiMethod name="clearMenu">
+
+<ApiSignature>
+
+```php
+private function clearMenu(): void
+```
+
+</ApiSignature>
+
+Moves cursor up over the rendered menu and erases it using ANSI escape sequences.
+
+</ApiMethod>
+
+<ApiMethod name="rebuildFlatItems">
+
+<ApiSignature>
+
+```php
+private function rebuildFlatItems(): void
+```
+
+</ApiSignature>
+
+Rebuilds the flat item list from groups. In search mode, filters by query. In browse mode, respects group expansion state.
+
+</ApiMethod>
+
+<ApiMethod name="render">
+
+<ApiSignature>
+
+```php
+private function render(): void
+```
+
+</ApiSignature>
+
+Renders the full menu to stdout, overwriting the previous frame with ANSI cursor control.
+
+</ApiMethod>
+
+## TTY Management
+
+<ApiMethod name="setupTty">
+
+<ApiSignature>
+
+```php
+private function setupTty(): void
+```
+
+</ApiSignature>
+
+Saves current TTY settings and puts terminal into raw mode for character-by-character input. Hides cursor.
+
+</ApiMethod>
+
+<ApiMethod name="restoreTty">
+
+<ApiSignature>
+
+```php
+private function restoreTty(): void
+```
+
+</ApiSignature>
+
+Restores original TTY settings and shows the cursor. Falls back to stty echo icanon if saved settings are unavailable.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(array $groups)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\InteractiveMenu
+role: CLI interactive command browser
+layer: cli
+lifecycle: instantiated by kernel with command groups, run() enters event loop, returns selected command or null
+owns: group expansion state, search state, selected index, TTY settings
+flow: InteractiveMenu::run() -> setupTty() -> render loop: readKey() -> decodeKey() -> handleKey() -> render() -> return command or null
+entry_points:
+  - run
+invariants:
+  - TTY settings are always restored in finally block
+  - SIGINT handler restores TTY before exit
+  - cursor is hidden during menu and restored on exit
+side_effects:
+  - modifies TTY settings (restored on exit)
+  - writes ANSI escape sequences to stdout
+  - registers SIGINT handler
+non_goals:
+  - Does not execute commands (returns name to caller)
+  - Does not support mouse input
+  - Does not support scrolling beyond terminal height
+```
+</AiContext>

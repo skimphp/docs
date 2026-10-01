@@ -1,0 +1,287 @@
+---
+title: RequestTrace
+description: "Per-request structured trace that records middleware, queries, controller calls, and response as a timestamped timeline."
+---
+
+<ApiBadge type="dev" />
+<ApiBadge type="debug" />
+<ApiBadge type="trace" />
+<ApiBadge type="timeline" />
+<ApiBadge type="static" />
+
+`RequestTrace` captures a structured timeline of events during a single HTTP request. In dev mode (APP_DEBUG=true), the full timeline is stored in sys.last_trace. In production, only errors and summaries are emitted.
+
+```txt
+Symbol: Skim\Dev\RequestTrace
+Source: src/Dev/RequestTrace.php
+Lifecycle: start() at dispatch entry, event() throughout, finish() at response send, reset() in tests
+Fallback: all methods are no-ops when disabled or when trace not started
+Test seam: enable()/disable() to toggle, reset() to clear between tests
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+RequestTrace::start($req_id, 'GET', '/users');
+RequestTrace::event('middleware.auth', ['ms' => 2.1]);
+RequestTrace::event('controller.index');
+$trace = RequestTrace::finish(200);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+enable()
+-> start(requestId, method, path)
+-> event() throughout request
+-> error() on exceptions
+-> setExtensions()
+-> finish(status) returns trace
+-> reset() in tests
+```
+
+</LifecycleFlow>
+
+Static facade pattern — all state is process-local. Designed for dev-mode request introspection, not production tracing.
+
+## Driver Model
+
+<div class="driver-grid">
+  <ScopeBox name="$current" mutable>
+    Current in-progress trace array, null when not started.
+  </ScopeBox>
+  <ScopeBox name="$startTime" mutable>
+    microtime(true) at trace start.
+  </ScopeBox>
+  <ScopeBox name="$enabled" mutable>
+    Boolean toggle for trace collection.
+  </ScopeBox>
+</div>
+
+## Control
+
+<ApiMethod name="enable">
+
+<ApiSignature>
+
+```php
+public static function enable(): void
+```
+
+</ApiSignature>
+
+Enables trace collection. Called by App::run() when APP_DEBUG=true.
+
+</ApiMethod>
+
+<ApiMethod name="disable">
+
+<ApiSignature>
+
+```php
+public static function disable(): void
+```
+
+</ApiSignature>
+
+Disables trace collection and clears the current in-progress trace.
+
+</ApiMethod>
+
+<ApiMethod name="isEnabled">
+
+<ApiSignature>
+
+```php
+public static function isEnabled(): bool
+```
+
+</ApiSignature>
+
+Returns whether trace collection is currently enabled.
+
+</ApiMethod>
+
+## Recording
+
+<ApiMethod name="start">
+
+<ApiSignature>
+
+```php
+public static function start(string $requestId, string $method, string $path): void
+```
+
+</ApiSignature>
+
+Begins a new per-request trace, discarding any previous unfinished trace. No-op when not enabled.
+
+<ApiParam name="$requestId" type="string" required>
+
+Unique request identifier.
+
+</ApiParam>
+
+<ApiParam name="$method" type="string" required>
+
+HTTP method (GET, POST, etc.).
+
+</ApiParam>
+
+<ApiParam name="$path" type="string" required>
+
+Request path.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="event">
+
+<ApiSignature>
+
+```php
+public static function event(string $event, array $context = []): void
+```
+
+</ApiSignature>
+
+Appends a timestamped event to the current trace timeline. The context array is merged into the event entry alongside elapsed time and event name. No-op when trace not started.
+
+<ApiParam name="$event" type="string" required>
+
+Event name (e.g. 'middleware.auth', 'db.query').
+
+</ApiParam>
+
+<ApiParam name="$context" type="array">
+
+Additional key-value data merged into the event entry.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="error">
+
+<ApiSignature>
+
+```php
+public static function error(\Throwable $e): void
+```
+
+</ApiSignature>
+
+Records a Throwable into the errors list with elapsed timestamp, exception class, and message. No-op when trace not started.
+
+<ApiParam name="$e" type="\Throwable" required>
+
+The exception to record.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="setExtensions">
+
+<ApiSignature>
+
+```php
+public static function setExtensions(array $names): void
+```
+
+</ApiSignature>
+
+Sets the list of active extension names on the current trace. No-op when trace not started.
+
+<ApiParam name="$names" type="string[]" required>
+
+Extension names active for this request.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Reading
+
+<ApiMethod name="finish">
+
+<ApiSignature>
+
+```php
+public static function finish(int $status): array
+```
+
+</ApiSignature>
+
+Closes the current trace, recording the HTTP status code and total duration in milliseconds. Returns the completed trace array and clears the current state.
+
+<ApiParam name="$status" type="int" required>
+
+HTTP response status code.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="current">
+
+<ApiSignature>
+
+```php
+public static function current(): ?array
+```
+
+</ApiSignature>
+
+Returns the in-progress trace without closing it, or null when no trace is active.
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears all trace state (current trace and start time) without disabling the tracer. Call in tests between requests.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\RequestTrace
+role: request timeline tracer
+layer: dev
+lifecycle: start() at dispatch entry, event() throughout, finish() at response send, reset() in tests
+owns: current trace, startTime, enabled flag
+flow: start() -> event()* -> finish() -> trace array
+entry_points:
+  - enable
+  - disable
+  - start
+  - event
+  - error
+  - setExtensions
+  - finish
+  - current
+  - reset
+invariants:
+  - all methods are no-ops when disabled or trace not started
+  - start() discards previous unfinished trace
+  - finish() clears current trace state
+  - reset() does not disable the tracer
+side_effects:
+  - mutates static $current array on each event/error call
+non_goals:
+  - Does not persist traces across requests
+  - Does not replace structured logging
+  - Does not sample or filter events
+```
+</AiContext>

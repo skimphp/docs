@@ -1,0 +1,94 @@
+---
+title: CacheBuildCommand
+description: "CLI command that pre-compiles env, config, and extensions into pure PHP array cache files for OPcache."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="cache" />
+<ApiBadge type="build" />
+<ApiBadge type="opcache" />
+
+`CacheBuildCommand` provides the `php skim cache:build` CLI entry point. It generates compiled PHP array files in `storage/config_cache/` for env, config, and extensions, enabling OPcache shared-memory hits with zero parse overhead on subsequent requests.
+
+```txt
+Symbol: Skim\Cli\Commands\CacheBuildCommand
+Source: src/Cli/Commands/CacheBuildCommand.php
+Lifecycle: instantiated by CLI kernel, handle() called once per invocation
+Fallback: creates storage/config_cache/ directory if missing
+Test seam: run against temp directory, verify generated files are valid PHP arrays
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim cache:build
+```
+</CodeExample>
+
+<WarningBox>
+
+Calls App::instance() which triggers full boot — ensure .env and config/ are present
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+kernel dispatches CacheBuildCommand
+-> handle()
+-> mkdir storage/config_cache
+-> Env::reset()
+-> Env::load(.env)
+-> write env.php
+-> Config::reset()
+-> Config::load(config/)
+-> write config.php
+-> App::instance()
+-> write extensions.php
+-> success
+```
+
+</LifecycleFlow>
+
+Thin CLI wrapper that delegates to env, config, and app facades. The generated files are consumed by Env::loadCompiledCache() and Config::loadCompiledCache().
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Builds compiled cache files for env, config, and extensions in storage/config_cache/. Resets env and config before loading to ensure fresh state. Creates the cache directory if missing.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\CacheBuildCommand
+role: CLI cache build command
+layer: cli
+lifecycle: instantiated by CLI kernel, handle() called once per invocation
+owns: nothing — reads from env, config, and app facades
+flow: CacheBuildCommand::handle() -> mkdir storage/config_cache -> Env::reset + load + write -> Config::reset + load + write -> app extensions write -> success
+entry_points:
+  - handle
+invariants:
+  - Generates env.php, config.php, and extensions.php in storage/config_cache/
+  - Resets env and config before loading to ensure fresh state
+  - Creates cache directory recursively if missing
+side_effects:
+  - Writes env.php, config.php, extensions.php to storage/config_cache/
+  - Creates storage/config_cache/ directory
+non_goals:
+  - Does not clear existing cache files before building
+  - Does not validate generated files
+```
+</AiContext>

@@ -1,0 +1,172 @@
+---
+title: worker
+description: "Long-lived queue worker that polls Redis with BRPOP, executes jobs, and handles retries with exponential back-off."
+---
+
+<ApiBadge type="queue" />
+<ApiBadge type="worker" />
+<ApiBadge type="long-lived" />
+<ApiBadge type="retry" />
+<ApiBadge type="signal-handling" />
+
+`worker` is the long-lived CLI process that polls Redis for queued jobs using BRPOP. It promotes delayed jobs, unserializes and executes each job, handles retries with exponential back-off (5s, 10s, 15s...), and supports graceful shutdown via SIGTERM/SIGINT and Redis restart signals.
+
+```txt
+Symbol: Skim\Queue\Worker
+Source: src/Queue/Worker.php
+Lifecycle: instantiated by QueueCommand, work() blocks until stopped by signal, maxJobs, or restart signal
+Fallback: unserializable jobs are logged and skipped
+Test seam: use Queue::setRedis() for mock Redis, set maxJobs=1 for single-iteration testing
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$worker = new Worker(queue: 'default', sleep: 3, max_jobs: 0);
+$worker->work(); // blocks until stopped
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+work()
+-> registerSignals()
+-> loop: promoteDelayed()
+-> checkRestartSignal()
+-> BRPOP(sleep)
+-> process(payload)
+-> unserialize job
+-> handle()
+-> on exception: retry with back-off or failed()
+-> increment processed
+-> check maxJobs
+```
+
+</LifecycleFlow>
+
+The worker does not hot-reload code. After deployments, use `php skim queue:restart` to signal workers to stop and restart with fresh code. Exponential back-off prevents thundering herd on transient failures.
+
+## Worker Execution
+
+<ApiMethod name="work">
+
+<ApiSignature>
+
+```php
+public function work(): void
+```
+
+</ApiSignature>
+
+Runs the main work loop. Blocks until stop() is called, a process signal is received, or maxJobs is reached.
+
+</ApiMethod>
+
+<ApiMethod name="stop">
+
+<ApiSignature>
+
+```php
+public function stop(): void
+```
+
+</ApiSignature>
+
+Signals the worker to stop after the current job completes. Called by signal handlers and restart signal check.
+
+</ApiMethod>
+
+## Job Processing
+
+<ApiMethod name="process">
+
+<ApiSignature>
+
+```php
+private function process(string $raw): void
+```
+
+</ApiSignature>
+
+Unserializes a job from raw Redis payload, executes handle(), and manages retries with exponential back-off on failure.
+
+<ApiParam name="$raw" type="string" required>
+
+JSON payload from Redis BRPOP.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Signal Handling
+
+<ApiMethod name="registerSignals">
+
+<ApiSignature>
+
+```php
+private function registerSignals(): void
+```
+
+</ApiSignature>
+
+Registers SIGTERM and SIGINT handlers for graceful shutdown. No-ops when pcntl extension is not available.
+
+</ApiMethod>
+
+<ApiMethod name="checkRestartSignal">
+
+<ApiSignature>
+
+```php
+private function checkRestartSignal(): void
+```
+
+</ApiSignature>
+
+Checks the Redis restart signal timestamp. Stops the worker if the signal is newer than the process start time.
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $queue, int $sleep, int $maxJobs)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Queue\Worker
+role: queue worker process
+layer: queue
+lifecycle: instantiated by QueueCommand, work() blocks until stopped by signal, maxJobs, or restart signal
+owns: shouldStop flag, processed job count
+flow: Worker::work() -> loop: promoteDelayed() -> checkRestartSignal() -> BRPOP -> process() -> handle() or retry/failed()
+entry_points:
+  - work
+  - stop
+invariants:
+  - BRPOP blocks for $sleep seconds when queue is empty
+  - retries use exponential back-off
+  - restart signal checked every iteration
+  - pcntl signals registered when available
+side_effects:
+  - executes job handle() methods
+  - writes retry payloads to Redis delayed sorted set
+  - reads restart signal from Redis
+non_goals:
+  - Does not manage multiple queues simultaneously
+  - Does not implement job priorities
+  - Does not hot-reload code after deployments
+```
+</AiContext>

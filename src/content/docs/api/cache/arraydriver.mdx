@@ -1,0 +1,228 @@
+---
+title: ArrayDriver
+description: "In-memory cache driver for tests with process-scoped storage and lazy TTL expiry."
+---
+
+<ApiBadge type="driver" />
+<ApiBadge type="cache" />
+<ApiBadge type="in-memory" />
+<ApiBadge type="test-only" />
+
+`Skim\Cache\ArrayDriver` stores cache entries in a PHP array. Values exist only for the current process and are never persisted. TTL is enforced via microtime expiry checked lazily on read. This is the default driver for Pest/PHPUnit tests.
+
+```txt
+Symbol: Skim\Cache\ArrayDriver
+Source: src/Cache/ArrayDriver.php
+Lifecycle: process-scoped, resets naturally between requests
+Test seam: inject via Cache::setDriver(new ArrayDriver())
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Cache::setDriver(new ArrayDriver());
+Cache::set('key', 'value', 60);
+// ... run tests ...
+Cache::reset();
+```
+</CodeExample>
+
+<WarningBox>
+
+Not suitable for production — state diverges across PHP-FPM workers
+
+</WarningBox>
+
+## Architecture
+
+Each entry is stored as ['value' =&gt; mixed, 'expires' =&gt; ?float]. The driver is intentionally minimal — it exists to make tests fast and isolated.
+
+<NoteBox>
+
+Why not APCu: APCu state is per-process, inconsistent under PHP-FPM multi-worker. ArrayDriver is the safe alternative for tests.
+
+</NoteBox>
+
+## Read API
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns the cached value or $default if missing/expired. Delegates to has() for expiry check.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback returned on miss.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public function has(string $key): bool
+```
+
+</ApiSignature>
+
+Returns true when the key exists and has not expired. Lazily removes expired keys.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Write API
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value, ?int $ttl = null): bool
+```
+
+</ApiSignature>
+
+Stores value with optional TTL. Null TTL means no expiry. Always returns true.
+
+<ApiParam name="$key" type="string" required>
+
+Cache key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to persist.
+
+</ApiParam>
+
+<ApiParam name="$ttl" type="?int">
+
+TTL in seconds, or null for no expiry.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $key): bool
+```
+
+</ApiSignature>
+
+Removes a single key. No-ops if absent. Always returns true.
+
+<ApiParam name="$key" type="string" required>
+
+Exact cache key to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Invalidation
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public function flush(string $prefix): bool
+```
+
+</ApiSignature>
+
+Removes all keys whose name starts with the given prefix.
+
+<ApiParam name="$prefix" type="string" required>
+
+Key prefix to match.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="flushAll">
+
+<ApiSignature>
+
+```php
+public function flushAll(): bool
+```
+
+</ApiSignature>
+
+Clears the entire in-memory store.
+
+<WarningBox>
+
+Destroys all cached data in this driver instance
+
+</WarningBox>
+
+</ApiMethod>
+
+## Lifecycle
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct()
+```
+
+</ApiSignature>
+
+Throws if constructed inside a worker process. ArrayDriver stores state in a PHP array, so it leaks across requests in FrankenPHP worker mode.
+
+<ApiThrows type="\RuntimeException">
+
+When WORKER_MODE is defined and true.
+
+</ApiThrows>
+
+<WarningBox>
+
+Use FileDriver or RedisDriver in worker mode instead
+
+</WarningBox>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cache\ArrayDriver
+role: test cache driver
+layer: cache
+lifecycle: process-scoped, resets naturally between requests
+invariants:
+  - all operations return true
+  - expired keys are lazily removed on has()/get()
+  - flushAll() clears the entire store
+```
+</AiContext>

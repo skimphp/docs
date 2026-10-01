@@ -7,24 +7,27 @@ SKIM ships with a lightweight Redis-backed queue. Jobs are serialized and pushed
 
 ## Job Class
 
-Implement the `job` interface or extend `BaseJob` for defaults (3 retries, no delay, error_log on failure).
+Implement the `Job` interface or extend `BaseJob` for defaults (3 tries, no delay, error_log on permanent failure).
 
 ```php
-use skim\queue\base_job;
+namespace App\Jobs;
+
+use Skim\Queue\BaseJob;
 
 class SendEmailJob extends BaseJob {
-    public function __construct(private readonly int $user_id) {}
+    public function __construct(private readonly int $userId) {}
 
     public function handle(): void {
-        $user = User::find($this->user_id);
-        Mailer::send($user->email, 'welcome');
+        $user = User::find($this->userId);
+        Mailer::send(new WelcomeMail($user));
     }
 }
 ```
 
 **Rules:**
-- All properties must be serializable — no closures or resources.
-- `handle()` runs in the worker process, not the request.
+- Store only primitive state (IDs, scalars) — no closures, model instances, or resource handles. A model stored on the job may be stale by the time the worker runs.
+- `handle()` runs in the worker process, not the request — make it idempotent; network failures cause double execution.
+- Use `Db::transaction()` inside `handle()` for atomic multi-table writes.
 - Override `tries()`, `delay()`, and `failed()` when needed.
 
 ## Dispatch
@@ -32,15 +35,15 @@ class SendEmailJob extends BaseJob {
 Push from controllers, models, or other jobs:
 
 ```php
-use skim\queue\queue;
+use Skim\Queue\Queue;
 
 // single job
-Queue::push(new SendEmailJob($user_id));
+Queue::push(new SendEmailJob($userId));
 
 // named queue
 Queue::push(new GenerateReportJob($id), queue: 'reports');
 
-// batch (atomic via Redis pipeline)
+// batch — atomic via Redis pipeline
 Queue::pushMany([$job1, $job2], 'default');
 ```
 
@@ -56,14 +59,14 @@ php skim queue:work --max-jobs=1000
 ```
 
 **Loop per iteration:**
-1. Promotes due delayed jobs from sorted set to queue.
-2. Checks restart signal.
-3. `BRPOP` blocks up to `$sleep` seconds.
+1. Promotes due delayed jobs from the sorted set to the queue.
+2. Checks the restart signal.
+3. `BRPOP` blocks up to `--sleep` seconds.
 4. Unserializes and runs `handle()`.
-5. On exception — retries with exponential back-off (`attempts * 5s`) or calls `failed()` on exhaustion.
+5. On exception — retries with exponential back-off (`attempts × 5s`) or calls `failed()` on exhaustion.
 
 **Graceful shutdown:**
-- `SIGTERM` / `SIGINT` — stops after current job.
+- `SIGTERM` / `SIGINT` — stops after the current job (requires `pcntl`; without it a signal kills mid-job).
 - `php skim queue:restart` — writes a Redis timestamp; workers stop after their current job.
 
 ## Delayed Jobs
@@ -80,18 +83,18 @@ class ScheduledNotificationJob extends BaseJob {
 }
 ```
 
-Delayed jobs are stored in a Redis sorted set (`skim:queue:delayed`) keyed by `executeAt`. The worker promotes them on each loop iteration.
+Delayed jobs live in a Redis sorted set (`skim:queue:delayed`) keyed by `execute_at`. The worker promotes them on each loop iteration.
 
 ## Retries & Failure
 
-Override `tries()` and `failed()` for custom behavior:
+Override `tries()` and `failed()` for custom behavior — `failed()` must not rethrow:
 
 ```php
 class ApiSyncJob extends BaseJob {
     public function tries(): int { return 5; }
 
     public function failed(\Throwable $e): void {
-        slack::alert('API sync failed: ' . $e->getMessage());
+        Log::error('API sync failed: ' . $e->getMessage());
     }
 }
 ```
@@ -125,7 +128,7 @@ WantedBy=multi-user.target
 CMD ["php", "skim", "queue:work", "default", "--sleep=3"]
 ```
 
-Set `restart: always` in Docker Compose or a `Deployment` with restart policy in Kubernetes.
+Set `restart: always` in Docker Compose or a `Deployment` with a restart policy in Kubernetes.
 
 ### Supervisor (optional)
 
@@ -148,13 +151,11 @@ autorestart=true
 
 ## Testing
 
-Inject a mock Redis instance to bypass the real connection:
+Inject a mock Redis instance to bypass the real connection, and always flush between tests to prevent cross-test state:
 
 ```php
-Queue::setRedis($mock_redis);
+Queue::setRedis($mockRedis);
 Queue::push(new SendEmailJob(1));
 // assertions...
-Queue::setRedis(null); // reset
+Queue::flush();
 ```
-
-Use `Queue::flush()` to clear queues between tests.

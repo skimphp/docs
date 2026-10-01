@@ -1,0 +1,102 @@
+---
+title: ClassExtractor
+description: "Extracts documentation metadata from a single PHP file via nikic/php-parser AST traversal."
+---
+
+<ApiBadge type="extractor" />
+<ApiBadge type="ast" />
+<ApiBadge type="php-parser" />
+<ApiBadge type="docs" />
+
+`ClassExtractor` parses a single PHP file using nikic/php-parser, delegates AST traversal to `ClassVisitor`, and returns an `ExtractedClass` value object. It silently returns null for non-class files, unreadable files, and parse errors.
+
+```txt
+Symbol: Skim\Dev\Docs\Extractor\ClassExtractor
+Source: src/Dev/Docs/Extractor/ClassExtractor.php
+Lifecycle: instantiated per-use by ProjectScanner, parser created once in constructor
+Fallback: returns null on any failure (missing file, parse error, no class)
+Test seam: instantiate directly with test file paths
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$extractor = new ClassExtractor();
+$class = $extractor->extract('/path/to/file.php');
+if ($class !== null) { ... }
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+extract()
+-> is_file/is_readable check
+-> file_get_contents
+-> parser->parse()
+-> ClassVisitor traversal
+-> return visitor->result
+```
+
+</LifecycleFlow>
+
+Uses nikic/php-parser for reliable AST traversal — never regex on source code.
+
+## Extraction
+
+<ApiMethod name="extract">
+
+<ApiSignature>
+
+```php
+public function extract(string $file): ExtractedClass|null
+```
+
+</ApiSignature>
+
+Parses a PHP file and extracts documentation metadata into an ExtractedClass value object. Returns null when the file has no class, cannot be read, or has a parse error.
+
+<ApiParam name="$file" type="string" required>
+
+Absolute path to the PHP file to extract.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct()
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Extractor\ClassExtractor
+role: AST-based class extractor
+layer: dev
+lifecycle: instantiated per-use by ProjectScanner, parser created once in constructor
+owns: PhpParser\Parser, AnnotationParser instances
+flow: extract(file) -> file_get_contents -> parser->parse -> ClassVisitor -> ExtractedClass
+entry_points:
+  - extract
+invariants:
+  - returns null for non-class files
+  - returns null on parse errors
+  - only public methods extracted by default
+  - delegates docblock parsing to AnnotationParser
+non_goals:
+  - Does not scan directories
+  - Does not write output files
+  - Does not validate annotations
+```
+</AiContext>

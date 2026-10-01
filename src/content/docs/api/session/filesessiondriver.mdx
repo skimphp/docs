@@ -1,0 +1,264 @@
+---
+title: FileSessionDriver
+description: "Native PHP file-backed session driver for single-server deployments."
+---
+
+<ApiBadge type="session" />
+<ApiBadge type="driver" />
+<ApiBadge type="file" />
+<ApiBadge type="native-php" />
+
+`FileSessionDriver` wraps PHP's native `session_*` functions with a configured save path and secure cookie parameters. It is the default session driver for single-server setups.
+
+```txt
+Symbol: Skim\Session\FileSessionDriver
+Source: src/Session/FileSessionDriver.php
+Lifecycle: instantiated by session facade, start() called once per request
+Fallback: none — this is itself the fallback driver
+Test seam: use SessionFake in tests instead
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$driver = new FileSessionDriver(storagePath('sessions'), 7200);
+$driver->start();
+```
+</CodeExample>
+
+<WarningBox>
+
+flush() destroys all session data irreversibly
+
+</WarningBox>
+
+<WarningBox>
+
+Direct $_SESSION access bypasses driver abstraction
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Session::start()
+-> FileSessionDriver::start()
+-> mkdir if needed
+-> session_set_cookie_params()
+-> session_start()
+-> $_SESSION available
+```
+
+</LifecycleFlow>
+
+Wraps PHP native sessions to enable test injection via the SessionDriver interface.
+
+<NoteBox>
+
+Not suitable for multi-server deployments — session files are local to one server. Use RedisSessionDriver for load-balanced setups.
+
+</NoteBox>
+
+## Session API
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns session value by key, or $default if absent.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback when key is missing.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Stores a value in the session via $_SESSION.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to write.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to persist.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public function has(string $key): bool
+```
+
+</ApiSignature>
+
+Returns true when the key exists in the session.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $key): void
+```
+
+</ApiSignature>
+
+Removes a key from the session.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to remove.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="id">
+
+<ApiSignature>
+
+```php
+public function id(): string
+```
+
+</ApiSignature>
+
+Returns the current session ID.
+
+</ApiMethod>
+
+## Lifecycle
+
+<ApiMethod name="start">
+
+<ApiSignature>
+
+```php
+public function start(): void
+```
+
+</ApiSignature>
+
+Starts or resumes a file-backed session. No-ops when a session is already active. Creates the save_path directory if missing and configures secure cookie params.
+
+</ApiMethod>
+
+<ApiMethod name="regenerate">
+
+<ApiSignature>
+
+```php
+public function regenerate(): void
+```
+
+</ApiSignature>
+
+Regenerates the session ID and deletes the old session file. Call after login/logout to prevent session fixation.
+
+</ApiMethod>
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public function flush(): void
+```
+
+</ApiSignature>
+
+Destroys session data and invalidates the session.
+
+<WarningBox>
+
+Irreversible — all session data for this ID is lost immediately
+
+</WarningBox>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $path, int $lifetime)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Session\FileSessionDriver
+role: session driver (file)
+layer: session
+lifecycle: instantiated by session facade, start() called once per request
+owns: session file on disk
+flow: Session::method() -> FileSessionDriver -> session_* native functions -> $_SESSION
+entry_points:
+  - start
+  - get
+  - set
+  - has
+  - delete
+  - regenerate
+  - flush
+  - id
+invariants:
+  - start() is idempotent
+  - save_path directory is auto-created with 0700 permissions
+  - cookie secure flag is auto-detected from HTTPS
+side_effects:
+  - Writes session files to disk
+  - Sets cookie headers via session_start()
+  - Modifies $_SESSION superglobal
+non_goals:
+  - Does not support multi-server session sharing
+  - Does not encrypt session data at rest
+```
+</AiContext>

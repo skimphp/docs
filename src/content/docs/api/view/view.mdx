@@ -1,0 +1,338 @@
+---
+title: view
+description: "Static facade for rendering PHP templates with fragment extraction and profiler integration."
+---
+
+<ApiBadge type="facade" />
+<ApiBadge type="view" />
+<ApiBadge type="fragments" />
+<ApiBadge type="profiler" />
+
+`view` is the static entry point for template rendering. It supports full page rendering, named fragment extraction for htmx/datastar, shared data injection, and configurable layout defaults.
+
+```txt
+Symbol: Skim\View\View
+Source: src/View/View.php
+Lifecycle: static facade, state persists for the current request
+Fallback: defaults to SKIM_ROOT/app/views when path is not set
+Test seam: setPath() for test fixtures, reset() in tearDown()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$html = View::render('users/show', ['user' => $user]);
+$fragment = View::render('users/show', ['user' => $user], 'user-card');
+```
+</CodeExample>
+
+<WarningBox>
+
+Fragment extraction renders the full template first
+
+</WarningBox>
+
+<WarningBox>
+
+then extracts — layout bypass optimization reduces this cost for HTMX requests
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+View::render($template, $data, $fragment)
+-> resolve viewsPath
+-> new Template(path, merged_data, defaultLayout)
+-> Template::renderFile()
+-> fragment? -> extractFragment()
+-> Profiler::view()
+-> return HTML
+```
+
+</LifecycleFlow>
+
+Uses native PHP templates for real stack traces and opcache performance. Fragment extraction is a post-render state-machine pass — the full template always renders first.
+
+<NoteBox>
+
+Fragment syntax uses HTML comments (&lt;!-- @fragment name --&gt;...&lt;!-- @end --&gt;) which produce zero bytes in browser output and no DOM changes.
+
+</NoteBox>
+
+## Rendering API
+
+<ApiMethod name="render">
+
+<ApiSignature>
+
+```php
+public static function render(string $template, array $data = [], ?string $fragment = null): string
+```
+
+</ApiSignature>
+
+Renders a template with shared data merged in. When $fragment is set, bypasses layout and extracts only the named fragment block. Records timing in profiler.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to views root.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Data merged with shared data for this render.
+
+</ApiParam>
+
+<ApiParam name="$fragment" type="?string">
+
+Named fragment to extract, or null for full page.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+View::render('users/show', ['user' => $user]);
+View::render('users/show', ['user' => $user], 'user-card');
+```
+</CodeExample>
+
+<ApiThrows type="ViewException">
+
+If template file or fragment name is not found.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="renderFragment">
+
+<ApiSignature>
+
+```php
+public static function renderFragment(string $template, array $data, string $fragment): string
+```
+
+</ApiSignature>
+
+Shorthand for render() with $fragment set. Renders only the named fragment block.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to views root.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array" required>
+
+Data for this render.
+
+</ApiParam>
+
+<ApiParam name="$fragment" type="string" required>
+
+Named fragment to extract.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="component">
+
+<ApiSignature>
+
+```php
+public static function component(string $name, array|object $props = []): string
+```
+
+</ApiSignature>
+
+Renders an isolated component with strict props. Delegates to ComponentRenderer::render(). Supports both array props (legacy) and *_props readonly objects (new).
+
+<ApiParam name="$name" type="string" required>
+
+Component name (maps to views/components/&#123;$name&#125;.php).
+
+</ApiParam>
+
+<ApiParam name="$props" type="array">
+
+Props array or *_props readonly object.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+View::component('alert', ['message' => 'test']);
+View::component('alert', new AlertProps(message: 'test'));
+```
+</CodeExample>
+
+<ApiThrows type="ViewException">
+
+If props object is not a *_props class or component file is not found.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Configuration
+
+<ApiMethod name="share">
+
+<ApiSignature>
+
+```php
+public static function share(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Injects a key-value pair into every subsequent template render for this request.
+
+<ApiParam name="$key" type="string" required>
+
+Shared variable name available in all templates.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Shared variable value.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="setPath">
+
+<ApiSignature>
+
+```php
+public static function setPath(string $path): void
+```
+
+</ApiSignature>
+
+Sets the root directory for template resolution. Called during app boot.
+
+<ApiParam name="$path" type="string" required>
+
+Absolute path to the views directory.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="setDefaultLayout">
+
+<ApiSignature>
+
+```php
+public static function setDefaultLayout(?string $name): void
+```
+
+</ApiSignature>
+
+Sets a default layout applied to every root render that does not call $this-&gt;layout(). Pass null to disable.
+
+<ApiParam name="$name" type="?string" required>
+
+Layout template path, or null to disable.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Testing Hooks
+
+<ApiMethod name="resetRequest">
+
+<ApiSignature>
+
+```php
+public static function resetRequest(): void
+```
+
+</ApiSignature>
+
+Clears shared data between requests in worker mode.
+
+</ApiMethod>
+
+<ApiMethod name="reset">
+
+<ApiSignature>
+
+```php
+public static function reset(): void
+```
+
+</ApiSignature>
+
+Clears shared data, views path, and default layout. Use in test tearDown().
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="getShared">
+
+<ApiSignature>
+
+```php
+public static function getShared(string $key): mixed
+```
+
+</ApiSignature>
+
+Returns a shared data value, or null if not set. #AI:get_shared
+
+</ApiMethod>
+
+<ApiMethod name="viewsPath">
+
+<ApiSignature>
+
+```php
+public static function viewsPath(): string
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\View\View
+role: static view facade
+layer: view
+lifecycle: static facade, state persists for the current request
+owns: viewsPath, sharedData, defaultLayout
+flow: View::render() -> Template::renderFile() -> layout system -> fragment extraction? -> Profiler::view()
+entry_points:
+  - render
+  - renderFragment
+  - share
+  - setPath
+  - setDefaultLayout
+  - reset
+  - viewsPath
+  - component
+invariants:
+  - Shared data is merged with per-render data
+  - Fragment extraction uses state-machine parser on rendered HTML
+  - Profiler records every render call
+  - Default layout is overridden by template-level layout() calls
+side_effects:
+  - Records render timing in Profiler::view()
+  - share() mutates static sharedData
+non_goals:
+  - Does not compile or cache templates
+  - Does not escape output
+  - Does not handle asset bundling
+```
+</AiContext>

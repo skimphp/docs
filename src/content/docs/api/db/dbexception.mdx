@@ -1,0 +1,96 @@
+---
+title: DbException
+description: "RuntimeException wrapping PDO failures with the failed SQL string for debugging."
+---
+
+<ApiBadge type="exception" />
+<ApiBadge type="db" />
+<ApiBadge type="error-context" />
+
+`DbException` extends `\RuntimeException` and prepends the failed SQL to the error message. All PDO calls in `Db::` are wrapped so that failures carry the originating query for log and debug output.
+
+```txt
+Symbol: Skim\Db\Exceptions\DbException
+Source: src/Db/Exceptions/DbException.php
+Lifecycle: thrown on PDO failure, caught by application code
+Fallback: none
+Test seam: trigger with invalid SQL against test_db() SQLite connection
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+try {
+    Db::query('SELECT * FROM missing_table');
+} catch (DbException $e) {
+    Log::error($e->getMessage());
+}
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+PDO operation fails
+-> Db:: catches PDOException
+-> new DbException(sql, previous)
+-> thrown to caller
+```
+
+</LifecycleFlow>
+
+Thin wrapper — all intelligence lives in Db::query() and friends.
+
+<NoteBox>
+
+Catch `DbException` specifically — never catch generic `\Exception`.
+
+</NoteBox>
+
+## Constructor
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $sql, \Throwable $previous)
+```
+
+</ApiSignature>
+
+Builds the exception message by prepending the failed SQL to the PDO error.
+
+<ApiParam name="$sql" type="string" required>
+
+The SQL statement that failed.
+
+</ApiParam>
+
+<ApiParam name="$previous" type="\Throwable" required>
+
+The underlying PDOException.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\Exceptions\DbException
+role: database error wrapper
+layer: db
+lifecycle: thrown on PDO failure, caught by application code
+owns: nothing
+flow: PDO throws -> Db:: catches -> new DbException($sql, $pdo_exception) -> rethrown
+entry_points:
+  - __construct
+invariants:
+  - always wraps a previous \Throwable
+  - message includes the failed SQL string
+non_goals:
+  - Does not retry queries
+  - Does not mask the underlying PDO error
+```
+</AiContext>

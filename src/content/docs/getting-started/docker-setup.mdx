@@ -3,18 +3,18 @@ title: Docker Setup
 description: Learn how SKIM's pre-configured Docker environment works.
 ---
 
-SKIM comes with a zero-configuration Docker Compose environment designed specifically for high-performance PHP 8.5+ applications.
+The SKIM skeleton ships with a zero-configuration Docker Compose environment designed for high-performance PHP 8.5+ applications.
 
 ### Containers Included
 
-*   `web`: Nginx serving as the front-facing web server.
-*   `app`: PHP 8.5-FPM configured with OPCache, JIT, and relevant extensions enabled.
-*   `db`: MySQL or PostgreSQL database pre-configured.
-*   `redis`: Redis cache & session backend.
+*   `app`: PHP 8.5 running the built-in web server with OPCache and JIT enabled — serves on port `8080` (plus `5173` for Vite when the frontend is enabled).
+*   `mysql`: MySQL database.
+*   `pgsql`: PostgreSQL database — SKIM's drivers support both; pick one in `config/db.php`.
+*   `redis`: Redis — cache, session and queue backend.
+
+There is no Nginx in front: the dev `app` container serves HTTP directly. For production-grade serving use the FrankenPHP worker mode or put a reverse proxy of your choice in front.
 
 ### Commands
-
-Managing your Docker environment is straightforward:
 
 ```bash
 # Start all services in the background
@@ -32,7 +32,8 @@ docker compose exec app php skim <command>
 
 ### Production Optimizations
 
-The `docker/Dockerfile` is optimized for production workloads:
-*   Pre-warmed OPCache with strict file validation turned off.
+The `docker/` setup is optimized for production workloads:
+*   Pre-warmed OPCache with strict file validation off.
 *   Production-ready `php.ini` configuration.
 *   Optimized composer autoloading (`composer install --no-dev --optimize-autoloader`).
+*   Optional FrankenPHP worker mode via `docker-compose.frankenphp.yml` — one long-lived process handling many requests, with worker isolation and leak detection (`worker:install` / `worker:uninstall` commands).

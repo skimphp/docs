@@ -1,0 +1,78 @@
+---
+title: ExtManifest
+description: "Generates a JSON manifest snapshot from an extension's runtime metadata."
+---
+
+<ApiBadge type="extension" />
+<ApiBadge type="manifest" />
+<ApiBadge type="json" />
+<ApiBadge type="generator" />
+
+`ExtManifest` serializes an extension instance's metadata into a pretty-printed JSON file. The generated skim.json allows ExtRegistry to read extension data without class instantiation.
+
+```txt
+Symbol: Skim\Ext\ExtManifest
+Source: src/Ext/ExtManifest.php
+Lifecycle: stateless, one-shot file write
+Test seam: pass a mock extension and temp path
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+ExtManifest::generate($extension, __DIR__ . '/skim.json');
+```
+</CodeExample>
+
+## Generation
+
+<ApiMethod name="generate">
+
+<ApiSignature>
+
+```php
+public static function generate(Extension $ext, string $outputPath): void
+```
+
+</ApiSignature>
+
+Serializes extension metadata to a JSON file. Overwrites any existing file at the target path.
+
+<ApiParam name="$ext" type="extension" required>
+
+Instantiated extension to extract metadata from.
+
+</ApiParam>
+
+<ApiParam name="$outputPath" type="string" required>
+
+Absolute file path for the JSON output.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+ExtManifest::generate($ext, '/path/to/vendor/acme/auth/skim.json');
+```
+</CodeExample>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Ext\ExtManifest
+role: manifest generator
+layer: ext
+lifecycle: stateless, one-shot file write
+owns: nothing
+entry_points:
+  - generate
+invariants:
+  - Overwrites existing file at outputPath
+  - JSON is pretty-printed
+side_effects:
+  - Writes file to disk at outputPath
+non_goals:
+  - Does not validate metadata
+  - Does not read existing manifests
+```
+</AiContext>

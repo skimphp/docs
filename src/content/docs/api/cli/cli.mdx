@@ -1,0 +1,573 @@
+---
+title: cli
+description: "ANSI-colored CLI output helper with TTY detection, interactive prompts, tables, and styled error boxes."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="output" />
+<ApiBadge type="ansi" />
+<ApiBadge type="tty-aware" />
+<ApiBadge type="interactive" />
+
+`cli` is the central terminal output helper for the SKIM CLI. It provides colored output methods, interactive prompts (ask, confirm, choice), ASCII tables, progress bars, and styled error boxes. All ANSI escape codes are suppressed when stdout is not a TTY or when forcePlain(true) is set.
+
+```txt
+Symbol: Skim\Cli\Cli
+Source: src/Cli/Cli.php
+Lifecycle: static utility — no instantiation needed, methods called directly
+Fallback: all output degrades gracefully to plain text when not connected to a TTY
+Test seam: forcePlain(true) to suppress ANSI codes for deterministic test assertions
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Cli::success('Migration complete.');
+Cli::table(['name', 'status'], [['users', 'applied'], ['posts', 'pending']]);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+caller invokes Cli::method()
+-> isTty() checks stdout
+-> color() applies ANSI if TTY
+-> echo or fwrite outputs text
+```
+
+</LifecycleFlow>
+
+Static utility class with no dependencies on framework config or container. TTY detection ensures CI logs and piped output remain clean plain text.
+
+## Output
+
+<ApiMethod name="line">
+
+<ApiSignature>
+
+```php
+public static function line(string $msg = ''): void
+```
+
+</ApiSignature>
+
+Prints a line to stdout followed by a newline. Empty string prints a blank line.
+
+<ApiParam name="$msg" type="string">
+
+Text to print. Defaults to empty string for blank lines.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="info">
+
+<ApiSignature>
+
+```php
+public static function info(string $msg): void
+```
+
+</ApiSignature>
+
+Prints a cyan informational message to stdout.
+
+<ApiParam name="$msg" type="string" required>
+
+Informational message text.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="success">
+
+<ApiSignature>
+
+```php
+public static function success(string $msg): void
+```
+
+</ApiSignature>
+
+Prints a green success message with checkmark prefix to stdout.
+
+<ApiParam name="$msg" type="string" required>
+
+Success message text.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="warn">
+
+<ApiSignature>
+
+```php
+public static function warn(string $msg): void
+```
+
+</ApiSignature>
+
+Prints a yellow warning message with warning prefix to stdout.
+
+<ApiParam name="$msg" type="string" required>
+
+Warning message text.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="error">
+
+<ApiSignature>
+
+```php
+public static function error(string $msg): void
+```
+
+</ApiSignature>
+
+Prints a red error message to STDERR with cross prefix.
+
+<ApiParam name="$msg" type="string" required>
+
+Error message text.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="muted">
+
+<ApiSignature>
+
+```php
+public static function muted(string $msg): void
+```
+
+</ApiSignature>
+
+Prints a gray dimmed message for secondary information.
+
+<ApiParam name="$msg" type="string" required>
+
+Muted text.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="bold">
+
+<ApiSignature>
+
+```php
+public static function bold(string $msg): void
+```
+
+</ApiSignature>
+
+Prints bold text to stdout.
+
+<ApiParam name="$msg" type="string" required>
+
+Bold text.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="newline">
+
+<ApiSignature>
+
+```php
+public static function newline(int $n = 1): void
+```
+
+</ApiSignature>
+
+Prints one or more blank lines.
+
+<ApiParam name="$n" type="int">
+
+Number of blank lines to print.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Interactive Prompts
+
+<ApiMethod name="ask">
+
+<ApiSignature>
+
+```php
+public static function ask(string $question, string $default = ''): string
+```
+
+</ApiSignature>
+
+Prompts user for text input via STDIN. Shows $default in brackets and returns it when user presses Enter without typing.
+
+<ApiParam name="$question" type="string" required>
+
+Prompt text displayed to the user.
+
+</ApiParam>
+
+<ApiParam name="$default" type="string">
+
+Value returned when user presses Enter without typing.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="confirm">
+
+<ApiSignature>
+
+```php
+public static function confirm(string $question, bool $default = true): bool
+```
+
+</ApiSignature>
+
+Prompts user with y/n question. Returns true for y/yes, false for n/no. $default determines what Enter alone returns.
+
+<ApiParam name="$question" type="string" required>
+
+Prompt text.
+
+</ApiParam>
+
+<ApiParam name="$default" type="bool">
+
+Value returned when user presses Enter without typing.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="choice">
+
+<ApiSignature>
+
+```php
+public static function choice(string $question, array $options, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Presents a numbered list of options and returns the selected item. Re-prompts on invalid input until a valid selection is made.
+
+<ApiParam name="$question" type="string" required>
+
+Prompt heading displayed above the options.
+
+</ApiParam>
+
+<ApiParam name="$options" type="array" required>
+
+Indexed array of selectable items.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Returned when user presses Enter without typing.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Progress and Tables
+
+<ApiMethod name="progressBar">
+
+<ApiSignature>
+
+```php
+public static function progressBar(int $total = 0, string $label = ''): ProgressBar
+```
+
+</ApiSignature>
+
+Creates a progress bar instance. Pass total=0 for indeterminate spinner mode.
+
+<ApiParam name="$total" type="int">
+
+Total steps. 0 for indeterminate spinner mode.
+
+</ApiParam>
+
+<ApiParam name="$label" type="string">
+
+Text displayed alongside the bar.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="table">
+
+<ApiSignature>
+
+```php
+public static function table(array $headers, array $rows): void
+```
+
+</ApiSignature>
+
+Renders rows as an ASCII table with auto-fitted column widths.
+
+<ApiParam name="$headers" type="array" required>
+
+Column header labels.
+
+</ApiParam>
+
+<ApiParam name="$rows" type="array" required>
+
+Array of row arrays, values aligned to headers by index.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Display Components
+
+<ApiMethod name="header">
+
+<ApiSignature>
+
+```php
+public static function header(string $version, string $php, string $env, string $os): void
+```
+
+</ApiSignature>
+
+Prints the SKIM ASCII logo and environment metadata banner. Loads logo from skim_ascii.txt if present, falls back to built-in art.
+
+<ApiParam name="$version" type="string" required>
+
+Framework version string.
+
+</ApiParam>
+
+<ApiParam name="$php" type="string" required>
+
+PHP version string.
+
+</ApiParam>
+
+<ApiParam name="$env" type="string" required>
+
+Application environment name.
+
+</ApiParam>
+
+<ApiParam name="$os" type="string" required>
+
+Operating system identifier.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="section">
+
+<ApiSignature>
+
+```php
+public static function section(string $title): void
+```
+
+</ApiSignature>
+
+Prints an uppercase section heading in dim gray.
+
+<ApiParam name="$title" type="string" required>
+
+Section title text.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="step">
+
+<ApiSignature>
+
+```php
+public static function step(int $n, int $total, string $msg, string $status = 'running'): void
+```
+
+</ApiSignature>
+
+Prints a numbered step indicator with colored status icon (running=blue, success=green, error=red).
+
+<ApiParam name="$n" type="int" required>
+
+Current step number.
+
+</ApiParam>
+
+<ApiParam name="$total" type="int" required>
+
+Total step count.
+
+</ApiParam>
+
+<ApiParam name="$msg" type="string" required>
+
+Step description.
+
+</ApiParam>
+
+<ApiParam name="$status" type="string">
+
+One of 'running', 'success', 'error'.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="errorBox">
+
+<ApiSignature>
+
+```php
+public static function errorBox(string $title, string $body = ''): void
+```
+
+</ApiSignature>
+
+Renders a boxed error message with Unicode box-drawing on TTY or plain ASCII borders otherwise. Truncates lines wider than terminal width.
+
+<ApiParam name="$title" type="string" required>
+
+Error title displayed in the box header.
+
+</ApiParam>
+
+<ApiParam name="$body" type="string">
+
+Error body. When empty, $title is used as the body.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="didYouMean">
+
+<ApiSignature>
+
+```php
+public static function didYouMean(string $input, array $candidates): void
+```
+
+</ApiSignature>
+
+Suggests the closest matching command using Levenshtein distance. Only prints when a candidate is within edit distance 3.
+
+<ApiParam name="$input" type="string" required>
+
+Mistyped command name.
+
+</ApiParam>
+
+<ApiParam name="$candidates" type="array" required>
+
+List of valid command names to compare against.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="duration">
+
+<ApiSignature>
+
+```php
+public static function duration(float $start): void
+```
+
+</ApiSignature>
+
+Prints elapsed time since $start with a green checkmark.
+
+<ApiParam name="$start" type="float" required>
+
+microtime(true) value captured at operation start.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="divider">
+
+<ApiSignature>
+
+```php
+public static function divider(string $char = '─'): void
+```
+
+</ApiSignature>
+
+Prints a horizontal divider spanning the terminal width. Uses Unicode on TTY, ASCII dash otherwise.
+
+<ApiParam name="$char" type="string">
+
+Character to repeat. Defaults to Unicode horizontal line.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Cli
+role: CLI output and interaction helper
+layer: cli
+lifecycle: static utility — no instantiation needed, methods called directly
+owns: static forcePlain flag
+flow: Cli::method() -> isTty() check -> color() wraps text -> echo/fwrite output
+entry_points:
+  - line
+  - info
+  - success
+  - warn
+  - error
+  - muted
+  - bold
+  - ask
+  - confirm
+  - choice
+  - table
+  - header
+  - errorBox
+  - didYouMean
+invariants:
+  - ANSI codes emitted only on TTY
+  - forcePlain(true) overrides TTY detection
+  - error() writes to STDERR
+  - all other methods write to STDOUT
+side_effects:
+  - Writes to STDOUT or STDERR
+  - Reads from STDIN for interactive prompts
+  - forcePlain() mutates static state
+non_goals:
+  - Does not handle input parsing (see ArgvParser)
+  - Does not manage process lifecycle (see kernel)
+  - Does not provide full-screen TUI (see InteractiveMenu)
+```
+</AiContext>

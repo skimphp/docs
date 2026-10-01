@@ -1,0 +1,228 @@
+---
+title: API Reference
+description: "Complete API reference for the SKIM PHP framework, organized by module."
+---
+
+# API Reference
+
+Welcome to the SKIM Framework API Reference. Browse classes, facades, and helpers below grouped by module.
+
+## Assets Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`assets`](./assets/assets) | Vite asset integration — resolves hashed URLs from manifest.json and generates script/style tags with HMR support. | `6/6 (100%)` | [Asset Resolution](./assets/assets#asset-resolution) • [Tag Generation](./assets/assets#tag-generation) • [Testing Hooks](./assets/assets#testing-hooks) |
+
+## Cache Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`ArrayDriver`](./cache/arraydriver) | In-memory cache driver for tests with process-scoped storage and lazy TTL expiry. | `7/7 (100%)` | [Read API](./cache/arraydriver#read-api) • [Write API](./cache/arraydriver#write-api) • [Invalidation](./cache/arraydriver#invalidation) |
+| [`cache`](./cache/cache) | Static cache facade for configured drivers, fail-soft fallback, tag support, and test driver injection. | `14/14 (100%)` | [Read API](./cache/cache#read-api) • [Write API](./cache/cache#write-api) • [Invalidation](./cache/cache#invalidation) • [Tag Operations](./cache/cache#tag-operations) • [Testing Hooks](./cache/cache#testing-hooks) |
+| [`FileDriver`](./cache/filedriver) | Filesystem cache driver storing each key as a serialized file with TTL-based expiry. | `6/7 (86%)` | [Read API](./cache/filedriver#read-api) • [Write API](./cache/filedriver#write-api) • [Invalidation](./cache/filedriver#invalidation) |
+| [`RedisDriver`](./cache/redisdriver) | Redis cache driver using php-redis extension with lazy connection, SCAN-based flush, and tag support. | `7/8 (88%)` | [Read API](./cache/redisdriver#read-api) • [Write API](./cache/redisdriver#write-api) • [Invalidation](./cache/redisdriver#invalidation) • [Tag Operations](./cache/redisdriver#tag-operations) |
+| [`TaggedRedisDriver`](./cache/taggedredisdriver) | Tag-scoped proxy over RedisDriver for grouped cache invalidation via Redis sets. | `3/4 (75%)` | [Read API](./cache/taggedredisdriver#read-api) • [Write API](./cache/taggedredisdriver#write-api) • [Invalidation](./cache/taggedredisdriver#invalidation) |
+
+## Cli Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`ArgvParser`](./cli/argvparser) | Pure value object that parses $argv into command name, positional args, and flags. | `2/2 (100%)` | [Parsing](./cli/argvparser#parsing) • [Flag Access](./cli/argvparser#flag-access) |
+| [`cli`](./cli/cli) | ANSI-colored CLI output helper with TTY detection, interactive prompts, tables, and styled error boxes. | `23/23 (100%)` | [Output](./cli/cli#output) • [Interactive Prompts](./cli/cli#interactive-prompts) • [Progress and Tables](./cli/cli#progress-and-tables) • [Display Components](./cli/cli#display-components) |
+| [`command`](./cli/command) | Abstract base class for CLI commands with arg/flag access, output helpers, and auto-configured metadata. | `10/10 (100%)` | [Metadata Access](./cli/command#metadata-access) • [Configuration](./cli/command#configuration) • [Command Execution](./cli/command#command-execution) • [Input Access](./cli/command#input-access) • [Output Helpers](./cli/command#output-helpers) |
+| [`CacheBuildCommand`](./cli/cachebuildcommand) | CLI command that pre-compiles env, config, and extensions into pure PHP array cache files for OPcache. | `1/1 (100%)` | [Command Execution](./cli/cachebuildcommand#command-execution) |
+| [`CacheCommand`](./cli/cachecommand) | CLI command for cache invalidation by prefix or full backend flush. | `1/1 (100%)` | [Command Execution](./cli/cachecommand#command-execution) |
+| [`ExtInstallCommand`](./cli/extinstallcommand) | CLI command that installs a SKIM extension package with composer, config publishing, and atomic migrations. | `14/14 (100%)` | [Command Execution](./cli/extinstallcommand#command-execution) • [Installation Pipeline](./cli/extinstallcommand#installation-pipeline) • [Configuration](./cli/extinstallcommand#configuration) |
+| [`ExtListCommand`](./cli/extlistcommand) | CLI command that lists installed SKIM extensions from local Composer metadata with capability and conflict reporting. | `3/3 (100%)` | [Command Execution](./cli/extlistcommand#command-execution) |
+| [`ExtManifestCommand`](./cli/extmanifestcommand) | CLI command that generates skim.json manifest from an extension class for distribution. | `1/1 (100%)` | [Command Execution](./cli/extmanifestcommand#command-execution) |
+| [`IdeCommand`](./cli/idecommand) | CLI command that generates .ide-helper.php with typed model property stubs for IDE autocomplete. | `6/6 (100%)` | [Command Execution](./cli/idecommand#command-execution) • [Model Discovery](./cli/idecommand#model-discovery) • [Schema Reading](./cli/idecommand#schema-reading) • [Code Generation](./cli/idecommand#code-generation) |
+| [`InstallCommand`](./cli/installcommand) | Interactive CLI installer that generates .env from prompts and optionally runs migrations. | `3/3 (100%)` | [Command Execution](./cli/installcommand#command-execution) • [Key Generation](./cli/installcommand#key-generation) • [Environment Building](./cli/installcommand#environment-building) |
+| [`migrate_command`](./cli/migrate_command) | CLI dispatcher for database migration operations — run, rollback, fresh, status, and make. | `6/6 (100%)` | [Command Execution](./cli/migrate_command#command-execution) • [Sub-commands](./cli/migrate_command#sub-commands) |
+| [`QueueCommand`](./cli/queuecommand) | CLI dispatcher for queue operations — work, status, flush, and restart. | `5/5 (100%)` | [Command Execution](./cli/queuecommand#command-execution) • [Sub-commands](./cli/queuecommand#sub-commands) |
+| [`ServeCommand`](./cli/servecommand) | CLI command that starts PHP built-in dev server and optional Vite in parallel. | `1/1 (100%)` | [Command Execution](./cli/servecommand#command-execution) |
+| [`WorkerInstallCommand`](./cli/workerinstallcommand) | CLI command that generates FrankenPHP worker mode files. | `1/1 (100%)` | [Command Execution](./cli/workerinstallcommand#command-execution) |
+| [`WorkerUninstallCommand`](./cli/workeruninstallcommand) | CLI command that removes FrankenPHP worker mode files. | `1/1 (100%)` | [Command Execution](./cli/workeruninstallcommand#command-execution) |
+| [`InteractiveMenu`](./cli/interactivemenu) | Full-screen interactive terminal menu for CLI command discovery with keyboard navigation and live search. | `10/11 (91%)` | [Menu Execution](./cli/interactivemenu#menu-execution) • [Key Handling](./cli/interactivemenu#key-handling) • [Rendering](./cli/interactivemenu#rendering) • [TTY Management](./cli/interactivemenu#tty-management) |
+| [`kernel`](./cli/kernel) | CLI kernel — central dispatcher owning command registry, help rendering, dispatch, timing, and error output. | `7/7 (100%)` | [Dispatch](./cli/kernel#dispatch) • [Command Resolution](./cli/kernel#command-resolution) • [Help Display](./cli/kernel#help-display) |
+| [`ProgressBar`](./cli/progressbar) | Terminal progress bar with TTY-aware rendering, percentage display, and braille spinner for unknown totals. | `5/5 (100%)` | [Progress Control](./cli/progressbar#progress-control) • [Rendering](./cli/progressbar#rendering) |
+
+## Core Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`app`](./core/app) | Singleton container and HTTP kernel combining a scoped key-value store, DI container with auto-wiring, and middleware pipeline. | `42/42 (100%)` | [Lifecycle](./core/app#lifecycle) • [Scoped Store](./core/app#scoped-store) • [DI Container](./core/app#di-container) • [Middleware](./core/app#middleware) • [Request Dispatch](./core/app#request-dispatch) • [Extensions](./core/app#extensions) • [Testing](./core/app#testing) |
+| [`config`](./core/config) | Static config registry with lazy-loading and dot-notation read access across plain PHP array files. | `6/6 (100%)` | [Read API](./core/config#read-api) • [Testing Hooks](./core/config#testing-hooks) |
+| [`env`](./core/env) | Static facade for lazy-loading .env files and accessing typed environment variables with OS-var priority. | `6/6 (100%)` | [Read API](./core/env#read-api) • [Write API](./core/env#write-api) • [Testing Hooks](./core/env#testing-hooks) |
+| [`pipeline`](./core/pipeline) | Middleware chain builder and executor using the onion model. | `5/5 (100%)` | [Execution](./core/pipeline#execution) • [Internals](./core/pipeline#internals) |
+| [`request`](./core/request) | HTTP request abstraction wrapping superglobals with typed accessors for query, POST, JSON, headers, files, and route params. | `21/22 (95%)` | [Construction](./core/request#construction) • [Input Access](./core/request#input-access) • [Headers & IP](./core/request#headers-ip) • [URL & Method](./core/request#url-method) • [Detection Helpers](./core/request#detection-helpers) • [Route Params](./core/request#route-params) • [Raw Access](./core/request#raw-access) |
+| [`response`](./core/response) | HTTP response builder with fluent chaining for status, headers, JSON, views, redirects, streaming, and file downloads. | `18/18 (100%)` | [Status](./core/response#status) • [JSON & HTML](./core/response#json-html) • [Views](./core/response#views) • [Redirects](./core/response#redirects) • [Streaming & Downloads](./core/response#streaming-downloads) • [Headers & Body](./core/response#headers-body) • [Output](./core/response#output) • [Test Accessors](./core/response#test-accessors) |
+| [`RouteEntry`](./core/routeentry) | Fluent route configuration object returned by router registration methods. | `4/5 (80%)` | [Configuration](./core/routeentry#configuration) • [Accessors](./core/routeentry#accessors) |
+| [`router`](./core/router) | HTTP and CLI router wrapping nikic/fast-route with compiled regex dispatch, F3-compatible @param tokens, and route groups. | `16/16 (100%)` | [Route Registration](./core/router#route-registration) • [HTTP Methods](./core/router#http-methods) • [Groups & Commands](./core/router#groups-commands) • [Named Routes](./core/router#named-routes) • [Dispatch](./core/router#dispatch) • [Internals](./core/router#internals) |
+
+## Db Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`db`](./db/db) | Static facade for database operations using query_gen SQL templates with lazy connections and profiler integration. | `12/12 (100%)` | [Connection Management](./db/db#connection-management) • [Query Execution](./db/db#query-execution) • [Transactions](./db/db#transactions) • [Utilities](./db/db#utilities) • [Testing Hooks](./db/db#testing-hooks) |
+| [`DbException`](./db/dbexception) | RuntimeException wrapping PDO failures with the failed SQL string for debugging. | `1/1 (100%)` | [Constructor](./db/dbexception#constructor) |
+| [`NotFoundException`](./db/notfoundexception) | RuntimeException thrown by Model::findOrFail() when a record is missing. | `1/1 (100%)` | [Constructor](./db/notfoundexception#constructor) |
+| [`MerryModel`](./db/merrymodel) | ORM layer extending model with eager/lazy relation loading and many-to-many pivot operations. | `5/5 (100%)` | [Eager Loading](./db/merrymodel#eager-loading) • [Lazy Access](./db/merrymodel#lazy-access) • [Pivot Operations](./db/merrymodel#pivot-operations) |
+| [`migration`](./db/migration) | Abstract base class for SQL-first database migrations with up/down contract. | `2/2 (100%)` | [Migration Contract](./db/migration#migration-contract) • [Properties](./db/migration#properties) |
+| [`MigrationExecutor`](./db/migrationexecutor) | Executes migration payloads (SQL or callables) with optional dry-run collection. Extracted from Migrator for isolated testing and pretend mode support. | `0/3 (0%)` | — |
+| [`Migrator`](./db/migrator) | Tracks and executes SQL-first migrations with batch-based rollback. #AI:class Use via CLI commands (migrate, migrate:down, migrate:fresh, migrate:status). State is stored in the `_migrations` table: filename + batch number. Each `migrate` call groups all pending migrations into one batch for atomic rollback targeting. Example: $m = new Migrator(basePath('migrations')); $ran = $m-&gt;run(); // ['2024_01_01_create_users.php', ...] $m-&gt;down(); // rollback last batch $m-&gt;status(); // [['filename' =&gt; ..., 'batch' =&gt; ..., 'status' =&gt; 'applied'], ...] Testing: Use test_db() SQLite :memory: — migrator creates its own tracking table. | `6/7 (86%)` | — |
+| [`model`](./db/model) | Active record base class with dirty tracking, schema caching, guarded mass-assignment, and type casting. | `19/22 (86%)` | [Finders](./db/model#finders) • [Query Building](./db/model#query-building) • [Creation](./db/model#creation) • [Persistence](./db/model#persistence) • [Deletion](./db/model#deletion) • [Mass Assignment](./db/model#mass-assignment) • [Hydration](./db/model#hydration) • [Schema](./db/model#schema) • [Accessors](./db/model#accessors) |
+| [`NullMarker`](./db/nullmarker) | Sentinel object that forces SET col = NULL in query_gen %set% placeholders. | `1/1 (100%)` | [Factory](./db/nullmarker#factory) |
+| [`pagination`](./db/pagination) | Immutable result object for paginated queries with computed page navigation properties. | `1/1 (100%)` | [Constructor](./db/pagination#constructor) • [Computed Properties](./db/pagination#computed-properties) |
+| [`QueryBuilder`](./db/querybuilder) | Internal SQL template processor for query_gen %placeholder% substitution. | `5/5 (100%)` | [Core Processing](./db/querybuilder#core-processing) • [Clause Builders](./db/querybuilder#clause-builders) • [Debug](./db/querybuilder#debug) |
+| [`QueryScope`](./db/queryscope) | Fluent query builder scoped to a model class with WHERE/ORDER/LIMIT/OFFSET collection and terminal execution. | `9/10 (90%)` | [Clause Methods](./db/queryscope#clause-methods) • [Terminal Methods](./db/queryscope#terminal-methods) • [Internal](./db/queryscope#internal) |
+
+## Dev Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`DevTheme`](./dev/devtheme) | Shared CSS design system for dev tool HTML output — dark theme tokens, component classes, and toolbar styles. | `3/3 (100%)` | [CSS Providers](./dev/devtheme#css-providers) • [Utilities](./dev/devtheme#utilities) |
+| [`DevView`](./dev/devview) | Standalone template renderer for dev tools — zero framework dependencies, supports layouts, slots, and partial includes. | `9/9 (100%)` | [Rendering](./dev/devview#rendering) • [Template API](./dev/devview#template-api) • [Layout System](./dev/devview#layout-system) |
+| [`DocsCommand`](./dev/docscommand) | Umbrella CLI command that runs the full docs generation pipeline (extract → llm → site) with optional watch mode. | `2/2 (100%)` | [Pipeline](./dev/docscommand#pipeline) • [Watch Mode](./dev/docscommand#watch-mode) |
+| [`DocsExtractCommand`](./dev/docsextractcommand) | CLI command that scans PHP source files, extracts @ai.* annotations via AST, and writes llm.json. | `1/1 (100%)` | [Pipeline](./dev/docsextractcommand#pipeline) |
+| [`DocsLlmCommand`](./dev/docsllmcommand) | CLI command that reads llm.json and writes a compact llm.md Markdown file for LLM context windows. | `1/1 (100%)` | [Pipeline](./dev/docsllmcommand#pipeline) |
+| [`DocsSiteCommand`](./dev/docssitecommand) | CLI command that reads llm.json and generates one MDX file per class for the Starlight documentation site. | `1/1 (100%)` | [Pipeline](./dev/docssitecommand#pipeline) |
+| [`DocsValidateCommand`](./dev/docsvalidatecommand) | CLI command that reports @ai.* annotation coverage and fails the build when below the configured threshold. | `1/1 (100%)` | [Pipeline](./dev/docsvalidatecommand#pipeline) |
+| [`McpInstallCommand`](./dev/mcpinstallcommand) | CLI command that downloads the platform-native skim-mcp binary from GitHub Releases into .skim/bin/. | `1/1 (100%)` | — |
+| [`McpServeCommand`](./dev/mcpservecommand) | CLI command that launches the stdio MCP server for LLM tool integration with Claude Code, Cursor, etc. | `1/1 (100%)` | [Pipeline](./dev/mcpservecommand#pipeline) |
+| [`JsonEmitter`](./dev/jsonemitter) | Serializes extracted class metadata to llm.json and loads it back — the single source of truth for all doc outputs. | `2/2 (100%)` | [Serialization](./dev/jsonemitter#serialization) • [Deserialization](./dev/jsonemitter#deserialization) |
+| [`LlmMdEmitter`](./dev/llmmdemitter) | Converts decoded llm.json data into compact grouped Markdown optimized for LLM context windows. | `1/1 (100%)` | [Emit](./dev/llmmdemitter#emit) |
+| [`MdxEmitter`](./dev/mdxemitter) | Generates component-style MDX files from llm.json class records for the Starlight documentation site. | `1/1 (100%)` | [Emit](./dev/mdxemitter#emit) |
+| [`AnnotationParser`](./dev/annotationparser) | Parses PHPDoc blocks, inline comments, and #AI hash blocks to extract @ai.* tags into typed arrays. | `10/10 (100%)` | [Parsing](./dev/annotationparser#parsing) • [Value Coercion](./dev/annotationparser#value-coercion) • [Utilities](./dev/annotationparser#utilities) |
+| [`ClassExtractor`](./dev/classextractor) | Extracts documentation metadata from a single PHP file via nikic/php-parser AST traversal. | `1/2 (50%)` | [Extraction](./dev/classextractor#extraction) |
+| [`ClassVisitor`](./dev/classvisitor) | Internal AST visitor that captures class-level and method-level @ai.* annotations from PHPDoc, inline comments, and detached #AI blocks. | `8/9 (89%)` | [Traversal](./dev/classvisitor#traversal) • [Extraction](./dev/classvisitor#extraction) • [Value Helpers](./dev/classvisitor#value-helpers) |
+| [`ProjectScanner`](./dev/projectscanner) | Walks configured scan paths, runs ClassExtractor on each .php file, and returns a flat ExtractedClass[] collection. | `3/4 (75%)` | [Scanning](./dev/projectscanner#scanning) |
+| [`DocsGenerationPaths`](./dev/docsgenerationpaths) | Resolves CLI --source and --output flag overrides against config/docs.php defaults for docs generation paths. | `7/7 (100%)` | [Construction](./dev/docsgenerationpaths#construction) • [Path Resolution](./dev/docsgenerationpaths#path-resolution) |
+| [`ExtractedClass`](./dev/extractedclass) | Readonly value object representing a single extracted class with all annotation metadata from @ai.* tags. | `3/3 (100%)` | [Construction](./dev/extractedclass#construction) • [Serialization](./dev/extractedclass#serialization) |
+| [`ExtractedMethod`](./dev/extractedmethod) | Readonly value object representing a single extracted public method with all annotation metadata. | `2/2 (100%)` | [Construction](./dev/extractedmethod#construction) • [Serialization](./dev/extractedmethod#serialization) |
+| [`ErrorPage`](./dev/errorpage) | Developer-friendly error page rendered when APP_DEBUG=true. #AI:class Use only via the exception handler registered in App::run(). Delegates HTML generation to dev_view templates with a fallback to inline HTML if the template system itself fails. Never expose in production. Example: // Registered by App::run() when APP_DEBUG=true: set_exception_handler(fn(\Throwable $e) =&gt; ErrorPage::render($e)); Testing: Call render() directly with a test Throwable; output goes to stdout. | `1/1 (100%)` | — |
+| [`IdeLink`](./dev/idelink) | Builds deep-link URLs that open a file:line in the developer's editor — phpstorm (default), vscode, cursor, sublime, idea, webstorm, textmate, emacs, macvim, atom. | `6/6 (100%)` | [Registry](./dev/idelink#registry) • [Resolution](./dev/idelink#resolution) • [URL Building](./dev/idelink#url-building) • [Icons](./dev/idelink#icons) |
+| [`profiler`](./dev/profiler) | Static event collector that records DB queries, cache ops, view renders, and log entries for debug toolbar display. | `11/11 (100%)` | [Control](./dev/profiler#control) • [Recording](./dev/profiler#recording) • [Reading](./dev/profiler#reading) |
+| [`RequestTrace`](./dev/requesttrace) | Per-request structured trace that records middleware, queries, controller calls, and response as a timestamped timeline. | `10/10 (100%)` | [Control](./dev/requesttrace#control) • [Recording](./dev/requesttrace#recording) • [Reading](./dev/requesttrace#reading) |
+| [`toolbar`](./dev/toolbar) | Debug toolbar rendered before &lt;/body&gt; for HTML responses when APP_DEBUG=true, showing queries, cache, timeline, views, and log. | `1/1 (100%)` | [Rendering](./dev/toolbar#rendering) |
+
+## Events Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`event`](./events/event) | Synchronous event bus with priority ordering, one-time listeners, and async dispatch via queue. | `9/9 (100%)` | [Registration](./events/event#registration) • [Dispatch](./events/event#dispatch) • [Testing Hooks](./events/event#testing-hooks) |
+
+## Ext Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`CapabilityVocabulary`](./ext/capabilityvocabulary) | Canonical map of recognized extension capability slugs to human-readable descriptions. | `1/1 (100%)` | [Lookup API](./ext/capabilityvocabulary#lookup-api) |
+| [`ExtManifest`](./ext/extmanifest) | Generates a JSON manifest snapshot from an extension's runtime metadata. | `1/1 (100%)` | [Generation](./ext/extmanifest#generation) |
+| [`ExtMigrator`](./ext/extmigrator) | Runs extension migrations against the shared _migrations table with session-scoped rollback. | `4/4 (100%)` | [Migration API](./ext/extmigrator#migration-api) • [Inspection](./ext/extmigrator#inspection) |
+| [`ExtRegistry`](./ext/extregistry) | Discovers installed SKIM extensions from Composer packages with capability mapping and conflict detection. | `8/8 (100%)` | [Discovery API](./ext/extregistry#discovery-api) • [Lookup API](./ext/extregistry#lookup-api) • [Capability API](./ext/extregistry#capability-api) • [Dynamic Dispatch](./ext/extregistry#dynamic-dispatch) • [Cache Management](./ext/extregistry#cache-management) |
+| [`extension`](./ext/extension) | Abstract base class for SKIM extensions with metadata properties and lifecycle hooks. | `8/8 (100%)` | [Lifecycle Hooks](./ext/extension#lifecycle-hooks) • [Metadata Accessors](./ext/extension#metadata-accessors) • [Static Metadata](./ext/extension#static-metadata) |
+| [`extensionManager`](./ext/extensionmanager) | Coordinates extension discovery, dependency validation, topological sorting, and lifecycle hooks. | `6/6 (100%)` | [Discovery](./ext/extensionmanager#discovery) • [Lifecycle Hooks](./ext/extensionmanager#lifecycle-hooks) |
+| [`ExtensionPriority`](./ext/extensionpriority) | Named integer bands controlling extension registration and boot order. | `No methods` | [Constants](./ext/extensionpriority#constants) |
+
+## Helpers Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`arr`](./helpers/arr) | Array utility methods for finding, indexing, plucking, and common collection patterns. | `13/13 (100%)` | [Search](./helpers/arr#search) • [Indexing](./helpers/arr#indexing) • [Extraction](./helpers/arr#extraction) • [Navigation](./helpers/arr#navigation) • [Aggregation](./helpers/arr#aggregation) • [Debug](./helpers/arr#debug) |
+| [`filter`](./helpers/filter) | Input validation helper returning typed values or false — never null. | `20/20 (100%)` | [Numeric](./helpers/filter#numeric) • [Boolean](./helpers/filter#boolean) • [Date & Time](./helpers/filter#date-time) • [Network](./helpers/filter#network) • [String Patterns](./helpers/filter#string-patterns) • [Range & Enum](./helpers/filter#range-enum) • [Array Variants](./helpers/filter#array-variants) |
+| [`str`](./helpers/str) | Static string utility methods for slugs, truncation, UUIDs, random strings, and case conversion. | `9/9 (100%)` | [Slugs & Truncation](./helpers/str#slugs-truncation) • [Generation](./helpers/str#generation) • [Predicates](./helpers/str#predicates) • [Case Conversion](./helpers/str#case-conversion) |
+
+## Http Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`client`](./http/client) | Zero-dependency HTTP client using PHP native streams with JSON body and test faking. | `6/7 (86%)` | [HTTP Methods](./http/client#http-methods) • [Testing](./http/client#testing) |
+| [`FakeClient`](./http/fakeclient) | Test double for HTTP client that records requests and returns stub responses. | `8/9 (89%)` | [HTTP Methods](./http/fakeclient#http-methods) • [Assertions](./http/fakeclient#assertions) • [Inspection](./http/fakeclient#inspection) |
+| [`HttpResponse`](./http/httpresponse-httpresponse) | Immutable value object for HTTP responses with status, body, headers, and JSON parsing. | `4/5 (80%)` | [Construction](./http/httpresponse-httpresponse#construction) • [Accessors](./http/httpresponse-httpresponse#accessors) |
+
+## I18n Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`i18n`](./i18n/i18n) | Minimal i18n facade with PHP array files, dot-notation keys, pluralization, and custom loader support. | `7/7 (100%)` | [Translation API](./i18n/i18n#translation-api) • [Configuration](./i18n/i18n#configuration) • [Testing Hooks](./i18n/i18n#testing-hooks) |
+
+## Log Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`FileHandler`](./log/filehandler) | Rotating file log handler with daily suffix and automatic old-file cleanup. | `1/2 (50%)` | [Contract Implementation](./log/filehandler#contract-implementation) |
+| [`log`](./log/log) | Static log facade with RFC 5424 levels, lazy handler resolution, and profiler integration. | `10/10 (100%)` | [Log Levels](./log/log#log-levels) • [Testing Hooks](./log/log#testing-hooks) |
+| [`NullHandler`](./log/nullhandler) | Log handler that discards all entries — used in tests and null-channel config. | `1/1 (100%)` | [Contract Implementation](./log/nullhandler#contract-implementation) |
+
+## Middleware Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`cors`](./middleware/cors) | CORS middleware that adds cross-origin headers and handles OPTIONS preflight. | `1/2 (50%)` | [Middleware](./middleware/cors#middleware) |
+| [`RateLimit`](./middleware/ratelimit) | Redis-backed sliding window rate limiter with fail-open fallback. | `1/2 (50%)` | [Middleware](./middleware/ratelimit#middleware) |
+| [`toolbar_middleware`](./middleware/toolbar_middleware) | Injects the debug toolbar HTML into text/html responses when APP_DEBUG is true. | `1/1 (100%)` | [Middleware](./middleware/toolbar_middleware#middleware) |
+
+## Queue Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`BaseJob`](./queue/basejob) | Convenience base class for queue jobs with default retry count, delay, and error logging. | `3/3 (100%)` | [Job Configuration](./queue/basejob#job-configuration) • [Failure Handling](./queue/basejob#failure-handling) |
+| [`queue`](./queue/queue) | Redis-backed job queue using LPUSH/BRPOP for O(1) operations and sorted sets for delayed jobs. | `9/9 (100%)` | [Enqueue](./queue/queue#enqueue) • [Delayed Jobs](./queue/queue#delayed-jobs) • [Queue Inspection](./queue/queue#queue-inspection) • [Testing Hooks](./queue/queue#testing-hooks) |
+| [`worker`](./queue/worker) | Long-lived queue worker that polls Redis with BRPOP, executes jobs, and handles retries with exponential back-off. | `5/6 (83%)` | [Worker Execution](./queue/worker#worker-execution) • [Job Processing](./queue/worker#job-processing) • [Signal Handling](./queue/worker#signal-handling) |
+
+## Realtime Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`datastar`](./realtime/datastar) | Datastar v1 SSE driver implementing ElementPatcher, SignalPatcher, and ScriptRunner. | `5/6 (83%)` | [DOM Operations](./realtime/datastar#dom-operations) • [Signal Operations](./realtime/datastar#signal-operations) • [Script Execution](./realtime/datastar#script-execution) • [View Integration](./realtime/datastar#view-integration) |
+| [`sse`](./realtime/sse) | Server-Sent Events helper for pushing data over long-lived HTTP connections. | `3/3 (100%)` | [Stream API](./realtime/sse#stream-api) • [Connection Management](./realtime/sse#connection-management) |
+
+## Session Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`FileSessionDriver`](./session/filesessiondriver) | Native PHP file-backed session driver for single-server deployments. | `8/9 (89%)` | [Session API](./session/filesessiondriver#session-api) • [Lifecycle](./session/filesessiondriver#lifecycle) • [Testing Hooks](./session/filesessiondriver#testing-hooks) |
+| [`RedisSessionDriver`](./session/redissessiondriver) | Redis-backed session driver for multi-server and load-balanced deployments. | `8/9 (89%)` | [Session API](./session/redissessiondriver#session-api) • [Lifecycle](./session/redissessiondriver#lifecycle) • [Testing Hooks](./session/redissessiondriver#testing-hooks) |
+| [`session`](./session/session) | Static session facade with flash message support, lazy driver resolution, and test injection. | `14/14 (100%)` | [Read API](./session/session#read-api) • [Write API](./session/session#write-api) • [Flash Messages](./session/session#flash-messages) • [Lifecycle](./session/session#lifecycle) • [Testing Hooks](./session/session#testing-hooks) |
+
+## Testing Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`AuthFake`](./testing/authfake) | In-memory auth double that always reports authenticated with a given user object. | `4/5 (80%)` | [Auth API](./testing/authfake#auth-api) |
+| [`HttpClient`](./testing/httpclient) | In-process HTTP test client that dispatches requests through the app without a real server. | `9/10 (90%)` | [Configuration](./testing/httpclient#configuration) • [HTTP Methods](./testing/httpclient#http-methods) |
+| [`HttpResponse`](./testing/httpresponse-httpresponse-2) | Fluent assertion wrapper for HTTP test responses with status, JSON, header, and body assertions. | `19/20 (95%)` | [Status Assertions](./testing/httpresponse-httpresponse-2#status-assertions) • [Content Assertions](./testing/httpresponse-httpresponse-2#content-assertions) • [Accessors](./testing/httpresponse-httpresponse-2#accessors) • [Debug](./testing/httpresponse-httpresponse-2#debug) |
+| [`PendingRequest`](./testing/pendingrequest) | Immutable request builder that dispatches through the app with auth, session, and header injection. | `10/11 (91%)` | [Configuration](./testing/pendingrequest#configuration) • [HTTP Methods](./testing/pendingrequest#http-methods) |
+| [`RequestFactory`](./testing/requestfactory) | Factory that builds request objects from raw parameters with proper $_SERVER header mapping. | `1/1 (100%)` | [Factory](./testing/requestfactory#factory) |
+| [`SessionFake`](./testing/sessionfake) | In-memory session double for tests with no cookies, headers, or persistence. | `5/5 (100%)` | [Session API](./testing/sessionfake#session-api) |
+
+## Validation Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`result`](./validation/result) | Immutable validation result with ok (virtual property), errors(), and validated() accessors. | `2/3 (67%)` | [Result API](./validation/result#result-api) |
+| [`validate`](./validation/validate) | Zero-dependency validation engine with built-in rules, custom rule registration, and mass-assignment protection. | `4/5 (80%)` | [Validation API](./validation/validate#validation-api) • [Custom Rules](./validation/validate#custom-rules) |
+
+## View Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`ComponentCollector`](./view/componentcollector) | Closure-based part capture for components with stack-scoped isolation. | `10/10 (100%)` | [Capture API](./view/componentcollector#capture-api) • [Query API](./view/componentcollector#query-api) • [Stack Management](./view/componentcollector#stack-management) |
+| [`ComponentRenderer`](./view/componentrenderer) | Isolated component renderer enforcing strict props validation and clean template scope. | `3/3 (100%)` | [Rendering API](./view/componentrenderer#rendering-api) • [Validation](./view/componentrenderer#validation) • [Path Resolution](./view/componentrenderer#path-resolution) |
+| [`ViewException`](./view/viewexception) | Exception thrown when a template file is not found or a named fragment is missing. | `No methods` | — |
+| [`FragmentExtractor`](./view/fragmentextractor) | State-machine fragment parser replacing regex extraction with tokenized validation. | `4/4 (100%)` | [Extraction API](./view/fragmentextractor#extraction-api) • [Tokenization](./view/fragmentextractor#tokenization) • [Validation](./view/fragmentextractor#validation) |
+| [`template`](./view/template) | Template context object providing include, layout, and slot system for PHP views. | `10/11 (91%)` | [Template API](./view/template#template-api) • [Layout System](./view/template#layout-system) • [Rendering](./view/template#rendering) |
+| [`view`](./view/view) | Static facade for rendering PHP templates with fragment extraction and profiler integration. | `9/10 (90%)` | [Rendering API](./view/view#rendering-api) • [Configuration](./view/view#configuration) • [Testing Hooks](./view/view#testing-hooks) |
+
+## Websocket Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`connection`](./websocket/connection) | WebSocket connection abstraction with room-based broadcasting and process-scoped room management. | `8/9 (89%)` | [Connection API](./websocket/connection#connection-api) • [Room Management](./websocket/connection#room-management) • [Broadcasting](./websocket/connection#broadcasting) • [Testing Hooks](./websocket/connection#testing-hooks) |
+
+## Worker Module
+
+| Class / Facade | Description | Coverage | Quick Links |
+| :--- | :--- | :--- | :--- |
+| [`LeakDetector`](./worker/leakdetector) | Runtime per-request leak detector for worker mode (dev/CI only). #AI:class Snapshots boundary state at begin_request and, after worker_reset has run at end_request, flags hard invariant violations immediately and sustained growth trends over a sliding window. Off unless WORKER_MODE + debug, or explicitly configured. Reports via log/request_trace/profiler — never throws mid-request. | `1/6 (17%)` | — |
+| [`WorkerReset`](./worker/workerreset) | Per-request reset orchestrator for FrankenPHP worker mode. | `3/3 (100%)` | — |
+

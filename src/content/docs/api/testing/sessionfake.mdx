@@ -1,0 +1,174 @@
+---
+title: SessionFake
+description: "In-memory session double for tests with no cookies, headers, or persistence."
+---
+
+<ApiBadge type="testing" />
+<ApiBadge type="fake" />
+<ApiBadge type="session" />
+<ApiBadge type="in-memory" />
+
+`SessionFake` provides a minimal in-memory session implementation for tests. It stores data in a plain array with no side effects — no cookies, no headers, no Redis.
+
+```txt
+Symbol: Skim\Testing\SessionFake
+Source: src/Testing/SessionFake.php
+Lifecycle: instantiated per-test, bound into the container via App::bind()
+Fallback: n/a — test-only class
+Test seam: bind into container via $app->bind('session', fn() => new SessionFake())
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$fake = new SessionFake();
+$fake->set('user_id', 42);
+$app->bind('session', fn() => $fake);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+new SessionFake()
+-> bind to container
+-> controller calls Session::get() -> SessionFake::get()
+```
+
+</LifecycleFlow>
+
+Intentionally minimal — only the methods needed by PendingRequest for session injection during tests.
+
+<NoteBox>
+
+Does not implement SessionDriver interface — it provides only the methods PendingRequest needs. Use Session::setDriver() with a proper driver for full interface compliance.
+
+</NoteBox>
+
+## Session API
+
+<ApiMethod name="set">
+
+<ApiSignature>
+
+```php
+public function set(string $key, mixed $value): void
+```
+
+</ApiSignature>
+
+Stores a value in the in-memory session array.
+
+<ApiParam name="$key" type="string" required>
+
+Session key.
+
+</ApiParam>
+
+<ApiParam name="$value" type="mixed" required>
+
+Payload to store.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $key, mixed $default = null): mixed
+```
+
+</ApiSignature>
+
+Returns a value by key, or $default if absent.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to read.
+
+</ApiParam>
+
+<ApiParam name="$default" type="mixed">
+
+Fallback when key is missing.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="has">
+
+<ApiSignature>
+
+```php
+public function has(string $key): bool
+```
+
+</ApiSignature>
+
+Returns true when the key exists in the in-memory data.
+
+<ApiParam name="$key" type="string" required>
+
+Session key to test.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="flush">
+
+<ApiSignature>
+
+```php
+public function flush(): void
+```
+
+</ApiSignature>
+
+Clears all session data from the in-memory array.
+
+</ApiMethod>
+
+<ApiMethod name="all">
+
+<ApiSignature>
+
+```php
+public function all(): array
+```
+
+</ApiSignature>
+
+Returns all session data as an associative array.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Testing\SessionFake
+role: test double (session)
+layer: testing
+lifecycle: instantiated per-test, bound into the container via App::bind()
+owns: in-memory data array
+flow: test -> SessionFake::set/get/has/flush -> in-memory array
+entry_points:
+  - set
+  - get
+  - has
+  - flush
+  - all
+invariants:
+  - Data exists only in memory for the lifetime of the object
+  - flush() clears all data
+  - all() returns the full data array
+non_goals:
+  - Does not implement SessionDriver interface
+  - Does not handle flash messages
+  - Does not persist data
+```
+</AiContext>

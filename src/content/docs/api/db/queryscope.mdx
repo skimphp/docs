@@ -1,0 +1,289 @@
+---
+title: QueryScope
+description: "Fluent query builder scoped to a model class with WHERE/ORDER/LIMIT/OFFSET collection and terminal execution."
+---
+
+<ApiBadge type="fluent" />
+<ApiBadge type="builder" />
+<ApiBadge type="orm" />
+<ApiBadge type="no-discard" />
+
+`QueryScope` collects WHERE, ORDER BY, LIMIT, and OFFSET clauses without executing any SQL. Terminal methods (`all()`, `first()`, `count()`, `paginate()`) compile the collected state into a query_gen SQL template and execute it via `Db::query()`.
+
+```txt
+Symbol: Skim\Db\QueryScope
+Source: src/Db/QueryScope.php
+Lifecycle: created by Model::where(), consumed by terminal method call
+Fallback: none
+Test seam: test via Model::where() against test_db() SQLite :memory:
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$users = User::where(['status' => 'active'])
+    ->order('created_at DESC')
+    ->limit(20)
+    ->all();
+```
+</CodeExample>
+
+<WarningBox>
+
+Discarding the return of where()/order()/limit()/offset() loses that clause — always capture or chain
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Model::where(conditions)
+-> new QueryScope(class)
+-> chain where/order/limit/offset
+-> terminal method (all/first/count/paginate)
+-> execute() compiles SQL
+-> Db::query() with query_gen placeholders
+```
+
+</LifecycleFlow>
+
+QueryScope is a thin collector over query_gen placeholders. All SQL generation happens in QueryBuilder::build() at execution time.
+
+<NoteBox>
+
+Unlike Eloquent, QueryScope is NOT the model — it builds a one-shot query. Each terminal call executes independently.
+
+</NoteBox>
+
+## Clause Methods
+
+<ApiMethod name="where">
+
+<ApiSignature>
+
+```php
+public function where(string|array $condition, array $params = []): static
+```
+
+</ApiSignature>
+
+Adds a WHERE condition. Array form ['col' =&gt; 'val'] generates unique placeholders automatically. String form 'col = :col' requires matching $params. Repeated calls join with AND.
+
+<ApiParam name="$condition" type="string" required>
+
+SQL fragment or column=&gt;value equality pairs.
+
+</ApiParam>
+
+<ApiParam name="$params" type="array">
+
+PDO params when $condition is a string fragment.
+
+</ApiParam>
+
+<NoteBox>
+
+#[\NoDiscard] — always capture or chain the return value.
+
+</NoteBox>
+
+</ApiMethod>
+
+<ApiMethod name="order">
+
+<ApiSignature>
+
+```php
+public function order(string $clause): static
+```
+
+</ApiSignature>
+
+Sets ORDER BY clause. Last call wins — does not accumulate.
+
+<ApiParam name="$clause" type="string" required>
+
+SQL ORDER BY expression like 'created_at DESC'.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="limit">
+
+<ApiSignature>
+
+```php
+public function limit(int $n): static
+```
+
+</ApiSignature>
+
+Sets LIMIT. Last call wins.
+
+<ApiParam name="$n" type="int" required>
+
+Maximum rows to return.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="offset">
+
+<ApiSignature>
+
+```php
+public function offset(int $n): static
+```
+
+</ApiSignature>
+
+Sets OFFSET. Last call wins.
+
+<ApiParam name="$n" type="int" required>
+
+Number of rows to skip.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Terminal Methods
+
+<ApiMethod name="all">
+
+<ApiSignature>
+
+```php
+public function all(): array
+```
+
+</ApiSignature>
+
+Executes the collected query and returns an array of hydrated model instances.
+
+</ApiMethod>
+
+<ApiMethod name="first">
+
+<ApiSignature>
+
+```php
+public function first(): mixed
+```
+
+</ApiSignature>
+
+Executes the query with LIMIT 1 and returns the first hydrated model or null.
+
+</ApiMethod>
+
+<ApiMethod name="count">
+
+<ApiSignature>
+
+```php
+public function count(): int
+```
+
+</ApiSignature>
+
+Executes COUNT(*) with current WHERE conditions. Ignores limit and offset.
+
+</ApiMethod>
+
+<ApiMethod name="paginate">
+
+<ApiSignature>
+
+```php
+public function paginate(int $page = 1, int $perPage = 20): pagination
+```
+
+</ApiSignature>
+
+Executes count() and a limited all() to produce a pagination value object with items, total, and navigation properties.
+
+<ApiParam name="$page" type="int">
+
+Current page number (1-indexed). Default 1.
+
+</ApiParam>
+
+<ApiParam name="$perPage" type="int">
+
+Items per page. Default 20.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$page = User::where(['role' => 'admin'])->paginate(page: 2, per_page: 25);
+// $page->items, $page->total, $page->pages, $page->hasNext
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Internal
+
+<ApiMethod name="toBuilderParams">
+
+<ApiSignature>
+
+```php
+public function toBuilderParams(): array
+```
+
+</ApiSignature>
+
+Exports collected conditions and params in QueryBuilder::build() format. Used by Model::deleteWhere().
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $modelClass)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\QueryScope
+role: fluent query builder
+layer: db
+lifecycle: created by Model::where(), consumed by terminal method call
+owns: conditions array, pdoParams, order/limit/offset state
+flow: Model::where() -> new QueryScope -> chain clauses -> terminal method -> execute() -> Db::query()
+entry_points:
+  - where
+  - order
+  - limit
+  - offset
+  - all
+  - first
+  - count
+  - paginate
+invariants:
+  - clause methods are #[\NoDiscard] — discarding the return silently loses the clause
+  - repeated where() calls join with AND
+  - order/limit/offset use last-call-wins
+  - count() ignores limit/offset
+side_effects:
+  - Terminal methods execute real DB queries
+non_goals:
+  - Does not support JOINs
+  - Does not support GROUP BY or HAVING
+  - Does not cache results
+```
+</AiContext>

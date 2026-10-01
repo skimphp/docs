@@ -1,0 +1,231 @@
+---
+title: ExtRegistry
+description: "Discovers installed SKIM extensions from Composer packages with capability mapping and conflict detection."
+---
+
+<ApiBadge type="extension" />
+<ApiBadge type="discovery" />
+<ApiBadge type="registry" />
+<ApiBadge type="composer" />
+<ApiBadge type="capability-map" />
+
+`ExtRegistry` scans vendor/ Composer packages for SKIM extension metadata. It reads extra.skim from composer.json and optional skim.json manifests, builds a capability map, detects conflicts, and caches results for the instance lifetime.
+
+```txt
+Symbol: Skim\Ext\ExtRegistry
+Source: src/Ext/ExtRegistry.php
+Lifecycle: instantiated per-discovery
+Test seam: construct with temp directory containing mock vendor/ structure
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$registry = new ExtRegistry(basePath());
+$extensions = $registry->installed();
+$auth = $registry->find('acme/auth');
+```
+</CodeExample>
+
+## Discovery API
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $root)
+```
+
+</ApiSignature>
+
+Sets the project root directory containing vendor/ for extension scanning.
+
+<ApiParam name="$root" type="string" required>
+
+Project root path containing vendor/ directory.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="installed">
+
+<ApiSignature>
+
+```php
+public function installed(): array
+```
+
+</ApiSignature>
+
+Scans vendor/ for extension metadata from composer.json extra.skim and skim.json manifests. Results are cached for the instance lifetime.
+
+</ApiMethod>
+
+<ApiMethod name="all">
+
+<ApiSignature>
+
+```php
+public static function all(?string $root = null): array
+```
+
+</ApiSignature>
+
+Convenience static method that creates a registry with the given or default root and returns installed extensions.
+
+<ApiParam name="$root" type="?string">
+
+Project root, or null for basePath().
+
+</ApiParam>
+
+</ApiMethod>
+
+## Lookup API
+
+<ApiMethod name="find">
+
+<ApiSignature>
+
+```php
+public function find(string $name): ?array
+```
+
+</ApiSignature>
+
+Returns metadata for one extension by package name, or null when not installed.
+
+<ApiParam name="$name" type="string" required>
+
+Package name to search for, e.g. 'acme/auth'.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Capability API
+
+<ApiMethod name="capabilityMap">
+
+<ApiSignature>
+
+```php
+public function capabilityMap(): array
+```
+
+</ApiSignature>
+
+Builds and returns a map of capability name =&gt; providing extension name. Detects duplicate providers and declared conflicts as a side effect.
+
+</ApiMethod>
+
+## Dynamic Dispatch
+
+<ApiMethod name="__call">
+
+<ApiSignature>
+
+```php
+public function __call(string $method, array $args): mixed
+```
+
+</ApiSignature>
+
+Dispatches has_capability, who_provides, and conflicts dynamically.
+
+<ApiParam name="$method" type="string" required>
+
+Method name: has_capability, who_provides, or conflicts.
+
+</ApiParam>
+
+<ApiParam name="$args" type="array" required>
+
+Method arguments.
+
+</ApiParam>
+
+<ApiThrows type="\BadMethodCallException">
+
+When method is not recognized.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="__callStatic">
+
+<ApiSignature>
+
+```php
+public static function __callStatic(string $method, array $args): mixed
+```
+
+</ApiSignature>
+
+Static dispatch for has_capability, who_provides, and conflicts. Creates a new registry with basePath() or provided root.
+
+<ApiParam name="$method" type="string" required>
+
+Method name.
+
+</ApiParam>
+
+<ApiParam name="$args" type="array" required>
+
+Method arguments.
+
+</ApiParam>
+
+<ApiThrows type="\BadMethodCallException">
+
+When method is not recognized.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Cache Management
+
+<ApiMethod name="refresh">
+
+<ApiSignature>
+
+```php
+public function refresh(): void
+```
+
+</ApiSignature>
+
+Clears all cached scan data so a later installed package can be discovered on the next installed() call.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Ext\ExtRegistry
+role: extension discovery registry
+layer: ext
+lifecycle: instantiated per-discovery
+owns: extension metadata cache, capability map, conflict list
+flow: installed() -> composerFiles() -> metadataFromPackage() -> normalize() -> sort by priority
+entry_points:
+  - installed
+  - find
+  - refresh
+  - all
+  - capabilityMap
+invariants:
+  - Results cached per instance
+  - skim.json takes priority over class instantiation
+  - Extensions sorted by priority then name
+  - Capability conflicts detected across all installed extensions
+side_effects:
+  - Reads composer.json and skim.json files from vendor/
+non_goals:
+  - Does not install or download packages
+  - Does not validate extension classes beyond autoload check
+  - Does not resolve version constraints
+```
+</AiContext>

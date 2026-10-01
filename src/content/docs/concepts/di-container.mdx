@@ -3,35 +3,53 @@ title: DI Container & Scopes
 description: Direct Dependency Injection and State Scopes in SKIM.
 ---
 
-SKIM includes a lightweight and highly optimized dependency injection (DI) container supporting both explicit bindings and reflection-based auto-wiring.
+SKIM includes a lightweight dependency injection container supporting explicit bindings, per-request bindings, and reflection-based auto-wiring.
 
 ### Auto-Wiring & Singletons
 
-By default, objects resolved through the container are treated as singletons. When you request a class, SKIM automatically inspects its constructor, recursively resolves its dependencies, instantiates it, and caches the instance for subsequent resolutions.
+By default, `bind()` produces singletons. When you request a class, SKIM inspects its constructor, recursively resolves dependencies, instantiates it, and caches the instance:
 
 ```php
 // Resolving an instance explicitly
-$mailer = App::make(Mailer::class);
+$mailer = App::instance()->make(Mailer::class);
+
+// Explicit binding — singleton by default
+$app->bind(MailerInterface::class, fn() => new SmtpMailer(config('mail')));
+
+// Per-request or transient lifetimes
+$app->bindRequest(ShoppingCart::class, fn() => new ShoppingCart());
+$app->bindTransient(ReportBuilder::class, fn() => new ReportBuilder());
 ```
+
+Setting `config('app.strict_di') = true` makes an explicit lifetime mandatory on every binding.
 
 ### State Scopes
 
-To keep the framework memory-leak free and easy to test, variables and bindings are separated into three distinct scopes:
+To keep the framework memory-leak free and testable, variables and bindings are separated into three distinct scopes:
 
 | Scope Prefix | Name | Description |
 | :--- | :--- | :--- |
-| `sys.*` | System Scope | Bootstrapped framework-level classes (e.g., Router, DB). Locked once booted. |
-| `app.*` | Application Scope | Immutable configuration options loaded during boot. |
-| `user.*` or bare | Request/User Scope | Per-request mutable state and services. Safely cleared between request loops. |
+| `sys.*` | System Scope | Bootstrapped framework-level classes (Router, DB). Write-once after boot — throws on duplicates in production. |
+| `app.*` | Application Scope | Immutable configuration values read via `config/*.php`. |
+| `user.*` or bare | Request/User Scope | Per-request mutable state. Safely cleared between request loops. |
 
 ### Reading and Writing Scopes
 
 ```php
 // Bind a value to the request/user scope
-App::set('user.current_tenant', $tenantId);
+$app->set('user.current_tenant', $tenantId);
 
 // Resolve scoped values
-$tenantId = App::get('user.current_tenant');
+$tenantId = $app->get('user.current_tenant');
 ```
 
-Use `user.*` prefixes or bare keys for anything that changes per request. This guarantees that your background workers and long-running processes (like Octane/RoadRunner/Swoole or CLI queue listeners) do not pollute state across executions.
+Use `user.*` prefixes or bare keys for anything that changes per request. This guarantees that long-running processes (workers, FrankenPHP worker mode) do not leak state across requests — `beginRequest()`/`endRequest()` reset the user scope each cycle.
+
+### Testing
+
+Use `App::testInstance()` in tests — it returns a fresh, isolated container so test cases never share singletons:
+
+```php
+$app = App::testInstance();
+$app->bind(Mailer::class, fn() => new FakeMailer());
+```

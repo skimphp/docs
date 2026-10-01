@@ -1,0 +1,98 @@
+---
+title: cors
+description: "CORS middleware that adds cross-origin headers and handles OPTIONS preflight."
+---
+
+<ApiBadge type="middleware" />
+<ApiBadge type="cors" />
+<ApiBadge type="http" />
+<ApiBadge type="security" />
+
+`cors` adds Access-Control-Allow-* headers to every response and short-circuits OPTIONS preflight requests with a 204. It must run before auth middleware since browsers send preflight without credentials.
+
+```txt
+Symbol: Skim\Middleware\Cors
+Source: src/Middleware/Cors.php
+Lifecycle: registered as global middleware
+Test seam: construct with custom allowOrigin for per-test configuration
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$app->use(Cors::class);
+// or with custom origin:
+$app->use(new Cors(allow_origin: 'https://app.example.com'));
+```
+</CodeExample>
+
+## Middleware
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(Request $req, Response $res, callable $next): mixed
+```
+
+</ApiSignature>
+
+Adds CORS headers to every response. Short-circuits OPTIONS preflight with 204 without calling $next.
+
+<ApiParam name="$req" type="request" required>
+
+Current HTTP request.
+
+</ApiParam>
+
+<ApiParam name="$res" type="response" required>
+
+Current HTTP response.
+
+</ApiParam>
+
+<ApiParam name="$next" type="callable" required>
+
+Next middleware or controller.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $allowOrigin, string $allowMethods, string $allowHeaders, int $maxAge)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Middleware\Cors
+role: CORS middleware
+layer: middleware
+lifecycle: registered as global middleware
+owns: nothing
+flow: handle() -> add CORS headers -> OPTIONS? -> 204 : $next()
+entry_points:
+  - handle
+invariants:
+  - OPTIONS requests never reach $next
+  - All responses receive CORS headers
+  - Default allowOrigin is wildcard '*'
+side_effects:
+  - Adds CORS headers to response
+  - Short-circuits OPTIONS requests
+non_goals:
+  - Does not validate origin against a whitelist
+  - Does not handle credentials mode
+  - Does not set Vary header
+```
+</AiContext>

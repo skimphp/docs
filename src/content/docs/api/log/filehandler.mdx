@@ -1,0 +1,102 @@
+---
+title: FileHandler
+description: "Rotating file log handler with daily suffix and automatic old-file cleanup."
+---
+
+<ApiBadge type="handler" />
+<ApiBadge type="log" />
+<ApiBadge type="file" />
+<ApiBadge type="rotating" />
+
+`FileHandler` writes log entries to date-suffixed files and automatically prunes files older than the configured retention period. It is the default log backend when no external service is configured.
+
+```txt
+Symbol: Skim\Log\FileHandler
+Source: src/Log/FileHandler.php
+Lifecycle: created by Log::resolveHandler()
+Test seam: inject NullHandler via Log::setHandler() to skip file I/O
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+// config/app.php: 'log' => ['channel' => 'file', 'path' => storagePath('logs/app.log')]
+// Produces: storage/logs/app-2024-01-15.log
+```
+</CodeExample>
+
+## Contract Implementation
+
+<ApiMethod name="write">
+
+<ApiSignature>
+
+```php
+public function write(string $level, string $message, array $context): void
+```
+
+</ApiSignature>
+
+Appends a formatted log line to the date-suffixed file when the level meets the minimum threshold. Triggers rotation after each write.
+
+<ApiParam name="$level" type="string" required>
+
+RFC 5424 severity level string.
+
+</ApiParam>
+
+<ApiParam name="$message" type="string" required>
+
+Log message.
+
+</ApiParam>
+
+<ApiParam name="$context" type="array" required>
+
+Arbitrary metadata, JSON-encoded after the message.
+
+</ApiParam>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $path, string $level, int $days)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Log\FileHandler
+role: file log handler
+layer: log
+lifecycle: created by Log::resolveHandler()
+owns: log files on disk
+flow: Log::write() -> FileHandler::write() -> level check -> format -> append to file -> rotate()
+entry_points:
+  - write
+config_reads:
+  - app.log.path
+  - app.log.level
+  - app.log.days
+invariants:
+  - Entries below minLevel are silently dropped
+  - Log directory is auto-created
+  - Rotation runs after every write
+side_effects:
+  - Appends to log files
+  - Deletes files older than retention window
+  - Creates log directory if missing
+non_goals:
+  - Does not support structured JSON logging
+  - Does not send to external services
+  - Does not compress old files
+```
+</AiContext>

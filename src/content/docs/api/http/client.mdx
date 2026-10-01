@@ -1,0 +1,262 @@
+---
+title: client
+description: "Zero-dependency HTTP client using PHP native streams with JSON body and test faking."
+---
+
+<ApiBadge type="http" />
+<ApiBadge type="client" />
+<ApiBadge type="streams" />
+<ApiBadge type="zero-dep" />
+<ApiBadge type="testable" />
+
+`client` wraps PHP's native `file_get_contents` + `stream_context_create` for outbound HTTP. It returns immutable `HttpResponse` objects and never throws on non-2xx status codes.
+
+```txt
+Symbol: Skim\Http\Client
+Source: src/Http/Client.php
+Lifecycle: instantiated per-service or per-request
+Test seam: Client::fake() returns a FakeClient that records requests and returns stubs
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$http = new Client(['base_url' => 'https://api.example.com', 'timeout' => 5]);
+$resp = $http->get('/users', ['page' => 1]);
+if ($resp->ok()) { $users = $resp->json(); }
+```
+</CodeExample>
+
+## HTTP Methods
+
+<ApiMethod name="get">
+
+<ApiSignature>
+
+```php
+public function get(string $url, array $query = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a GET request. The $query array is appended as URL query parameters.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL or path (prepended with baseUrl if set).
+
+</ApiParam>
+
+<ApiParam name="$query" type="array">
+
+Query params appended as ?key=val URL string.
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Additional headers merged with defaults.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="post">
+
+<ApiSignature>
+
+```php
+public function post(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a POST request with JSON-encoded body.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL or path.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Request body, JSON-encoded.
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Additional headers merged with defaults.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="put">
+
+<ApiSignature>
+
+```php
+public function put(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a PUT request with JSON-encoded body.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL or path.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Request body, JSON-encoded.
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Additional headers merged with defaults.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="patch">
+
+<ApiSignature>
+
+```php
+public function patch(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a PATCH request with JSON-encoded body.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL or path.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Request body, JSON-encoded.
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Additional headers merged with defaults.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="delete">
+
+<ApiSignature>
+
+```php
+public function delete(string $url, array $data = [], array $headers = []): HttpResponse
+```
+
+</ApiSignature>
+
+Sends a DELETE request with optional JSON body. Body is omitted when $data is empty.
+
+<ApiParam name="$url" type="string" required>
+
+Target URL or path.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Optional request body, JSON-encoded when non-empty.
+
+</ApiParam>
+
+<ApiParam name="$headers" type="array">
+
+Additional headers merged with defaults.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Testing
+
+<ApiMethod name="fake">
+
+<ApiSignature>
+
+```php
+public static function fake(array $stubs = []): FakeClient
+```
+
+</ApiSignature>
+
+Returns a FakeClient that intercepts all HTTP requests, records them, and returns stub responses.
+
+<ApiParam name="$stubs" type="array">
+
+Map of 'METHOD URL' =&gt; response stub arrays or HttpResponse objects.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$http = Client::fake(['GET https://api.example.com/users' => ['status' => 200, 'body' => []]]);
+$resp = $http->get('https://api.example.com/users');
+$http->assertSent('GET', 'users');
+```
+</CodeExample>
+
+</ApiMethod>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(array $options)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Http\Client
+role: HTTP client
+layer: http
+lifecycle: instantiated per-service or per-request
+owns: nothing
+flow: Client::method() -> send() -> stream_context_create() -> file_get_contents() -> HttpResponse::fromStream()
+entry_points:
+  - get
+  - post
+  - put
+  - patch
+  - delete
+  - fake
+invariants:
+  - Never throws on non-2xx status
+  - All responses are HttpResponse value objects
+  - JSON Content-Type by default
+side_effects:
+  - Makes outbound HTTP requests
+non_goals:
+  - Does not support async/concurrent requests
+  - Does not follow redirects
+  - Does not retry on failure
+  - No Guzzle dependency
+```
+</AiContext>

@@ -1,0 +1,191 @@
+---
+title: extension
+description: "Abstract base class for SKIM extensions with metadata properties and lifecycle hooks."
+---
+
+<ApiBadge type="abstract" />
+<ApiBadge type="extension" />
+<ApiBadge type="lifecycle" />
+
+`extension` is the abstract base class that all SKIM extension packages extend. It defines metadata properties (name, version, capabilities) and two lifecycle hooks (register, boot) that extensionManager calls during app boot.
+
+```txt
+Symbol: Skim\Ext\Extension
+Source: src/Ext/Extension.php
+Lifecycle: instantiated by extensionManager::instance() after discovery
+Test seam: extend and override methods in test fixtures
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+class MyAuthExtension extends Extension {
+    public string $name = 'acme/auth';
+    public string $version = '1.0.0';
+    public array $capabilities = ['auth', 'session-auth'];
+
+    public function register(App $app): void { ... }
+    public function boot(App $app): void { ... }
+}
+```
+</CodeExample>
+
+## Lifecycle Hooks
+
+<ApiMethod name="register">
+
+<ApiSignature>
+
+```php
+abstract public function register(App $app): void
+```
+
+</ApiSignature>
+
+Called during the registration phase. Bind services, register routes, declare config. Runs before boot().
+
+<ApiParam name="$app" type="app" required>
+
+The application container instance.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="boot">
+
+<ApiSignature>
+
+```php
+abstract public function boot(App $app): void
+```
+
+</ApiSignature>
+
+Called after all extensions have registered. Start services, warm caches, attach event listeners.
+
+<ApiParam name="$app" type="app" required>
+
+The application container instance.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Metadata Accessors
+
+<ApiMethod name="migrations">
+
+<ApiSignature>
+
+```php
+public function migrations(): string
+```
+
+</ApiSignature>
+
+Returns the path to the extension's migrations directory. Empty string means no migrations.
+
+</ApiMethod>
+
+<ApiMethod name="config">
+
+<ApiSignature>
+
+```php
+public function config(): array
+```
+
+</ApiSignature>
+
+Returns config key-value pairs that the extension contributes to the app container.
+
+</ApiMethod>
+
+<ApiMethod name="commands">
+
+<ApiSignature>
+
+```php
+public function commands(): array
+```
+
+</ApiSignature>
+
+Returns a map of CLI command names to their class strings.
+
+</ApiMethod>
+
+<ApiMethod name="envKeys">
+
+<ApiSignature>
+
+```php
+public function envKeys(): array
+```
+
+</ApiSignature>
+
+Returns the list of .env variable names this extension requires.
+
+</ApiMethod>
+
+<ApiMethod name="postInstall">
+
+<ApiSignature>
+
+```php
+public function postInstall(): array
+```
+
+</ApiSignature>
+
+Returns descriptions of post-install CLI steps this extension needs.
+
+</ApiMethod>
+
+## Static Metadata
+
+<ApiMethod name="manifest">
+
+<ApiSignature>
+
+```php
+public static function manifest(): array
+```
+
+</ApiSignature>
+
+Returns static metadata without instantiation. An empty array signals ExtRegistry to fall back to instance properties. The capabilities key may be a flat list or an associative map.
+
+<NoteBox>
+
+Override in subclasses to avoid class instantiation during discovery.
+
+</NoteBox>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Ext\Extension
+role: extension base class
+layer: ext
+lifecycle: instantiated by extensionManager::instance() after discovery
+owns: extension metadata
+flow: extensionManager::discover() -> instance() -> register(app) -> boot(app)
+entry_points:
+  - register
+  - boot
+  - manifest
+invariants:
+  - register() runs before boot()
+  - manifest() returns empty array by default
+  - all metadata properties default to empty
+side_effects:
+  - register() and boot() may mutate the app container
+non_goals:
+  - Does not auto-discover itself
+  - Does not validate its own metadata
+  - Does not resolve dependencies
+```
+</AiContext>

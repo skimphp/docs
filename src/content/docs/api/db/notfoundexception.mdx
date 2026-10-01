@@ -1,0 +1,91 @@
+---
+title: NotFoundException
+description: "RuntimeException thrown by Model::findOrFail() when a record is missing."
+---
+
+<ApiBadge type="exception" />
+<ApiBadge type="orm" />
+<ApiBadge type="404" />
+
+`NotFoundException` is thrown by `Model::findOrFail()` when no record matches the given primary key. Controllers catch it to return structured 404 responses.
+
+```txt
+Symbol: Skim\Db\Exceptions\NotFoundException
+Source: src/Db/Exceptions/NotFoundException.php
+Lifecycle: thrown by findOrFail(), caught by controller or global error handler
+Fallback: none
+Test seam: expect(fn() => Model::findOrFail(999))->toThrow(NotFoundException::class)
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$user = User::findOrFail($id); // throws not_found_exception if missing
+// In error handler: catch → $res->status(404)->json(['error' => $e->getMessage()])
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Model::findOrFail($id)
+-> find($id) returns null
+-> throw new NotFoundException(static::class, $id)
+```
+
+</LifecycleFlow>
+
+Keeps the ORM layer HTTP-agnostic — the exception carries model context, the controller decides the HTTP response.
+
+<NoteBox>
+
+Prefer `find()` returning null when absence is expected. Use `findOrFail()` only when missing is exceptional.
+
+</NoteBox>
+
+## Constructor
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $model, int|string $id)
+```
+
+</ApiSignature>
+
+Builds a "&#123;model&#125; with id '&#123;id&#125;' not found." message.
+
+<ApiParam name="$model" type="string" required>
+
+Fully-qualified model class name.
+
+</ApiParam>
+
+<ApiParam name="$id" type="int" required>
+
+The primary key value that was searched.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\Exceptions\NotFoundException
+role: 404 model exception
+layer: db
+lifecycle: thrown by findOrFail(), caught by controller or global error handler
+owns: nothing
+flow: Model::findOrFail() -> find() returns null -> throw new NotFoundException(class, id)
+entry_points:
+  - __construct
+invariants:
+  - message includes model class name and searched id
+  - extends RuntimeException
+non_goals:
+  - Does not handle HTTP status codes — that is the controller's job
+```
+</AiContext>

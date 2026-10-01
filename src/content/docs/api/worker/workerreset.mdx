@@ -1,0 +1,123 @@
+---
+title: WorkerReset
+description: "Per-request reset orchestrator for FrankenPHP worker mode."
+---
+
+<ApiBadge type="worker" />
+<ApiBadge type="reset" />
+<ApiBadge type="lifecycle" />
+<ApiBadge type="frankenphp" />
+
+`WorkerReset` discovers every class implementing `resettable` once, then on each request flushes output buffers, rolls back open DB transactions, resets all request-scoped static facades, and clears middleware singleton cache.
+
+```txt
+Symbol: Skim\Worker\WorkerReset
+Source: src/Worker/WorkerReset.php
+Lifecycle: static, discovered once at first request, apply() called once per request
+Test seam: discovered() returns the scanned class list for assertions
+```
+
+<WarningBox>
+
+If a facade implements Resettable but is never loaded
+
+</WarningBox>
+
+<WarningBox>
+
+it will not be discovered and will not be reset
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+First request: discover() scans all declared classes
+-> apply($preserveObLevel) flushes buffers
+-> rollbackAll()
+-> foreach discovered class: resetRequest()
+-> profiler/RequestTrace reset
+```
+
+</LifecycleFlow>
+
+## Lifecycle
+
+<ApiMethod name="apply">
+
+<ApiSignature>
+
+```php
+public static function apply(int $preserveObLevel = 0): void
+```
+
+</ApiSignature>
+
+Resets all request-scoped state. Safe to call once per request. Flushes output buffers down to $preserveObLevel, rolls back any open DB transactions, resets all discovered resettable facades, and clears profiler/RequestTrace/pipeline caches.
+
+<ApiParam name="$preserveObLevel" type="int">
+
+Output buffers at or below this level are left open. Pass ob_get_level() in tests to preserve PHPUnit buffers.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="discover">
+
+<ApiSignature>
+
+```php
+public static function discover(): void
+```
+
+</ApiSignature>
+
+Incrementally discovers classes implementing resettable. Only inspects classes declared since the previous call, so the cost is amortised to near zero after warmup while still picking up facades autoloaded lazily on later requests.
+
+</ApiMethod>
+
+## Testing
+
+<ApiMethod name="discovered">
+
+<ApiSignature>
+
+```php
+public static function discovered(): array
+```
+
+</ApiSignature>
+
+Returns the resettable classes discovered so far. Test seam for verifying that expected facades were picked up by discovery.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Worker\WorkerReset
+role: reset orchestrator
+layer: worker
+lifecycle: static, discovered once at first request, apply() called once per request
+owns: discovered class list, scan cursor
+flow: worker entrypoint -> endRequest() -> WorkerReset::apply() -> discover() -> rollbackAll() -> resetRequest() on each discovered class -> Profiler::reset() / RequestTrace::reset() / Pipeline::resetInstanceCache()
+entry_points:
+  - apply
+  - discover
+  - discovered
+invariants:
+  - apply() is safe to call once per request
+  - discover() only inspects new classes since last call
+  - rollbackAll() is a no-op when no transactions are open
+side_effects:
+  - Flushes output buffers
+  - Rolls back database transactions
+  - Resets profiler and RequestTrace
+  - Clears pipeline instance cache
+non_goals:
+  - Does not reset non-resettable classes
+  - Does not close DB connections — only rolls back transactions
+```
+</AiContext>

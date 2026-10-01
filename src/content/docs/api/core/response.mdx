@@ -1,0 +1,536 @@
+---
+title: response
+description: "HTTP response builder with fluent chaining for status, headers, JSON, views, redirects, streaming, and file downloads."
+---
+
+<ApiBadge type="response" />
+<ApiBadge type="http" />
+<ApiBadge type="fluent" />
+<ApiBadge type="builder" />
+
+`Skim\Core\Response` builds the HTTP response through fluent method chaining. Controllers return the response object
+
+```txt
+Symbol: Skim\Core\Response
+Source: src/Core/Response.php
+Lifecycle: created fresh per request by App::run(), populated by controller, sent after middleware
+Test seam: inspect via getStatus(), getBody(), getHeaders(), getJson() without calling send()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return $res->status(201)->json(['id' => $user->id]);
+return $res->view('users/show', ['user' => $user]);
+return $res->redirect('/login');
+```
+</CodeExample>
+
+<WarningBox>
+
+stream() sends headers inline — middleware response modifications after stream() have no effect
+
+</WarningBox>
+
+<WarningBox>
+
+Never echo or die in controllers — always return $res-&gt;...
+
+</WarningBox>
+
+## Architecture
+
+The response is a mutable builder object. send() handles three body types: normal string, stream sentinel (\x00stream), and file sentinel (\x00file:path). This avoids buffering large files in memory.
+
+<NoteBox>
+
+Most methods return $this for fluent chaining. The #[\NoDiscard] attribute on status() prevents silently losing the status code.
+
+</NoteBox>
+
+## Status
+
+<ApiMethod name="status">
+
+<ApiSignature>
+
+```php
+public function status(int $code): static
+```
+
+</ApiSignature>
+
+Sets the HTTP status code. Returns $this for chaining. Does not send headers.
+
+<ApiParam name="$code" type="int" required>
+
+HTTP status code (200, 201, 404, 500, etc.).
+
+</ApiParam>
+
+</ApiMethod>
+
+## JSON & HTML
+
+<ApiMethod name="json">
+
+<ApiSignature>
+
+```php
+public function json(mixed $data, int $status = 0): static
+```
+
+</ApiSignature>
+
+Serializes $data to JSON with JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES. Sets Content-Type to application/json. Optional $status overrides the current status code.
+
+<ApiParam name="$data" type="mixed" required>
+
+Data to serialize to JSON.
+
+</ApiParam>
+
+<ApiParam name="$status" type="int">
+
+Optional status code override. 0 means use current.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="html">
+
+<ApiSignature>
+
+```php
+public static function html(string $content): static
+```
+
+</ApiSignature>
+
+Static factory that creates a new Response with raw HTML content and text/html Content-Type.
+
+<ApiParam name="$content" type="string" required>
+
+Raw HTML string.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Views
+
+<ApiMethod name="view">
+
+<ApiSignature>
+
+```php
+public function view(string $template, array $data = []): static
+```
+
+</ApiSignature>
+
+Renders a PHP template via View::render() and sets Content-Type to text/html.
+
+<ApiParam name="$template" type="string" required>
+
+Template path relative to views directory.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array">
+
+Variables extracted into template scope.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return $res->view('users/show', ['user' => $user]);
+```
+</CodeExample>
+
+<ApiThrows type="\Skim\View\Exceptions\ViewException">
+
+If template file not found.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="fragment">
+
+<ApiSignature>
+
+```php
+public function fragment(string $template, array $data, string $fragment): static
+```
+
+</ApiSignature>
+
+Renders only a named @fragment block from the template. Smaller response than view() — no layout overhead.
+
+<ApiParam name="$template" type="string" required>
+
+Template path.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array" required>
+
+Template variables.
+
+</ApiParam>
+
+<ApiParam name="$fragment" type="string" required>
+
+Fragment name.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return $res->fragment('users/show', ['user' => $user], 'user-card');
+```
+</CodeExample>
+
+</ApiMethod>
+
+<ApiMethod name="smartView">
+
+<ApiSignature>
+
+```php
+public function smartView(string $template, array $data, Request $req): static
+```
+
+</ApiSignature>
+
+Auto-selects full view vs fragment based on HX-Target or datastar-target request headers.
+
+<ApiParam name="$template" type="string" required>
+
+Template path.
+
+</ApiParam>
+
+<ApiParam name="$data" type="array" required>
+
+Template variables.
+
+</ApiParam>
+
+<ApiParam name="$req" type="request" required>
+
+Current request for header inspection.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return $res->smartView('users/show', ['user' => $user], $req);
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Redirects
+
+<ApiMethod name="redirect">
+
+<ApiSignature>
+
+```php
+public function redirect(string $url = ''): static
+```
+
+</ApiSignature>
+
+Sets 302 status and Location header. Empty URL is a no-op. Does not send headers immediately.
+
+<ApiParam name="$url" type="string">
+
+Target URL. Empty string is a no-op.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="back">
+
+<ApiSignature>
+
+```php
+public function back(Request $req, string $fallback = '/'): static
+```
+
+</ApiSignature>
+
+Redirects to the Referer header value, falling back to $fallback when absent.
+
+<ApiParam name="$req" type="request" required>
+
+Current request to read Referer from.
+
+</ApiParam>
+
+<ApiParam name="$fallback" type="string">
+
+URL used when Referer is absent.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Streaming & Downloads
+
+<ApiMethod name="stream">
+
+<ApiSignature>
+
+```php
+public function stream(callable $callback, ?string $driver = null): static
+```
+
+</ApiSignature>
+
+Sends SSE headers immediately, disables output buffering, and passes an Sse or resolved driver instance to the callback. Driver is resolved from the container so apps/extensions can override with one bind().
+
+<ApiParam name="$callback" type="callable" required>
+
+Receives an Sse or driver instance to emit events.
+
+</ApiParam>
+
+<ApiParam name="$driver" type="?string">
+
+Optional driver class to resolve from the container. Falls back to config('realtime.driver'). Defaults to plain Sse.
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+return $res->stream(function(Sse $sse) {
+    $sse->send('message', 'Hello');
+});
+
+return $res->stream(function(ElementPatcher $ds) {
+    $ds->patch('<div id="status">Active</div>', '#status');
+}, driver: Datastar::class);
+```
+</CodeExample>
+
+<WarningBox>
+
+Headers are sent inline — middleware response modifications after this call have no effect
+
+</WarningBox>
+
+</ApiMethod>
+
+<ApiMethod name="download">
+
+<ApiSignature>
+
+```php
+public function download(string $filePath, string $filename = ''): static
+```
+
+</ApiSignature>
+
+Sets Content-Disposition: attachment headers. File is read and sent by send().
+
+<ApiParam name="$filePath" type="string" required>
+
+Absolute path to the file on disk.
+
+</ApiParam>
+
+<ApiParam name="$filename" type="string">
+
+Suggested save name. Defaults to basename.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+If filePath does not exist.
+
+</ApiThrows>
+
+</ApiMethod>
+
+## Headers & Body
+
+<ApiMethod name="withHeader">
+
+<ApiSignature>
+
+```php
+public function withHeader(string $name, string $value): static
+```
+
+</ApiSignature>
+
+Adds or overwrites a response header.
+
+<ApiParam name="$name" type="string" required>
+
+Header name.
+
+</ApiParam>
+
+<ApiParam name="$value" type="string" required>
+
+Header value.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="setBody">
+
+<ApiSignature>
+
+```php
+public function setBody(string $body): static
+```
+
+</ApiSignature>
+
+Replaces the response body.
+
+<ApiParam name="$body" type="string" required>
+
+Raw body content.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Output
+
+<ApiMethod name="send">
+
+<ApiSignature>
+
+```php
+public function send(): void
+```
+
+</ApiSignature>
+
+Sends headers and body to the PHP output buffer. Idempotent — no-op if already sent. Handles stream and file download sentinels internally.
+
+</ApiMethod>
+
+## Test Accessors
+
+<ApiMethod name="getStatus">
+
+<ApiSignature>
+
+```php
+public function getStatus(): int
+```
+
+</ApiSignature>
+
+Returns the current HTTP status code.
+
+</ApiMethod>
+
+<ApiMethod name="getBody">
+
+<ApiSignature>
+
+```php
+public function getBody(): string
+```
+
+</ApiSignature>
+
+Returns the raw response body string.
+
+</ApiMethod>
+
+<ApiMethod name="getHeaders">
+
+<ApiSignature>
+
+```php
+public function getHeaders(): array
+```
+
+</ApiSignature>
+
+Returns all response headers as an associative array.
+
+</ApiMethod>
+
+<ApiMethod name="getHeader">
+
+<ApiSignature>
+
+```php
+public function getHeader(string $key): ?string
+```
+
+</ApiSignature>
+
+Returns a response header value by name. Case-insensitive lookup.
+
+<ApiParam name="$key" type="string" required>
+
+Header name.
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="getJson">
+
+<ApiSignature>
+
+```php
+public function getJson(): array
+```
+
+</ApiSignature>
+
+Decodes the JSON response body as an array. Returns empty array when invalid.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Core\Response
+role: HTTP response builder
+layer: core
+lifecycle: created fresh per request by App::run(), populated by controller, sent after middleware
+owns: statusCode, headers, body, sent flag
+flow: controller -> $res->status()->json()/view()/redirect() -> return $res -> middleware post-processing -> send()
+entry_points:
+  - status
+  - json
+  - view
+  - fragment
+  - smartView
+  - redirect
+  - stream
+  - download
+  - send
+invariants:
+  - send() is idempotent — no-op if already sent
+  - stream() sends headers immediately
+  - download() uses sentinel body detected by send()
+  - status() returns $this for chaining
+  - json() uses JSON_UNESCAPED_UNICODE
+side_effects:
+  - send() writes headers and body to output buffer
+  - stream() sends headers immediately and disables output buffering
+non_goals:
+  - Does not handle HTTP transport (PHP sends headers)
+  - Does not compress output
+  - Does not manage cookies directly
+```
+</AiContext>

@@ -1,0 +1,82 @@
+---
+title: ExtListCommand
+description: "CLI command that lists installed SKIM extensions from local Composer metadata with capability and conflict reporting."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="extension" />
+<ApiBadge type="read-only" />
+
+`ExtListCommand` implements the `php skim ext:list` CLI command. It scans local Composer vendor metadata to list installed SKIM extensions, their capabilities, and any inter-extension conflicts. No network access is required.
+
+```txt
+Symbol: Skim\Cli\Commands\ExtListCommand
+Source: src/Cli/Commands/ExtListCommand.php
+Lifecycle: instantiated by kernel, handle() called once per invocation
+Fallback: prints informational message when no extensions are installed
+Test seam: constructor accepts ExtRegistry test double
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim ext:list
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> registry()->installed()
+-> for each extension: print name/version/description
+-> print capabilities
+-> warn on unknown capabilities
+-> registry()->conflicts()
+-> print conflict warnings
+```
+
+</LifecycleFlow>
+
+Constructor injection of ExtRegistry enables test isolation without filesystem access.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Prints installed extensions with capabilities and conflict warnings. Returns 0 always.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\ExtListCommand
+role: CLI extension lister
+layer: cli
+lifecycle: instantiated by kernel, handle() called once per invocation
+owns: nothing — delegates to ExtRegistry
+flow: ExtListCommand::handle() -> registry()->installed() -> print each extension -> check capabilities -> registry()->conflicts() -> print warnings
+entry_points:
+  - handle
+invariants:
+  - reads only from local Composer metadata
+  - no network access
+  - warns on unknown capabilities and conflicts
+side_effects:
+  - prints to stdout
+non_goals:
+  - Does not install or remove extensions
+  - Does not check for updates
+  - Does not validate extension compatibility
+```
+</AiContext>

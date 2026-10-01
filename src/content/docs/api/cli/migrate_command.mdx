@@ -1,0 +1,166 @@
+---
+title: migrate_command
+description: "CLI dispatcher for database migration operations — run, rollback, fresh, status, and make."
+---
+
+<ApiBadge type="cli" />
+<ApiBadge type="command" />
+<ApiBadge type="database" />
+<ApiBadge type="migration" />
+<ApiBadge type="destructive" />
+
+`MigrateCommand` implements the `php skim migrate` family of CLI commands. It dispatches to the `migrator` class for all SQL operations and handles only CLI output and exit codes.
+
+```txt
+Symbol: Skim\Cli\Commands\MigrateCommand
+Source: src/Cli/Commands/MigrateCommand.php
+Lifecycle: instantiated by kernel, handle() called once per invocation
+Fallback: prints informational message when nothing to migrate or roll back
+Test seam: instantiate directly, call setInput() with test args, then handle()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+php skim migrate           # run pending
+php skim migrate:down      # rollback last batch
+php skim migrate:fresh     # drop all + re-run (dev only)
+php skim migrate:status    # show pending/applied list
+php skim migrate:make create_users_table
+```
+</CodeExample>
+
+<WarningBox>
+
+migrate:fresh drops ALL tables and destroys all data — use only in development
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+handle()
+-> arg(0) sub-command
+-> new Migrator(basePath('migrations'))
+-> match: run/down/fresh/status/make
+-> migrator method
+-> print results
+```
+
+</LifecycleFlow>
+
+Thin CLI wrapper — all migration logic lives in Skim\Db\Migrator. This command handles only argument dispatch and terminal output.
+
+## Command Execution
+
+<ApiMethod name="handle">
+
+<ApiSignature>
+
+```php
+public function handle(): int
+```
+
+</ApiSignature>
+
+Dispatches to the appropriate migration sub-command (run, down, fresh, status, make). Defaults to run when no sub-command is given.
+
+</ApiMethod>
+
+## Sub-commands
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+private function run(Migrator $mig): int
+```
+
+</ApiSignature>
+
+Runs all pending migrations via the migrator and prints each applied file.
+
+</ApiMethod>
+
+<ApiMethod name="down">
+
+<ApiSignature>
+
+```php
+private function down(Migrator $mig): int
+```
+
+</ApiSignature>
+
+Rolls back the last batch of migrations. Use --steps=N flag to roll back multiple batches.
+
+</ApiMethod>
+
+<ApiMethod name="fresh">
+
+<ApiSignature>
+
+```php
+private function fresh(Migrator $mig): int
+```
+
+</ApiSignature>
+
+Drops all tables and re-runs all migrations from scratch.
+
+</ApiMethod>
+
+<ApiMethod name="status">
+
+<ApiSignature>
+
+```php
+private function status(Migrator $mig): int
+```
+
+</ApiSignature>
+
+Displays a table showing each migration's filename, batch number, and applied/pending status.
+
+</ApiMethod>
+
+<ApiMethod name="make">
+
+<ApiSignature>
+
+```php
+private function make(string $conn): int
+```
+
+</ApiSignature>
+
+Creates a new Migration file from the stub template.
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Cli\Commands\MigrateCommand
+role: CLI migration dispatcher
+layer: cli
+lifecycle: instantiated by kernel, handle() called once per invocation
+owns: nothing — delegates all DB operations to migrator
+flow: MigrateCommand::handle() -> arg(0) sub-command -> new Migrator(migrations/) -> match sub-command -> migrator method -> print results
+entry_points:
+  - handle
+config_reads:
+  - APP_ENV
+invariants:
+  - all SQL logic is in migrator — command handles only output
+  - fresh destroys all data
+  - down rolls back by batch
+side_effects:
+  - Migrator::run() applies pending migrations
+  - Migrator::down() rolls back batches
+  - Migrator::fresh() drops all tables
+non_goals:
+  - Does not validate migration syntax
+```
+</AiContext>

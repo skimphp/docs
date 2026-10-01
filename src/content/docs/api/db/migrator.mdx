@@ -1,0 +1,140 @@
+---
+title: Migrator
+description: "Tracks and executes SQL-first migrations with batch-based rollback. #AI:class Use via CLI commands (migrate, migrate:down, migrate:fresh, migrate:status). State is stored in the `_migrations` table: filename + batch number. Each `migrate` call groups all pending migrations into one batch for atomic rollback targeting. Example: $m = new Migrator(basePath('migrations')); $ran = $m->run(); // ['2024_01_01_create_users.php', ...] $m->down(); // rollback last batch $m->status(); // [['filename' => ..., 'batch' => ..., 'status' => 'applied'], ...] Testing: Use test_db() SQLite :memory: — migrator creates its own tracking table."
+---
+
+Tracks and executes SQL-first migrations with batch-based rollback. #AI:class
+
+Use via CLI commands (migrate, migrate:down, migrate:fresh, migrate:status).
+State is stored in the `_migrations` table: filename + batch number.
+Each `migrate` call groups all pending migrations into one batch for
+atomic rollback targeting.
+
+Example:
+$m = new Migrator(basePath('migrations'));
+$ran = $m-&gt;run();          // ['2024_01_01_create_users.php', ...]
+$m-&gt;down();                // rollback last batch
+$m-&gt;status();              // [['filename' =&gt; ..., 'batch' =&gt; ..., 'status' =&gt; 'applied'], ...]
+
+Testing: Use test_db() SQLite :memory: — migrator creates its own tracking table.
+
+```txt
+Symbol: Skim\Db\Migrator
+Source: src/Db/Migrator.php
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$m = new Migrator(basePath('migrations'));
+$ran = $m->run();          // ['2024_01_01_create_users.php', ...]
+$m->down();                // rollback last batch
+$m->status();              // [['filename' => ..., 'batch' => ..., 'status' => 'applied'], ...]
+```
+</CodeExample>
+
+## 
+
+<ApiMethod name="__construct">
+
+<ApiSignature>
+
+```php
+public function __construct(string $migrationsDir, string $connection)
+```
+
+</ApiSignature>
+
+</ApiMethod>
+
+<ApiMethod name="before">
+
+<ApiSignature>
+
+```php
+public function before(callable $fn): static
+```
+
+</ApiSignature>
+
+Register a hook fired before each migration runs. #AI:before
+
+</ApiMethod>
+
+<ApiMethod name="after">
+
+<ApiSignature>
+
+```php
+public function after(callable $fn): static
+```
+
+</ApiSignature>
+
+Register a hook fired after each migration runs. #AI:after
+
+</ApiMethod>
+
+<ApiMethod name="run">
+
+<ApiSignature>
+
+```php
+public function run(bool $pretend, bool $force): array
+```
+
+</ApiSignature>
+
+Runs all pending migrations in filename-sorted order. #AI:run
+
+</ApiMethod>
+
+<ApiMethod name="down">
+
+<ApiSignature>
+
+```php
+public function down(int $steps, bool $force, bool $skipMissing): array
+```
+
+</ApiSignature>
+
+Rolls back all migrations in the last batch. #AI:down
+
+</ApiMethod>
+
+<ApiMethod name="fresh">
+
+<ApiSignature>
+
+```php
+public function fresh(): void
+```
+
+</ApiSignature>
+
+Drops all tables and re-runs all migrations from scratch. #AI:fresh
+
+WARNING: DESTRUCTIVE — drops every table by running all down() methods
+in reverse order, then re-applies everything. Dev environments only.
+
+</ApiMethod>
+
+<ApiMethod name="status">
+
+<ApiSignature>
+
+```php
+public function status(): array
+```
+
+</ApiSignature>
+
+Returns the status of all known migrations. #AI:status
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\Migrator
+```
+</AiContext>

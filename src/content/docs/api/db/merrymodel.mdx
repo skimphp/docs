@@ -1,0 +1,257 @@
+---
+title: MerryModel
+description: "ORM layer extending model with eager/lazy relation loading and many-to-many pivot operations."
+---
+
+<ApiBadge type="orm" />
+<ApiBadge type="relations" />
+<ApiBadge type="eager-loading" />
+<ApiBadge type="pivot" />
+<ApiBadge type="n+1-safe" />
+
+`MerryModel` extends `model` with relation declarations (hasMany, hasOne, belongsTo, manyToMany) and eager/lazy loading. Relations are declared as static arrays for IDE navigation and explicit contracts. Eager loading via `with()` uses IN queries to prevent N+1 automatically.
+
+```txt
+Symbol: Skim\Db\MerryModel
+Source: src/Db/MerryModel.php
+Lifecycle: extends Model lifecycle — relations cached per instance after first load
+Fallback: none
+Test seam: use test_db() SQLite :memory: with real relation tables
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+class Post extends MerryModel {
+    protected static string $table = 'posts';
+    protected static array $belongs_to = ['author' => ['class' => User::class, 'fk' => 'user_id']];
+    protected static array $many_to_many = ['tags' => ['class' => tag::class, 'pivot' => 'post_tag', 'fk' => 'post_id', 'rfk' => 'tag_id']];
+}
+$posts = Post::with(Post::where(['status' => 'published'])->all(), 'author', 'tags');
+```
+</CodeExample>
+
+<WarningBox>
+
+detach() with empty $ids removes ALL pivot rows for this model
+
+</WarningBox>
+
+<WarningBox>
+
+sync() detaches everything before re-attaching
+
+</WarningBox>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Model::with(models, ...relations)
+-> for each relation: eagerLoad()
+-> determine relation type
+-> IN query with all PKs
+-> map results by FK
+-> assign to model.relations
+-> nested: recurse on loaded related models
+```
+
+</LifecycleFlow>
+
+Static array declarations keep relations IDE-navigable and avoid reflection magic. Eager loading uses a single IN query per relation regardless of collection size.
+
+<NoteBox>
+
+PHP 8.5 pipe operator recommended for relation chains.
+
+</NoteBox>
+
+## Eager Loading
+
+<ApiMethod name="with">
+
+<ApiSignature>
+
+```php
+public static function with(array $models, string ...$relations): array
+```
+
+</ApiSignature>
+
+Eager-loads named relations onto a collection of models using IN queries. Supports dot-notation for nested eager loading. Returns the same array with relations populated.
+
+<ApiParam name="$models" type="array" required>
+
+Collection of model instances.
+
+</ApiParam>
+
+<ApiParam name="$relations" type="string" required>
+
+Relation names. Use dot-notation for nesting (e.g. 'posts.comments').
+
+</ApiParam>
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$users = MerryModel::with(User::all(), 'posts', 'posts.comments');
+// 3 queries max regardless of user/post count
+```
+</CodeExample>
+
+</ApiMethod>
+
+## Lazy Access
+
+<ApiMethod name="load">
+
+<ApiSignature>
+
+```php
+public function load(string $name): mixed
+```
+
+</ApiSignature>
+
+Returns a relation's value — lazy-loads on first access, returns cached value on subsequent calls. For eager-loaded relations, returns immediately.
+
+<ApiParam name="$name" type="string" required>
+
+Relation name as declared in static arrays.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Pivot Operations
+
+<ApiMethod name="attach">
+
+<ApiSignature>
+
+```php
+public function attach(string $relation, array $ids): void
+```
+
+</ApiSignature>
+
+Inserts pivot rows for the given IDs. INSERT IGNORE skips duplicates silently.
+
+<ApiParam name="$relation" type="string" required>
+
+manyToMany relation name.
+
+</ApiParam>
+
+<ApiParam name="$ids" type="array" required>
+
+Related model IDs to attach.
+
+</ApiParam>
+
+<ApiThrows type="\InvalidArgumentException">
+
+If relation is not declared as manyToMany.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<ApiMethod name="detach">
+
+<ApiSignature>
+
+```php
+public function detach(string $relation, array $ids = []): void
+```
+
+</ApiSignature>
+
+Deletes pivot rows for the given IDs. Empty $ids removes ALL pivot rows for this model.
+
+<ApiParam name="$relation" type="string" required>
+
+manyToMany relation name.
+
+</ApiParam>
+
+<ApiParam name="$ids" type="array">
+
+Specific IDs to detach. Empty = detach all.
+
+</ApiParam>
+
+<ApiThrows type="\InvalidArgumentException">
+
+If relation is not declared as manyToMany.
+
+</ApiThrows>
+
+<WarningBox>
+
+Empty $ids removes ALL pivot rows for this model's foreign key
+
+</WarningBox>
+
+</ApiMethod>
+
+<ApiMethod name="sync">
+
+<ApiSignature>
+
+```php
+public function sync(string $relation, array $ids): void
+```
+
+</ApiSignature>
+
+Detaches all existing pivot rows, then attaches the given IDs. Result: pivot matches exactly $ids.
+
+<ApiParam name="$relation" type="string" required>
+
+manyToMany relation name.
+
+</ApiParam>
+
+<ApiParam name="$ids" type="array" required>
+
+Exact set of related IDs to maintain.
+
+</ApiParam>
+
+<WarningBox>
+
+Detaches ALL existing pivot rows before re-attaching
+
+</WarningBox>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\MerryModel
+role: relational ORM
+layer: db
+lifecycle: extends Model lifecycle — relations cached per instance after first load
+owns: relations cache per instance
+flow: Model::with(collection, 'relation') -> eagerLoad() -> IN query -> map results to models
+entry_points:
+  - with
+  - load
+  - attach
+  - detach
+  - sync
+invariants:
+  - relations declared as static arrays, not annotations
+  - eager loading uses IN queries — max N+1 queries where N = relation depth
+  - lazy loading fires on first load() call and caches
+  - pivot operations use INSERT IGNORE for idempotent attach
+side_effects:
+  - attach/detach/sync modify pivot tables
+  - load() and with() execute SELECT queries
+non_goals:
+  - Does not support polymorphic relations
+  - Does not support through-relations
+  - Does not auto-delete related records on parent delete
+```
+</AiContext>

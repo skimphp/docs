@@ -1,0 +1,214 @@
+---
+title: IdeLink
+description: "Builds deep-link URLs that open a file:line in the developer's editor — phpstorm (default), vscode, cursor, sublime, idea, webstorm, textmate, emacs, macvim, atom."
+---
+
+<ApiBadge type="dev" />
+<ApiBadge type="debug" />
+<ApiBadge type="ide" />
+<ApiBadge type="deep-link" />
+<ApiBadge type="protocol-handler" />
+<ApiBadge type="config" />
+
+`IdeLink` is a single source of truth for editor deep-links. It owns the registry of supported IDEs and the URL scheme each one uses, so the error page and toolbar never hard-code `phpstorm://` directly. The active IDE is read from `app.debug_ide` config (default: `phpstorm`)
+
+```txt
+Symbol: Skim\Dev\IdeLink
+Source: src/Dev/IdeLink.php
+Lifecycle: stateless — pure string lookups
+Fallback: unknown IDE identifiers in config or arguments fall back to 'phpstorm' to keep the error page functional
+Test seam: assert url() format per IDE, supported() list, resolve() fallback, isSupported()
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+<a href="<?= IdeLink::url('/app/src/Foo.php', 42) ?>">Open in IDE</a>
+<a href="<?= IdeLink::url('/app/src/Foo.php', 42, ide: 'vscode') ?>">VS Code</a>
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+url($file, $line, $column, $ide)
+→ resolve($ide) [config fallback → 'phpstorm']
+→ match on ide
+→ return URL
+```
+
+</LifecycleFlow>
+
+The registry is a const map, not a config file — URL schemes are stable platform facts, not app preferences. Adding a new IDE is a one-line change in ORDER, NAMES, and the match in url() / icon(). Per-app customization (custom commands, env vars, project roots) belongs in app code, not here.
+
+## Registry
+
+<ApiMethod name="supported">
+
+<ApiSignature>
+
+```php
+public static function supported(): array
+```
+
+</ApiSignature>
+
+Returns the list of IDE identifiers this build knows about, in canonical display order.
+
+</ApiMethod>
+
+<ApiMethod name="name">
+
+<ApiSignature>
+
+```php
+public static function name(string $ide): string
+```
+
+</ApiSignature>
+
+Returns the human-friendly display name for an IDE identifier. Returns the identifier itself for unknown values.
+
+<ApiParam name="$ide" type="string" required>
+
+IDE identifier from supported().
+
+</ApiParam>
+
+</ApiMethod>
+
+<ApiMethod name="isSupported">
+
+<ApiSignature>
+
+```php
+public static function isSupported(string $ide): bool
+```
+
+</ApiSignature>
+
+Returns true when the given IDE identifier has a registered URL scheme.
+
+<ApiParam name="$ide" type="string" required>
+
+IDE identifier to check.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Resolution
+
+<ApiMethod name="resolve">
+
+<ApiSignature>
+
+```php
+public static function resolve(?string $ide = null): string
+```
+
+</ApiSignature>
+
+Returns the IDE identifier that should be used for deep-links. Resolution order: explicit argument → app.debug_ide config → 'phpstorm'. Unknown values fall back to 'phpstorm' silently.
+
+<ApiParam name="$ide" type="?string">
+
+Optional explicit override. Null reads config.
+
+</ApiParam>
+
+</ApiMethod>
+
+## URL Building
+
+<ApiMethod name="url">
+
+<ApiSignature>
+
+```php
+public static function url(string $file, int $line, ?int $column = 1, ?string $ide = null): string
+```
+
+</ApiSignature>
+
+Builds a deep-link URL for the resolved IDE that opens file:line(:column) in the editor.
+
+<ApiParam name="$file" type="string" required>
+
+Absolute path to the source file.
+
+</ApiParam>
+
+<ApiParam name="$line" type="int" required>
+
+1-based line number.
+
+</ApiParam>
+
+<ApiParam name="$column" type="?int">
+
+1-based column number. Defaults to 1.
+
+</ApiParam>
+
+<ApiParam name="$ide" type="?string">
+
+Optional IDE override. Null uses config.
+
+</ApiParam>
+
+</ApiMethod>
+
+## Icons
+
+<ApiMethod name="icon">
+
+<ApiSignature>
+
+```php
+public static function icon(string $ide): ?string
+```
+
+</ApiSignature>
+
+Returns the tabler-icons icon name for the given IDE. Returns null when no icon mapping exists.
+
+<ApiParam name="$ide" type="string" required>
+
+IDE identifier to check.
+
+</ApiParam>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\IdeLink
+role: editor deep-link provider
+layer: dev
+lifecycle: stateless — pure string lookups
+owns: IDE registry (identifier, name, URL scheme)
+flow: url($file, $line) → resolve(ide?) → match on ide → URL string
+entry_points:
+  - supported
+  - name
+  - isSupported
+  - resolve
+  - url
+  - icon
+config_reads:
+  - app.debug_ide
+invariants:
+  - NAMES keys are the canonical supported IDE list
+  - url() always returns a non-empty string
+  - resolve() never throws
+  - column defaults to 1 for VS Code/Cursor schemes that require it
+side_effects:
+  - none — pure string output
+non_goals:
+  - Does not check whether the IDE is installed locally
+  - Does not launch the IDE — only generates the URL the OS protocol handler consumes
+  - Does not support custom user-defined schemes (extension point lives in app code, not the framework)
+```
+</AiContext>

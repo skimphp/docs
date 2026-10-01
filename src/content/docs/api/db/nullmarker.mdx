@@ -1,0 +1,90 @@
+---
+title: NullMarker
+description: "Sentinel object that forces SET col = NULL in query_gen %set% placeholders."
+---
+
+<ApiBadge type="sentinel" />
+<ApiBadge type="query_gen" />
+<ApiBadge type="null-safe" />
+
+`NullMarker` is a value object used exclusively in `%set%` placeholder arrays to force `SET col = NULL`. Plain PHP `null` skips the column entirely (partial-update pattern), while `Db::null()` produces a `NullMarker` that the query builder translates to literal `NULL`.
+
+```txt
+Symbol: Skim\Db\NullMarker
+Source: src/Db/NullMarker.php
+Lifecycle: stateless value object, created per use
+Fallback: none
+Test seam: none needed — pure value object
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+Db::query('UPDATE users %set% WHERE id = :id', [
+    'set' => ['avatar' => Db::null(), 'name' => 'Jane'], ':id' => 5,
+]);
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+Db::null()
+-> NullMarker::make()
+-> passed in %set% array
+-> QueryBuilder::buildSet() instanceof check
+-> emits col = NULL
+```
+
+</LifecycleFlow>
+
+The sentinel pattern avoids ambiguity between "skip this column" and "set to NULL" in partial updates.
+
+<NoteBox>
+
+Never instantiate directly. Always use `Db::null()` which delegates to `NullMarker::make()`.
+
+</NoteBox>
+
+## Factory
+
+<ApiMethod name="make">
+
+<ApiSignature>
+
+```php
+public static function make(): self
+```
+
+</ApiSignature>
+
+Returns the singleton NullMarker instance. Called internally by Db::null().
+
+<NoteBox>
+
+Always prefer `Db::null()` over calling `NullMarker::make()` directly.
+
+</NoteBox>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Db\NullMarker
+role: SQL NULL sentinel
+layer: db
+lifecycle: stateless value object, created per use
+owns: nothing
+flow: Db::null() -> NullMarker::make() -> QueryBuilder::buildSet() detects instanceof -> emits "col = NULL"
+entry_points:
+  - make
+invariants:
+  - plain null in %set% skips the column
+  - NullMarker in %set% sets column to NULL
+  - constructor is private — always use Db::null() or NullMarker::make()
+non_goals:
+  - Does not handle typed NULLs
+  - Does not participate in INSERT %values%
+```
+</AiContext>

@@ -1,0 +1,108 @@
+---
+title: MdxEmitter
+description: "Generates component-style MDX files from llm.json class records for the Starlight documentation site."
+---
+
+<ApiBadge type="emitter" />
+<ApiBadge type="mdx" />
+<ApiBadge type="starlight" />
+<ApiBadge type="docs" />
+
+`MdxEmitter` transforms decoded llm.json data into one .mdx file per class using Starlight-compatible components (ApiBadge, ApiMethod, ApiParam, ApiThrows, WarningBox, NoteBox, ScopeBox, AiContext, LifecycleFlow). Handles duplicate class names and filename collisions.
+
+```txt
+Symbol: Skim\Dev\Docs\Emitter\MdxEmitter
+Source: src/Dev/Docs/Emitter/MdxEmitter.php
+Lifecycle: instantiated per-use by DocsSiteCommand, no state retained
+Fallback: none — throws on write failure
+Test seam: instantiate directly with temp directory paths
+```
+
+<CodeExample label="Basic usage" source="llm-generated">
+```php
+$data = (new JsonEmitter())->load('llm.json');
+$count = (new MdxEmitter())->emit($data, 'docs/src/content/docs/api');
+```
+</CodeExample>
+
+## Architecture
+
+<LifecycleFlow>
+
+```txt
+emit()
+-> clean stale .mdx files
+-> detect duplicate class names
+-> derive namespace subdirectory
+-> generate unique filenames
+-> renderClass() per class
+-> write .mdx files
+-> renderIndex()
+-> write api/index.mdx
+```
+
+</LifecycleFlow>
+
+MDX output uses Starlight-specific components
+
+## Emit
+
+<ApiMethod name="emit">
+
+<ApiSignature>
+
+```php
+public function emit(array $data, string $outputDir): int
+```
+
+</ApiSignature>
+
+Accepts decoded llm.json array and writes one MDX file per class into namespace subdirectories under the output directory. Also writes an index.mdx landing page. Returns the count of files written. Handles duplicate class names and filename collisions. Cleans stale .mdx files before writing.
+
+<ApiParam name="$data" type="array" required>
+
+Decoded llm.json array with 'classes' key.
+
+</ApiParam>
+
+<ApiParam name="$outputDir" type="string" required>
+
+Directory to write .mdx files into. Created if it does not exist.
+
+</ApiParam>
+
+<ApiThrows type="\RuntimeException">
+
+When a file cannot be written.
+
+</ApiThrows>
+
+</ApiMethod>
+
+<AiContext>
+```txt
+symbol: Skim\Dev\Docs\Emitter\MdxEmitter
+role: MDX documentation generator
+layer: dev
+lifecycle: instantiated per-use by DocsSiteCommand, no state retained
+owns: none — stateless
+flow: emit(data, dir) -> cleanOutputDir -> duplicateClassNames -> namespaceToDir -> mdxFileName -> renderClass -> write
+entry_points:
+  - emit
+invariants:
+  - one MDX file per class
+  - duplicate class names get source-file suffix
+  - colliding filenames get numeric suffix
+  - Architecture group methods excluded from method sections
+  - writes classes into namespace subdirectories
+  - cleans stale .mdx before writing
+  - generates api/index.mdx
+side_effects:
+  - writes .mdx files to output directory
+  - creates directory if needed
+  - cleans stale .mdx files recursively
+non_goals:
+  - Does not generate Markdown
+  - Does not extract or load llm.json
+```
+</AiContext>
